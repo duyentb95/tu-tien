@@ -9,7 +9,11 @@ import { z } from 'zod';
  *     Hiện tại đọc trực tiếp từ env cho dev — KHÔNG commit `.env`.
  */
 
-const GEMINI_MODEL = 'gemini-2.0-flash-exp'; // có thể đổi sang gemini-3-flash khi GA
+// Production-ready Gemini models (as of 2026):
+//   gemini-2.5-flash     — recommended (fast + cheap + reliable)
+//   gemini-2.5-flash-lite — siêu rẻ, kém quality hơn chút
+//   gemini-2.5-pro       — chậm hơn, quality cao nhất
+const GEMINI_MODEL = import.meta.env.VITE_GEMINI_MODEL ?? 'gemini-2.5-flash';
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 const getApiKey = (): string => {
