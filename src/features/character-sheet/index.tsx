@@ -1,0 +1,324 @@
+import { useMemo, useState } from 'react';
+import { useGameStore, selectSkills, selectInventory } from '@state/game-store';
+import { Bracketed } from '@shared/components/CornerBracket';
+import { AvatarPortrait } from '@shared/components/AvatarPortrait';
+import { getRealmInfoFromLevel } from '@core/stats/realms';
+import {
+  getRootDisplayName,
+  getRootSubtitle,
+  ELEMENT_DISPLAY,
+} from '@core/cultivation/spiritual-roots';
+import type { Rarity } from '@gametypes/item';
+
+const RARITY_COLORS: Record<Rarity, { border: string; bg: string; dot: string; text: string }> = {
+  'Thường':      { border: 'rgba(217,211,194,.4)', bg: 'rgba(217,211,194,.05)', dot: '#d9d3c2', text: 'text-rarity-common' },
+  'Tốt':         { border: 'rgba(143,201,140,.4)', bg: 'rgba(143,201,140,.06)', dot: '#8fc98c', text: 'text-rarity-good' },
+  'Hiếm':        { border: 'rgba(127,188,232,.4)', bg: 'rgba(127,188,232,.07)', dot: '#7fbce8', text: 'text-rarity-rare' },
+  'Cực Phẩm':    { border: 'rgba(194,166,238,.45)', bg: 'rgba(169,134,216,.1)', dot: '#c2a6ee', text: 'text-rarity-epic' },
+  'Siêu Phẩm':   { border: 'rgba(240,169,142,.45)', bg: 'rgba(217,119,87,.08)', dot: '#f0a98e', text: 'text-rarity-mythic' },
+  'Huyền Thoại': { border: 'rgba(224,101,78,.55)', bg: 'rgba(224,101,78,.12)', dot: '#e0654e', text: 'text-rarity-legendary' },
+};
+
+const SLOT_TYPES: { slot: 'Đầu' | 'Thân' | 'Chân' | 'Vũ khí chính' | 'Vũ khí phụ' | 'Phụ kiện 1'; label: string }[] = [
+  { slot: 'Vũ khí chính', label: 'Vũ Khí Chính' },
+  { slot: 'Vũ khí phụ', label: 'Phụ Kiện' },
+  { slot: 'Đầu', label: 'Đầu' },
+  { slot: 'Thân', label: 'Thân' },
+  { slot: 'Chân', label: 'Chân' },
+  { slot: 'Phụ kiện 1', label: 'Phụ Kiện 2' },
+];
+
+export const CharacterSheetScreen = () => {
+  const player = useGameStore((s) => s.player);
+  const realmList = useGameStore((s) => s.knowledge.realmProgressionList);
+  const setStage = useGameStore((s) => s.setStage);
+  const allocatePoint = useGameStore((s) => s.allocatePoint);
+  const unequipItem = useGameStore((s) => s.unequipItem);
+  const inventory = useGameStore(selectInventory);
+  const skills = useGameStore(selectSkills);
+  const [avatarRefresh, setAvatarRefresh] = useState(0);
+
+  const equipped = useMemo(() => {
+    if (!player) return [];
+    return SLOT_TYPES.map(({ slot, label }) => {
+      const id = player.equippedItems[slot];
+      const item = id ? inventory[id] : null;
+      return { slot, label, item };
+    });
+  }, [player, inventory]);
+
+  const learnedSkillObjects = useMemo(() => {
+    if (!player) return [];
+    return player.learnedSkills.map((id) => skills[id]).filter(Boolean);
+  }, [player, skills]);
+
+  if (!player) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Bracketed className="p-8 text-center">
+          <p className="text-jade-400">Chưa có nhân vật.</p>
+          <button onClick={() => setStage('initial')} className="btn-primary mt-4">
+            Về trang chính
+          </button>
+        </Bracketed>
+      </div>
+    );
+  }
+
+  const realm = getRealmInfoFromLevel(player.level, realmList);
+  const root = player.spiritualRoot;
+  const primaryEl = root ? root.elements[0]! : null;
+  const elColor = primaryEl ? ELEMENT_DISPLAY[primaryEl].color : '#cda45e';
+
+  return (
+    <main className="min-h-screen px-6 py-10 lg:px-12">
+      <header className="mb-7 flex flex-wrap items-end justify-between gap-4 border-b border-gold-700/15 pb-5">
+        <div>
+          <div className="label-section mb-2">Đệ tử ngoại môn · Cấp {player.level}</div>
+          <h1 className="font-serif text-[38px] font-semibold text-gold-200">{player.Name}</h1>
+        </div>
+        <div className="text-right">
+          <div className="font-serif text-xl text-gold-500">
+            {realm.realmName} Cảnh · Tầng {realm.realmTier}
+          </div>
+          <div className="mt-1 text-[12.5px] text-jade-300">
+            Tâm cảnh: <span className="text-gold-100">{player.mentalState ?? 50}/100</span>
+          </div>
+        </div>
+      </header>
+
+      <div className="grid gap-5 lg:grid-cols-[288px_1fr_312px]">
+        {/* LEFT */}
+        <div className="flex flex-col gap-4">
+          <Bracketed className="overflow-hidden rounded-md border bg-ink-700">
+            <div className="relative">
+              <AvatarPortrait
+                name={player.Name}
+                {...(player.gender !== undefined ? { gender: player.gender } : {})}
+                {...(player.personality !== undefined ? { personality: player.personality } : {})}
+                {...(player.description !== undefined ? { description: player.description } : {})}
+                {...(realm.realmName !== undefined ? { realm: realm.realmName } : {})}
+                refreshKey={avatarRefresh}
+                size={288}
+                className="block w-full"
+              />
+              <button
+                onClick={() => setAvatarRefresh((k) => k + 1)}
+                className="absolute bottom-2 right-2 rounded-sm border border-gold-500/40 bg-ink-900/80 px-2 py-1 text-[10px] text-gold-300 backdrop-blur-sm hover:bg-ink-800/90"
+                title="Sinh lại avatar qua AI"
+              >
+                ↻ Vẽ lại
+              </button>
+            </div>
+          </Bracketed>
+
+          {root && (
+            <div className="panel-spirit rounded-md p-[18px]">
+              <div className="label-section mb-3">Linh Căn · Thiên Phú</div>
+              <div className="mb-3 flex items-center gap-3">
+                <span
+                  className="h-[30px] w-[30px] flex-shrink-0 rounded-full shadow-glow-spirit"
+                  style={{ background: elColor }}
+                />
+                <div>
+                  <div className="font-serif text-base text-spirit-200">{getRootDisplayName(root)}</div>
+                  <div className="text-[11.5px] text-spirit-600">{getRootSubtitle(root)}</div>
+                </div>
+              </div>
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {root.elements.map((el) => (
+                  <span
+                    key={el}
+                    className="rounded-sm border px-2 py-0.5 text-[11px]"
+                    style={{
+                      borderColor: `${ELEMENT_DISPLAY[el].color}66`,
+                      color: ELEMENT_DISPLAY[el].color,
+                      background: `${ELEMENT_DISPLAY[el].color}10`,
+                    }}
+                  >
+                    {ELEMENT_DISPLAY[el].symbol} {ELEMENT_DISPLAY[el].name}
+                  </span>
+                ))}
+              </div>
+              <div className="flex justify-between border-t border-spirit-500/20 pt-3 text-[12.5px]">
+                <span className="text-jade-300">Hệ số tu luyện</span>
+                <span className="font-mono text-spirit-200">×{root.cultivationMultiplier.toFixed(1)}</span>
+              </div>
+            </div>
+          )}
+
+          <Bracketed className="rounded-md border bg-ink-700 p-[18px]">
+            <div className="label-section mb-2">Công Pháp Chính</div>
+            <div className="font-serif text-base text-gold-200">
+              {player.currentTechnique ?? 'Hồn Nguyên Trường Sinh Quyết'}
+            </div>
+            <div className="mt-1 text-[11.5px] text-gold-500">
+              Hoàng phẩm · Sơ giai · Tinh thông{' '}
+              <span className="font-mono">
+                {Math.min(99, Math.round((player.exp / player.maxExp) * 100))}%
+              </span>
+            </div>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-ink-800">
+              <div
+                className="h-full"
+                style={{
+                  width: `${(player.exp / player.maxExp) * 100}%`,
+                  background: 'linear-gradient(90deg, #a78bfa, #cda45e)',
+                }}
+              />
+            </div>
+          </Bracketed>
+        </div>
+
+        {/* CENTER — Stats */}
+        <Bracketed className="rounded-md border bg-ink-700 p-6 lg:p-7">
+          <div className="label-gold mb-5">Chỉ Số Cốt Lõi</div>
+          <div className="grid grid-cols-1 gap-y-4 gap-x-8 sm:grid-cols-2">
+            <StatBar label="Sinh Lực" value={player.finalStats.hp} max={player.finalStats.maxhp} color="var(--ember-500)" />
+            <StatBar label="Tu Vi" value={player.exp} max={player.maxExp} color="var(--spirit-500)" />
+            <StatRow label="Tấn Công" value={player.finalStats.atk} />
+            <StatRow label="Phòng Thủ" value={player.finalStats.def} />
+            <StatRow label="Tốc Độ" value={player.finalStats.spd} />
+            <StatRow label="Tỉ Lệ Chí Mạng" value={`${player.finalStats.cr}%`} />
+            <StatRow label="ST Chí Mạng" value={`${player.finalStats.cdmg}%`} />
+            <StatRow label="Khuếch Đại ST" value={`${player.finalStats.dmgAmp}%`} />
+            <StatRow label="Chống Chịu" value={`${player.finalStats.dmgRes}%`} />
+            <StatRow label="Né Tránh" value={`${player.finalStats.evasion}%`} />
+          </div>
+
+          <div className="mt-6 border-t border-gold-700/15 pt-5">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="label-section">Phân Phối Điểm Tiềm Năng</div>
+              <div className="text-sm text-jade-300">
+                Còn{' '}
+                <span className="font-mono text-gold-500">{player.ap} AP</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {(['hp', 'atk', 'def', 'spd'] as const).map((stat) => (
+                <button
+                  key={stat}
+                  onClick={() => allocatePoint(stat, 1)}
+                  disabled={player.ap === 0}
+                  className="btn-secondary text-[12.5px]"
+                  style={{ padding: '8px 12px' }}
+                >
+                  +1 {stat.toUpperCase()}{' '}
+                  <span className="ml-1 font-mono text-[10px] text-jade-500">
+                    ({player.allocatedPoints[stat]})
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </Bracketed>
+
+        {/* RIGHT — Equipment + Skills */}
+        <Bracketed className="rounded-md border bg-ink-700 p-5">
+          <div className="label-gold mb-4">Trang Bị</div>
+          <div className="grid grid-cols-2 gap-[9px]">
+            {equipped.map(({ slot, label, item }) => {
+              if (!item) {
+                return (
+                  <div key={slot} className="slot-empty">
+                    <span className="h-[30px] w-[30px] flex-shrink-0 rounded bg-ink-800/50" />
+                    <div className="min-w-0">
+                      <div className="text-[10px] uppercase tracking-wider text-jade-500">{label}</div>
+                      <div className="text-[11px] text-jade-700">Trống</div>
+                    </div>
+                  </div>
+                );
+              }
+              const c = RARITY_COLORS[item.rarity];
+              return (
+                <button
+                  key={slot}
+                  onClick={() => {
+                    if (confirm(`Tháo ${item.name}?`)) unequipItem(slot);
+                  }}
+                  className="slot text-left transition-transform hover:scale-[1.02]"
+                  style={{
+                    borderColor: c.border,
+                    background: `linear-gradient(135deg, ${c.bg}, transparent)`,
+                  }}
+                  title="Click để tháo"
+                >
+                  <span
+                    className="h-[30px] w-[30px] flex-shrink-0 rounded"
+                    style={{ background: c.bg, border: `1px solid ${c.border}` }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] uppercase tracking-wider text-jade-500">{label}</div>
+                    <div className={`truncate text-[12px] font-medium ${c.text}`}>{item.name}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="label-gold mb-3.5 mt-6">Kỹ Năng ({learnedSkillObjects.length})</div>
+          {learnedSkillObjects.length === 0 ? (
+            <p className="py-4 text-center text-[12px] italic text-jade-700">
+              Chưa học được pháp thuật nào.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {learnedSkillObjects.map((sk) => {
+                if (!sk) return null;
+                const c = RARITY_COLORS[sk.rarity];
+                return (
+                  <div key={sk.id} className="skill-row" style={{ borderColor: c.border, background: c.bg }}>
+                    <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ background: c.dot }} />
+                    <div className="min-w-0">
+                      <div className={`text-[13px] font-medium ${c.text}`}>{sk.name}</div>
+                      <div className="text-[10.5px] text-jade-500">
+                        {sk.kind === 'combat_ultimate' ? 'Tuyệt học' : sk.kind === 'combat_basic' ? 'Chiêu thường' : 'Phụ trợ'}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Bracketed>
+      </div>
+
+      <div className="mt-6 flex justify-center gap-3">
+        <button onClick={() => setStage('playing')} className="btn-jade">
+          ← Quay về câu chuyện
+        </button>
+      </div>
+    </main>
+  );
+};
+
+const StatRow = ({ label, value }: { label: string; value: string | number }) => (
+  <div>
+    <div className="mb-1.5 flex justify-between text-[13px]">
+      <span className="text-gold-300">{label}</span>
+      <span className="font-mono text-gold-200">{value}</span>
+    </div>
+    <div className="h-[3px] overflow-hidden rounded-full bg-ink-800">
+      <div className="h-full w-full bg-gradient-to-r from-gold-700 to-gold-500" />
+    </div>
+  </div>
+);
+
+const StatBar = ({
+  label, value, max, color,
+}: { label: string; value: number; max: number; color: string }) => {
+  const pct = max > 0 ? (value / max) * 100 : 0;
+  return (
+    <div>
+      <div className="mb-1.5 flex justify-between text-[13px]">
+        <span className="text-gold-300">{label}</span>
+        <span className="font-mono" style={{ color }}>
+          {value} / {max}
+        </span>
+      </div>
+      <div className="h-[3px] overflow-hidden rounded-full bg-ink-800">
+        <div className="h-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
+      </div>
+    </div>
+  );
+};

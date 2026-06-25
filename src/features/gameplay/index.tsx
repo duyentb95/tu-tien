@@ -1,0 +1,142 @@
+import {
+  useGameStore,
+  selectPlayer,
+  selectStoryLog,
+  selectActions,
+  selectIsAiThinking,
+  selectLastError,
+  selectSettings,
+} from '@state/game-store';
+import { Bracketed } from '@shared/components/CornerBracket';
+import { PlayerSidebar } from './PlayerSidebar';
+import { StoryView } from './StoryView';
+import { ActionPanel } from './ActionPanel';
+
+export const GameplayScreen = () => {
+  const player = useGameStore(selectPlayer);
+  const storyLog = useGameStore(selectStoryLog);
+  const actions = useGameStore(selectActions);
+  const isAiThinking = useGameStore(selectIsAiThinking);
+  const lastError = useGameStore(selectLastError);
+  const settings = useGameStore(selectSettings);
+  const submitAction = useGameStore((s) => s.submitAction);
+  const setStage = useGameStore((s) => s.setStage);
+  const turn = useGameStore((s) => s.turn);
+  const realmList = useGameStore((s) => s.knowledge.realmProgressionList);
+  const reset = useGameStore((s) => s.reset);
+
+  if (!player) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Bracketed className="p-8 text-center">
+          <p className="text-jade-400">Không có dữ liệu nhân vật.</p>
+          <button onClick={() => setStage('initial')} className="btn-primary mt-4">
+            Về trang chính
+          </button>
+        </Bracketed>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen px-4 py-4 sm:px-6 sm:py-6">
+      {/* ░░░ TOP NAV BAR ░░░ */}
+      <header className="mx-auto mb-4 flex max-w-7xl flex-col gap-3 border-b border-gold-700/15 pb-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-celestial font-serif text-xl font-semibold">
+            {settings.storyTitle || 'Mặc Hội Tiên Đồ'}
+          </h1>
+          <p className="text-xs text-jade-500">
+            Lượt {turn} · Độ khó {settings.difficulty}
+          </p>
+        </div>
+        {/* Mobile: scroll horizontal. Desktop: flex-wrap */}
+        <nav className="flex gap-1 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-x-visible sm:pb-0" style={{ scrollbarWidth: 'thin' }}>
+          <NavButton label="Câu Chuyện" icon="◆" active onClick={() => {}} />
+          <NavButton label="Bản Đồ" icon="◉" onClick={() => setStage('world_map')} />
+          <NavButton label="Nhân Vật" icon="✦" onClick={() => setStage('character')} />
+          <NavButton label="Hành Trang" icon="☷" onClick={() => setStage('inventory')} />
+          <NavButton label="Nhiệm Vụ" icon="◇" onClick={() => setStage('quests')} />
+          <NavButton label="Tông Môn" icon="◈" onClick={() => setStage('sect_hall')} />
+          <NavButton label="Linh Thú" icon="☘" onClick={() => setStage('spirit_beasts')} />
+          <NavButton label="Động Phủ" icon="◐" onClick={() => setStage('cave_abode')} />
+          <NavButton
+            label="Bí Cảnh"
+            icon="✧"
+            onClick={() => useGameStore.getState().enterSecretRealm(Math.max(1, player.level), 'Hắc Mộ Bí Cảnh')}
+          />
+          <NavButton
+            label="Combat"
+            icon="⚔"
+            onClick={() => useGameStore.getState().startCombat('Hắc Vụ Lang', Math.max(1, player.level))}
+          />
+          <NavButton label="Độ Kiếp" icon="⚡" onClick={() => setStage('tribulation')} />
+          <NavButton
+            label="Thoát"
+            icon="⊗"
+            onClick={() => {
+              if (confirm('Thoát về trang chính? (Bản lưu vẫn còn trong localStorage)')) {
+                reset();
+              }
+            }}
+          />
+        </nav>
+      </header>
+
+      {/* Error banner */}
+      {lastError && (
+        <div className="mx-auto mb-3 max-w-7xl rounded-md border border-blood-500/50 bg-blood-500/10 px-4 py-2 text-sm text-ember-200">
+          <strong>Lỗi:</strong> {lastError}
+        </div>
+      )}
+
+      {/* Main grid — mobile: sidebar trên trước, gameplay dưới. Desktop: 2 cột */}
+      <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-[1fr_300px]">
+        <div className="order-2 flex flex-col lg:order-1">
+          <StoryView entries={storyLog} isAiThinking={isAiThinking} playerName={player.Name} />
+          <ActionPanel
+            actions={actions}
+            disabled={isAiThinking}
+            onSelect={(action) => void submitAction(action)}
+          />
+        </div>
+
+        <div className="order-1 lg:order-2">
+          <PlayerSidebar
+            player={player}
+            realmList={realmList}
+            turn={turn}
+            currencyName={settings.currencyName}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface NavButtonProps {
+  label: string;
+  icon: string;
+  active?: boolean;
+  onClick: () => void;
+}
+const NavButton = ({ label, icon, active, onClick }: NavButtonProps) => (
+  <button
+    onClick={onClick}
+    className="relative flex flex-shrink-0 items-center gap-1.5 rounded-sm px-3 py-2 text-[12.5px] transition-colors whitespace-nowrap"
+    style={{
+      color: active ? 'var(--gold-100)' : 'var(--gold-300)',
+      background: active ? 'rgba(205,164,94,.08)' : 'transparent',
+    }}
+  >
+    {active && (
+      <span
+        aria-hidden
+        className="absolute inset-x-2 -bottom-0.5 h-[2px] rounded-full"
+        style={{ background: 'var(--gold-500)', boxShadow: '0 0 9px rgba(205,164,94,.7)' }}
+      />
+    )}
+    <span style={{ color: 'var(--gold-500)', fontSize: 11 }}>{icon}</span>
+    <span>{label}</span>
+  </button>
+);

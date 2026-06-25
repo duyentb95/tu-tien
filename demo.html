@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mặc Hội Tiên Đồ — Design System Showcase v2</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Be+Vietnam+Pro:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink-900:#0a0f0a; --ink-800:#0d140d; --ink-750:#0e160d; --ink-700:#10180f; --ink-650:#121b12;
+    --ink-600:#141e15; --ink-500:#1c1812; --ink-400:#2a2418;
+    --gold-50:#f9efd6; --gold-100:#efe0a0; --gold-150:#f0bd72; --gold-200:#e8d3a1; --gold-300:#d9d3c2;
+    --gold-500:#cda45e; --gold-700:#a8823f;
+    --jade-300:#9fb09b; --jade-400:#8ba888; --jade-500:#7d9079; --jade-600:#6f8a6d; --jade-700:#5e7a5d;
+    --ember-200:#f0a98e; --ember-500:#d97757; --ember-700:#e0654e;
+    --spirit-200:#cdbcff; --spirit-300:#c2a6ee; --spirit-400:#a986d8; --spirit-500:#a78bfa; --spirit-600:#9b86b8;
+    --azure-300:#7fbce8; --azure-400:#9ec9e8; --leaf-500:#8fc98c;
+    --void-900:#1a1422; --blood-500:#8a2f2f;
+    --rarity-common:#d9d3c2; --rarity-good:#8fc98c; --rarity-rare:#7fbce8;
+    --rarity-epic:#c2a6ee; --rarity-mythic:#f0a98e; --rarity-legendary:#e0654e;
+    --font-serif:'Noto Serif',serif; --font-body:'Be Vietnam Pro',sans-serif; --font-mono:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  html,body,#root{height:100%;margin:0;padding:0;background:var(--ink-900);color:var(--gold-200);font-family:var(--font-body)}
+  body{background:radial-gradient(1200px 700px at 78% -8%, rgba(205,164,94,.07), transparent 60%), linear-gradient(176deg,#0a0f0a 0%,#0d140d 55%,#0a0f0a 100%);background-attachment:fixed;min-height:100vh}
+  h1,h2,h3,h4{font-family:var(--font-serif);color:var(--gold-200);margin:0}
+  .mono{font-family:var(--font-mono)}
+  ::selection{background:rgba(205,164,94,.35);color:var(--gold-50)}
+  ::-webkit-scrollbar{width:9px}::-webkit-scrollbar-track{background:var(--ink-900)}
+  ::-webkit-scrollbar-thumb{background:rgba(205,164,94,.22);border-radius:4px}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(205,164,94,.4)}
+
+  /* Panels */
+  .panel{border:1px solid rgba(205,164,94,.22);background:var(--ink-700);border-radius:6px;position:relative}
+  .corner{position:absolute;width:17px;height:17px;z-index:3;pointer-events:none}
+  .corner.tl{top:7px;left:7px;border-top:2px solid var(--gold-500);border-left:2px solid var(--gold-500)}
+  .corner.tr{top:7px;right:7px;border-top:2px solid var(--gold-500);border-right:2px solid var(--gold-500)}
+  .corner.bl{bottom:7px;left:7px;border-bottom:2px solid var(--gold-500);border-left:2px solid var(--gold-500)}
+  .corner.br{bottom:7px;right:7px;border-bottom:2px solid var(--gold-500);border-right:2px solid var(--gold-500)}
+  .corner-spirit.tl{border-top-color:var(--spirit-500);border-left-color:var(--spirit-500)}
+  .corner-spirit.br{border-bottom-color:var(--spirit-500);border-right-color:var(--spirit-500)}
+  .corner-ember.tl{border-top-color:var(--ember-500);border-left-color:var(--ember-500)}
+  .corner-ember.br{border-bottom-color:var(--ember-500);border-right-color:var(--ember-500)}
+  .corner-jade.tl{border-top-color:var(--jade-400);border-left-color:var(--jade-400)}
+  .corner-jade.br{border-bottom-color:var(--jade-400);border-right-color:var(--jade-400)}
+
+  /* Buttons */
+  .btn-primary{font-family:var(--font-serif);font-weight:600;color:var(--ink-900);background:linear-gradient(180deg,var(--gold-200),var(--gold-500));border:none;padding:13px 18px;border-radius:3px;cursor:pointer;letter-spacing:.04em;transition:.2s}
+  .btn-primary:hover{filter:brightness(1.08);transform:translateY(-1px)}
+  .btn-secondary{font-family:var(--font-serif);color:var(--gold-500);background:transparent;border:1px solid rgba(205,164,94,.2);padding:11px 18px;border-radius:3px;cursor:pointer;transition:.2s}
+  .btn-secondary:hover{border-color:var(--gold-500);background:rgba(205,164,94,.06)}
+  .btn-jade{font-family:var(--font-serif);color:var(--jade-300);background:transparent;border:1px solid rgba(205,164,94,.2);padding:11px 18px;border-radius:3px;cursor:pointer;transition:.2s}
+  .btn-jade:hover{color:var(--jade-200);border-color:rgba(139,168,136,.5)}
+
+  /* Labels */
+  .label-section{font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--jade-500)}
+  .label-gold{font-family:var(--font-serif);font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-500)}
+
+  .text-celestial{background:linear-gradient(135deg,var(--gold-100),var(--gold-500) 50%,var(--gold-700));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+
+  /* Rarity */
+  .r-common{color:var(--rarity-common)}.r-good{color:var(--rarity-good)}.r-rare{color:var(--rarity-rare)}
+  .r-epic{color:var(--rarity-epic)}.r-mythic{color:var(--rarity-mythic)}
+  .r-legend{color:var(--rarity-legendary);text-shadow:0 0 8px rgba(224,101,78,.8)}
+
+  /* Form */
+  .form-input{width:100%;border-radius:3px;border:1px solid rgba(205,164,94,.22);background:rgba(16,24,15,.6);padding:9px 12px;color:var(--gold-100);font-family:var(--font-body);font-size:13px}
+  .form-input:focus{outline:none;border-color:var(--gold-500)}
+
+  /* Animations */
+  @keyframes tt-rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes tt-pulse{0%,100%{opacity:.55}50%{opacity:1}}
+  @keyframes tt-drift{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+  @keyframes m-pop{0%{opacity:0;transform:translateY(8px) scale(.7)}14%{opacity:1;transform:translateY(-2px) scale(1.18)}34%{opacity:1;transform:translateY(-18px) scale(1)}54%{opacity:0;transform:translateY(-32px) scale(.95)}100%{opacity:0}}
+  @keyframes m-glow{0%,100%{box-shadow:0 0 5px rgba(224,101,78,.25)}50%{box-shadow:0 0 24px rgba(224,101,78,.85)}}
+  @keyframes m-ring{0%{transform:scale(.2);opacity:.95}70%{opacity:.22}100%{transform:scale(2.6);opacity:0}}
+  @keyframes m-bolt{0%,100%{opacity:0;transform:scaleY(0)}5%{opacity:1;transform:scaleY(1)}26%{opacity:.7;transform:scaleY(1)}34%{opacity:0;transform:scaleY(1)}}
+  @keyframes m-sweep{0%{transform:translateX(-160%) skewX(-18deg)}100%{transform:translateX(260%) skewX(-18deg)}}
+  .anim-rise{animation:tt-rise .6s ease-out both}
+  .anim-pulse{animation:tt-pulse 2.5s ease-in-out infinite}
+  .anim-drift{animation:tt-drift 3s ease-in-out infinite}
+  .anim-pop{animation:m-pop 2.6s cubic-bezier(.34,1.56,.64,1) infinite}
+  .anim-glow{animation:m-glow 2.4s ease-in-out infinite}
+  .anim-ring{animation:m-ring 2.2s ease-out infinite}
+  .anim-bolt{animation:m-bolt 3.4s ease-out infinite;transform-origin:top}
+  .anim-sweep{animation:m-sweep 1.6s ease-in-out infinite}
+
+  /* Story bubble */
+  .bubble-npc{background:linear-gradient(135deg,rgba(16,24,15,.9),rgba(20,30,21,.9));border:1px solid rgba(94,122,93,.4);border-bottom-left-radius:2px}
+  .bubble-player{background:linear-gradient(135deg,rgba(28,24,18,.9),rgba(16,24,15,.9));border:1px solid rgba(168,130,63,.4);border-bottom-right-radius:2px}
+
+  /* Nav rail */
+  .nav-rail{width:236px;flex-shrink:0;border-right:1px solid rgba(205,164,94,.14);background:linear-gradient(180deg,rgba(13,20,13,.6),rgba(10,15,10,.2));position:sticky;top:0;height:100vh;overflow-y:auto}
+  .nav-btn{position:relative;display:flex;align-items:center;gap:11px;width:100%;background:transparent;border:none;padding:10px 12px 10px 16px;cursor:pointer;color:#9fb09b;font-family:var(--font-body);font-size:12.5px;text-align:left;transition:color .2s}
+  .nav-btn:hover{color:var(--gold-200)}
+  .nav-btn.active{color:var(--gold-100)}
+  .nav-btn.active::before{content:'';position:absolute;left:0;top:8px;bottom:8px;width:2px;background:var(--gold-500);border-radius:2px;box-shadow:0 0 9px rgba(205,164,94,.7)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client"
+  }
+}
+</script>
+
+<script type="module">
+import React, { useState, useEffect, useRef } from 'react';
+import { createRoot } from 'react-dom/client';
+
+const h = React.createElement;
+
+// ───── Mock narrative chunks ─────
+const CHUNKS = [
+  `<narrative>Sương sớm phủ kín đỉnh Thanh Vân Phong, từng tia nắng đầu ngày xuyên qua tầng mây tựa thiên kiếm. Ngươi đứng giữa sân đá xanh, hô hấp đều đặn, cảm nhận linh khí mong manh len lỏi vào kinh mạch. Bên hông, thanh trường kiếm gỉ sét rung nhẹ như muốn ứng theo nhịp tim ngươi.
+<dialogue speaker="Sư huynh">Tiểu sư đệ, hôm nay tới phiên ngươi xuống núi mua dược liệu rồi đó.</dialogue></narrative>
+[ACTION:1] Cảm ơn sư huynh rồi lập tức khởi hành
+[ACTION:2] Hỏi sư huynh về lộ trình an toàn nhất
+[ACTION:3] Vận khí tu luyện thêm một chút trước khi đi
+[ACTION:4] Tìm tới Đại Trưởng Lão xin chỉ điểm`,
+
+  `<narrative>Một thiếu nữ áo trắng đứng bên giếng đá, ánh mắt vô tình lướt qua ngươi.
+<dialogue speaker="Lạc Vô Thường">Đạo hữu là người Thanh Vân Phong? Ta nghe nói gần đây tông môn các ngươi có biến cố lớn?</dialogue></narrative>
+[ACTION:1] Mỉm cười phủ nhận, không lộ tin
+[ACTION:2] Hỏi lại nàng đã nghe được gì
+[ACTION:3] Trầm mặc bước qua, không đáp
+[ACTION:4] Thẳng thắn xác nhận và hỏi thân phận nàng`,
+];
+
+const parse = (raw) => {
+  const nm = /<narrative>([\s\S]*?)<\/narrative>/i.exec(raw);
+  const txt = nm ? nm[1].trim() : raw;
+  const segments = [];
+  const dlgRe = /<dialogue speaker="([^"]+)">([\s\S]*?)<\/dialogue>/g;
+  let li = 0, m;
+  while ((m = dlgRe.exec(txt)) !== null) {
+    if (m.index > li) {
+      const t = txt.substring(li, m.index).trim();
+      if (t) segments.push({type:'narrative', content:t});
+    }
+    segments.push({type:'dialogue', speaker:m[1], content:m[2]});
+    li = dlgRe.lastIndex;
+  }
+  if (li < txt.length) {
+    const tail = txt.substring(li).trim();
+    if (tail) segments.push({type:'narrative', content:tail});
+  }
+  const actions = [];
+  const actRe = /\[ACTION:\s*\d+\s*\]\s*(.+?)(?=\n|$)/g;
+  let am;
+  while ((am = actRe.exec(raw)) !== null) actions.push(am[1].trim());
+  return { segments, actions };
+};
+
+let chunkIdx = 0;
+const nextChunk = (open) => { if (open) chunkIdx = 0; else chunkIdx = (chunkIdx+1)%CHUNKS.length; return CHUNKS[chunkIdx]; };
+
+// ═════════════ SHARED ═════════════
+const Bracketed = ({ tone='gold', children, className='', style }) => h('div', { className:`relative ${className}`, style }, [
+  h('span', { key:'tl', className:`corner tl ${tone!=='gold'?`corner-${tone}`:''}` }),
+  h('span', { key:'tr', className:'corner tr', style: tone==='gold' ? {} : { borderTopColor: tone==='spirit'?'#a78bfa':tone==='ember'?'#d97757':'#8ba888', borderRightColor: tone==='spirit'?'#a78bfa':tone==='ember'?'#d97757':'#8ba888' } }),
+  h('span', { key:'bl', className:'corner bl', style: tone==='gold' ? {} : { borderBottomColor: tone==='spirit'?'#a78bfa':tone==='ember'?'#d97757':'#8ba888', borderLeftColor: tone==='spirit'?'#a78bfa':tone==='ember'?'#d97757':'#8ba888' } }),
+  h('span', { key:'br', className:`corner br ${tone!=='gold'?`corner-${tone}`:''}` }),
+  children,
+]);
+
+// ═════════════ NAV RAIL ═════════════
+const SCREENS = [
+  { id:'start',  group:'Luồng game', label:'Khởi Đầu · Vào Game' },
+  { id:'setup',  group:'Luồng game', label:'Kiến Tạo Thế Giới' },
+  { id:'story',  group:'Màn chơi',   label:'Tu Luyện · Hành Trình' },
+  { id:'char',   group:'Màn chơi',   label:'Nhân Vật · Đạo Cơ' },
+  { id:'inv',    group:'Màn chơi',   label:'Hành Trang' },
+  { id:'combat', group:'Màn chơi',   label:'Chiến Đấu (Combat)' },
+  { id:'kiep',   group:'Màn chơi',   label:'Độ Kiếp · Lôi Cảnh' },
+];
+
+const NavRail = ({ active, onPick }) => {
+  const groups = {};
+  SCREENS.forEach(s => { (groups[s.group] = groups[s.group] || []).push(s); });
+  return h('nav', { className:'nav-rail' },
+    h('div', { style:{padding:'26px 22px 20px', borderBottom:'1px solid rgba(205,164,94,.1)'} },
+      h('div', { className:'flex items-center gap-3' },
+        h('span', { style:{width:34, height:34, border:'1px solid rgba(205,164,94,.55)', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 0 14px rgba(205,164,94,.18) inset'} },
+          h('span', { style:{width:9, height:9, background:'var(--gold-500)', transform:'rotate(45deg)', display:'block', boxShadow:'0 0 9px rgba(205,164,94,.7)'} })
+        ),
+        h('div', null,
+          h('div', { style:{fontFamily:'var(--font-serif)', fontSize:18, fontWeight:600, color:'var(--gold-200)', letterSpacing:'.04em', lineHeight:1} }, 'Mặc Đồ'),
+          h('div', { style:{fontSize:9.5, letterSpacing:'.34em', color:'var(--jade-600)', textTransform:'uppercase', marginTop:5} }, 'Tu Tiên · Demo'),
+        ),
+      ),
+    ),
+    h('div', { style:{padding:'14px 12px', display:'flex', flexDirection:'column', gap:2} },
+      ...Object.entries(groups).flatMap(([gName, items]) => [
+        h('div', { key:gName, className:'label-section', style:{padding:'10px 10px 6px'} }, gName),
+        ...items.map(it => h('button', {
+          key: it.id,
+          className: `nav-btn ${active===it.id ? 'active':''}`,
+          onClick: () => onPick(it.id),
+        },
+          h('span', { style:{fontSize:8, color: active===it.id?'var(--gold-500)':'var(--jade-400)'} }, '◆'),
+          h('span', null, it.label),
+        )),
+      ]),
+    ),
+  );
+};
+
+// ═════════════ SCREEN: START ═════════════
+const StartScreen = ({ go }) => h('section', { className:'min-h-screen flex items-start justify-center flex-wrap gap-10 px-10 py-12' },
+  h(Bracketed, { className:'w-full max-w-md p-9 anim-rise', style:{background:'linear-gradient(180deg,var(--ink-750) 0%,var(--ink-900) 100%)', border:'1px solid rgba(205,164,94,.28)'} },
+    h('div', { className:'text-center mb-6' },
+      h('div', { className:'label-section mb-3' }, 'Mặc Hội · Tiên Đồ'),
+      h('h1', { style:{fontSize:46, fontWeight:700, color:'var(--gold-200)', letterSpacing:'.04em', textShadow:'0 0 26px rgba(205,164,94,.32)'} }, 'Mặc Đồ'),
+      h('p', { style:{fontFamily:'var(--font-serif)', fontStyle:'italic', color:'rgba(217,211,194,.8)', marginTop:12} }, 'Một niệm thành tiên, một niệm thành ma.'),
+    ),
+    h('div', { className:'flex flex-col gap-[11px]' },
+      h('button', { className:'btn-primary', style:{fontSize:17}, onClick: () => go('setup') }, 'Khởi Đầu Cuộc Phiêu Lưu Mới'),
+      h('button', { className:'btn-secondary', style:{fontSize:15} }, 'Tải Game Từ Tệp'),
+      h('button', { className:'btn-secondary', style:{fontSize:15} }, 'Hướng Dẫn Tu Sĩ'),
+      h('button', { className:'btn-secondary', style:{fontSize:15} }, 'Đạo Hữu Tụ Hội'),
+    ),
+    h('div', { className:'mt-5 text-center', style:{border:'1px solid rgba(127,174,110,.22)', background:'rgba(127,174,110,.05)', borderRadius:3, padding:'10px 14px'} },
+      h('div', { style:{fontSize:12, color:'var(--leaf-500)'} }, 'Đang dùng Mock AI — Không cần API Key.'),
+      h('div', { className:'mono', style:{fontSize:10, color:'var(--jade-700)', marginTop:4} }, 'UID: 15237108500752655409'),
+    ),
+  ),
+  h(Bracketed, { tone:'jade', className:'w-72 p-5', style:{background:'var(--ink-700)', border:'1px solid rgba(139,168,136,.28)'} },
+    h('div', { className:'label-section mb-3' }, 'Bắt đầu nhanh'),
+    h('ol', { style:{margin:0, padding:0, listStyle:'none'} },
+      ['Click "Khởi Đầu Mới"','Chọn tính cách, linh căn','AI sẽ dệt thế giới riêng','Mỗi quyết định là một bước'].map((t,i) => h('li', { key:i, style:{fontFamily:'var(--font-serif)', fontSize:13.5, color:'var(--gold-300)', padding:'6px 0', lineHeight:1.6} },
+        h('span', { style:{color:'var(--gold-500)', marginRight:8} }, ['①','②','③','④'][i]), t
+      )),
+    ),
+  ),
+);
+
+// ═════════════ SCREEN: SETUP ═════════════
+const PERSONALITIES = ['Trầm ổn, ít nói','Nhiệt tình, hào sảng','Lạnh lùng, tàn nhẫn','Ranh mãnh, thâm trầm'];
+const SetupScreen = ({ go }) => h('section', { className:'min-h-screen px-10 py-10' },
+  h('div', { className:'max-w-3xl mx-auto' },
+    h('header', { className:'text-center mb-8' },
+      h('h1', { className:'text-celestial', style:{fontSize:30, fontWeight:600, marginBottom:8} }, 'Kiến Tạo Thế Giới'),
+      h('p', { style:{color:'var(--jade-400)', fontStyle:'italic'} }, 'Mỗi linh hồn vào Mặc Đồ đều mang một số mệnh riêng.'),
+    ),
+    h(Bracketed, { className:'p-7', style:{background:'var(--ink-700)', border:'1px solid rgba(205,164,94,.16)'} },
+      h('h2', { className:'label-gold mb-4', style:{borderBottom:'1px solid rgba(205,164,94,.16)', paddingBottom:8} }, '✦ Thân thế đạo hữu'),
+      h('div', { className:'grid grid-cols-2 gap-4 mb-4' },
+        h('div', null, h('label', { className:'label-section block mb-1.5' }, 'Tên nhân vật *'), h('input', { className:'form-input', defaultValue:'Lạc Vô Thường' })),
+        h('div', null, h('label', { className:'label-section block mb-1.5' }, 'Giới tính'), h('select', { className:'form-input' }, ['Nam','Nữ'].map(g => h('option', { key:g }, g)))),
+      ),
+      h('div', null, h('label', { className:'label-section block mb-1.5' }, 'Tính cách'), h('select', { className:'form-input' }, PERSONALITIES.map(p => h('option', { key:p }, p)))),
+
+      h('h2', { className:'label-gold mt-7 mb-4', style:{borderBottom:'1px solid rgba(205,164,94,.16)', paddingBottom:8} }, '✦ Bối cảnh thế giới'),
+      h('div', { className:'grid grid-cols-2 gap-4' },
+        h('div', null, h('label', { className:'label-section block mb-1.5' }, 'Tên thế giới'), h('input', { className:'form-input', defaultValue:'Mặc Hội Tiên Đồ' })),
+        h('div', null, h('label', { className:'label-section block mb-1.5' }, 'Độ khó'), h('select', { className:'form-input' }, ['Dễ','Thường','Khó','Ác Mộng'].map(d => h('option', { key:d, selected: d==='Thường' }, d)))),
+      ),
+
+      h('div', { className:'mt-8 flex justify-between' },
+        h('button', { className:'btn-jade', onClick: () => go('start') }, '← Quay lại'),
+        h('button', { className:'btn-primary', onClick: () => go('story') }, 'Bắt Đầu Cuộc Phiêu Lưu'),
+      ),
+    ),
+  ),
+);
+
+// ═════════════ SCREEN: STORY ═════════════
+const Bubble = ({ speaker, content, isPlayer }) => h('div', { className:`my-3 flex w-full ${isPlayer?'flex-row-reverse':''} items-start gap-3` },
+  h('div', { style:{width:42, height:42, flexShrink:0, borderRadius:'50%', padding:2, border:`1px solid ${isPlayer?'rgba(205,164,94,.6)':'rgba(139,168,136,.6)'}`} },
+    h('div', { className:'w-full h-full rounded-full flex items-center justify-center', style:{background:'var(--ink-900)', color: isPlayer?'var(--gold-500)':'var(--jade-400)', fontWeight:'bold'} }, speaker[0].toUpperCase()),
+  ),
+  h('div', { className:'flex-1 max-w-[80%]' },
+    h('div', { className:'text-xs font-bold uppercase tracking-widest mb-1.5', style:{color: isPlayer?'var(--gold-500)':'var(--jade-400)', textAlign: isPlayer?'right':'left'} }, speaker),
+    h('div', { className:`px-4 py-3 rounded-2xl text-sm leading-relaxed ${isPlayer?'bubble-player':'bubble-npc'}`, style:{color:'var(--gold-200)'} }, content),
+  ),
+);
+
+const StoryScreen = () => {
+  const [log, setLog] = useState([]);
+  const [actions, setActions] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [turn, setTurn] = useState(0);
+  const ref = useRef(null);
+  useEffect(() => {
+    setBusy(true);
+    setTimeout(() => {
+      const p = parse(nextChunk(true));
+      setLog([{kind:'n', segments:p.segments, id:Math.random()}]);
+      setActions(p.actions); setTurn(1); setBusy(false);
+    }, 500);
+  }, []);
+  useEffect(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, [log, busy]);
+  const submit = (text) => {
+    setLog(l => [...l, {kind:'p', content:text, id:Math.random()}]);
+    setActions([]); setBusy(true); setTurn(t=>t+1);
+    setTimeout(() => {
+      const p = parse(nextChunk(false));
+      setLog(l => [...l, {kind:'n', segments:p.segments, id:Math.random()}]);
+      setActions(p.actions); setBusy(false);
+    }, 700);
+  };
+  return h('section', { className:'min-h-screen px-6 py-6' },
+    h('header', { className:'mb-4 flex justify-between border-b pb-3', style:{borderColor:'rgba(205,164,94,.15)'} },
+      h('div', null,
+        h('h1', { className:'text-celestial', style:{fontSize:20, fontWeight:600} }, 'Mặc Hội Tiên Đồ'),
+        h('p', { style:{fontSize:11, color:'var(--jade-500)'} }, `Lượt ${turn} · Độ khó Thường`),
+      ),
+    ),
+    h('div', { className:'grid gap-4', style:{gridTemplateColumns:'1fr 300px'} },
+      h('div', { className:'flex flex-col' },
+        h(Bracketed, { className:'flex-1 p-6 overflow-y-auto', style:{minHeight:400, maxHeight:'calc(100vh - 280px)', background:'var(--ink-700)'} },
+          { /* contents */ }, // placeholder for ref
+        ),
+        // story content (manually because ref doesn't pass through h)
+      ),
+      h(Bracketed, { className:'p-4 h-fit', style:{background:'var(--ink-700)'} },
+        h('div', { className:'border-b pb-3', style:{borderColor:'rgba(205,164,94,.3)'} },
+          h('h3', { className:'text-celestial', style:{fontSize:20, fontWeight:600} }, 'Lạc Vô Thường'),
+          h('p', { style:{fontSize:11, color:'var(--jade-400)'} }, 'Luyện Khí ', h('span', { style:{color:'var(--gold-500)'} }, 'Tầng 1')),
+        ),
+        h('div', { className:'mt-3' },
+          h('div', { className:'flex justify-between text-xs mb-1', style:{color:'var(--jade-400)'} },
+            h('span', null, 'Sinh Mệnh'), h('span', { className:'mono' }, '200 / 200'),
+          ),
+          h('div', { style:{height:6, background:'var(--ink-800)', borderRadius:9999, overflow:'hidden'} },
+            h('div', { style:{height:'100%', width:'100%', background:'linear-gradient(90deg,#8a2f2f,#d97757)'} }),
+          ),
+        ),
+        h('div', { className:'mt-2' },
+          h('div', { className:'flex justify-between text-xs mb-1', style:{color:'var(--jade-400)'} },
+            h('span', null, 'Tu Vi (EXP)'), h('span', { className:'mono' }, '0 / 100'),
+          ),
+          h('div', { style:{height:6, background:'var(--ink-800)', borderRadius:9999} }),
+        ),
+        h('div', { className:'mt-3 pt-3 text-[13px] space-y-1.5', style:{borderTop:'1px solid rgba(205,164,94,.15)'} },
+          ['Tấn công · 20','Phòng thủ · 10','Tốc độ · 30','Chí mạng · 5%','Linh thạch · 0'].map((t,i) => h('div', { key:i, className:'flex justify-between' },
+            h('span', { style:{color:'var(--jade-400)'} }, t.split(' · ')[0]),
+            h('span', { className:'mono', style:{color:'var(--gold-200)'} }, t.split(' · ')[1]),
+          )),
+        ),
+      ),
+    ),
+    // Story view (separate to use ref)
+    h('div', { className:'fixed inset-0 pointer-events-none', style:{display:'none'} }),
+  );
+};
+
+// Simplified — story manual layout
+const StoryScreenSimple = () => {
+  const [log, setLog] = useState([]);
+  const [actions, setActions] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [turn, setTurn] = useState(0);
+  const scrollRef = useRef(null);
+
+  useEffect(() => {
+    setBusy(true);
+    setTimeout(() => {
+      const p = parse(nextChunk(true));
+      setLog([{kind:'n', segments:p.segments, id:Math.random()}]);
+      setActions(p.actions); setTurn(1); setBusy(false);
+    }, 500);
+  }, []);
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [log, busy]);
+
+  const submit = (text) => {
+    setLog(l => [...l, {kind:'p', content:text, id:Math.random()}]);
+    setActions([]); setBusy(true); setTurn(t=>t+1);
+    setTimeout(() => {
+      const p = parse(nextChunk(false));
+      setLog(l => [...l, {kind:'n', segments:p.segments, id:Math.random()}]);
+      setActions(p.actions); setBusy(false);
+    }, 700);
+  };
+
+  return h('section', { className:'min-h-screen px-6 py-6' },
+    h('header', { className:'mb-4 flex justify-between border-b pb-3', style:{borderColor:'rgba(205,164,94,.15)'} },
+      h('div', null,
+        h('h1', { className:'text-celestial', style:{fontSize:20, fontWeight:600} }, 'Tu Luyện · Hành Trình'),
+        h('p', { style:{fontSize:11, color:'var(--jade-500)'} }, `Lượt ${turn} · Độ khó Thường`),
+      ),
+    ),
+    h('div', { className:'grid gap-4', style:{gridTemplateColumns:'1fr 300px'} },
+      h('div', { className:'flex flex-col gap-4' },
+        h(Bracketed, { className:'p-6', style:{minHeight:400, maxHeight:'calc(100vh - 320px)', overflow:'auto', background:'var(--ink-700)', display:'block'} },
+          h('div', { ref: scrollRef, style:{overflow:'auto', height:'100%'} },
+            log.map(e => {
+              if (e.kind === 'p') return h(Bubble, { key:e.id, speaker:'Lạc Vô Thường', content:'→ '+e.content, isPlayer:true });
+              return h('div', { key:e.id },
+                e.segments.map((seg,i) => seg.type==='narrative'
+                  ? h('p', { key:i, style:{whiteSpace:'pre-line', padding:'8px 0', fontSize:15, lineHeight:1.85, color:'var(--gold-200)'} }, seg.content)
+                  : h(Bubble, { key:i, speaker:seg.speaker, content:seg.content })
+                ),
+              );
+            }),
+            busy && h('div', { className:'flex gap-2 items-center py-2', style:{color:'var(--jade-400)'} },
+              h('span', { className:'anim-pulse', style:{width:8, height:8, borderRadius:'50%', background:'var(--gold-500)'} }),
+              h('span', { className:'anim-pulse', style:{width:8, height:8, borderRadius:'50%', background:'var(--gold-500)', animationDelay:'.2s'} }),
+              h('span', { className:'anim-pulse', style:{width:8, height:8, borderRadius:'50%', background:'var(--gold-500)', animationDelay:'.4s'} }),
+              h('span', { className:'text-sm italic ml-2' }, 'Đang suy ngẫm thiên cơ…'),
+            ),
+          ),
+        ),
+        h(Bracketed, { className:'p-4', style:{background:'var(--ink-700)'} },
+          h('div', { className:'grid grid-cols-2 gap-2' },
+            actions.length>0 ? actions.map((a,i) => h('button', { key:i, disabled:busy, onClick:()=>submit(a),
+              style:{display:'flex', alignItems:'flex-start', gap:8, border:'1px solid rgba(168,130,63,.3)', background:'rgba(16,24,15,.6)', padding:'12px', textAlign:'left', color:'var(--gold-200)', fontSize:13, borderRadius:4, cursor: busy?'not-allowed':'pointer', opacity: busy?.4:1} },
+              h('span', { className:'mono', style:{fontSize:11, color:'var(--gold-500)'} }, `${i+1}.`),
+              h('span', null, a),
+            )) : h('p', { style:{gridColumn:'span 2', textAlign:'center', color:'var(--jade-700)', fontStyle:'italic', padding:12} }, 'Chờ thiên cơ khai mở lựa chọn…')
+          ),
+        ),
+      ),
+      h(Bracketed, { className:'p-4 h-fit', style:{background:'var(--ink-700)'} },
+        h('div', { className:'border-b pb-3', style:{borderColor:'rgba(205,164,94,.3)'} },
+          h('h3', { className:'text-celestial', style:{fontSize:20, fontWeight:600} }, 'Lạc Vô Thường'),
+          h('p', { style:{fontSize:11, color:'var(--jade-400)'} }, 'Luyện Khí ', h('span', { style:{color:'var(--gold-500)'} }, 'Tầng 1')),
+        ),
+        h('div', { className:'mt-3' },
+          h('div', { className:'flex justify-between text-xs mb-1', style:{color:'var(--jade-400)'} },
+            h('span', null, 'Sinh Mệnh'), h('span', { className:'mono', style:{color:'var(--ember-500)'} }, '200 / 200'),
+          ),
+          h('div', { style:{height:6, background:'var(--ink-800)', borderRadius:9999, overflow:'hidden'} },
+            h('div', { style:{height:'100%', width:'100%', background:'linear-gradient(90deg,#8a2f2f,#d97757)'} }),
+          ),
+        ),
+        h('div', { className:'mt-3 pt-3 text-[13px] space-y-1.5', style:{borderTop:'1px solid rgba(205,164,94,.15)'} },
+          [['Tấn công','20'],['Phòng thủ','10'],['Tốc độ','30'],['Chí mạng','5%'],['Linh thạch','0','var(--gold-500)']].map(([l,v,c],i) => h('div', { key:i, className:'flex justify-between' },
+            h('span', { style:{color:'var(--jade-400)'} }, l),
+            h('span', { className:'mono', style:{color:c||'var(--gold-200)'} }, v),
+          )),
+        ),
+      ),
+    ),
+  );
+};
+
+// ═════════════ SCREEN: CHARACTER ═════════════
+const CharScreen = () => {
+  const eq = [
+    { slot:'Vũ Khí Chính', name:'Tử Tiêu Lôi Kiếm', r:'legend', dot:'#e0654e' },
+    { slot:'Phụ Kiện',     name:'Lôi Văn Phù',      r:'epic',   dot:'#c2a6ee' },
+    { slot:'Đầu',          name:'Tử Kim Quan',      r:'rare',   dot:'#7fbce8' },
+    { slot:'Thân',         name:'Hàn Y Tuyết',      r:'good',   dot:'#8fc98c' },
+  ];
+  const skills = [
+    { n:'Cửu Tiêu Lôi Trảm', d:'Triệu thiên lôi · 850% ST · CD 3 lượt', r:'legend', dot:'#e0654e' },
+    { n:'Lôi Thiểm',         d:'Đánh nhanh · 30% tê liệt',              r:'epic',   dot:'#c2a6ee' },
+    { n:'Vận Công Kháng Lôi',d:'Giảm 40% ST khi độ kiếp',                r:'rare',   dot:'#7fbce8' },
+  ];
+  const stats = [
+    ['Sinh Lực', '8,432 / 12,000', 'var(--ember-500)'],
+    ['Tấn Công', '1,420'],
+    ['Phòng Thủ', '880'],
+    ['Tốc Độ', '320'],
+    ['Tỉ Lệ Chí Mạng', '28%'],
+    ['ST Chí Mạng', '210%'],
+    ['Khuếch Đại ST', '+45%'],
+    ['Chống Chịu', '+18%'],
+  ];
+  return h('section', { className:'min-h-screen px-10 py-10' },
+    h('header', { className:'mb-7 pb-5 flex justify-between items-end border-b', style:{borderColor:'rgba(205,164,94,.16)'} },
+      h('div', null,
+        h('div', { className:'label-section mb-2' }, 'Thanh Vân Môn · Đệ tử ngoại môn'),
+        h('h1', { style:{fontFamily:'var(--font-serif)', fontSize:38, fontWeight:600, color:'var(--gold-200)'} }, 'Lạc Vô Thường'),
+      ),
+      h('div', { className:'text-right' },
+        h('div', { style:{fontFamily:'var(--font-serif)', fontSize:20, color:'var(--gold-500)'} }, 'Linh Thai Cảnh · Tầng 7'),
+        h('div', { style:{fontSize:12.5, color:'var(--jade-300)', marginTop:4} }, 'Tâm cảnh: ', h('span', { style:{color:'var(--gold-100)'} }, 'Minh Tâm Kiến Tính')),
+      ),
+    ),
+    h('div', { className:'grid gap-5', style:{gridTemplateColumns:'288px 1fr 312px'} },
+      // LEFT
+      h('div', { className:'flex flex-col gap-4' },
+        h(Bracketed, { className:'overflow-hidden', style:{background:'var(--ink-700)'} },
+          h('div', { className:'relative h-72 flex items-center justify-center', style:{background:'repeating-linear-gradient(45deg, #0d140d, #0d140d 12px, #121b12 12px, #121b12 24px)'} },
+            h('span', { className:'mono', style:{fontSize:11, color:'var(--jade-700)'} }, '[ chân dung nhân vật ]'),
+            h('div', { style:{position:'absolute', inset:0, boxShadow:'0 -60px 60px -20px rgba(10,15,10,.9) inset'} }),
+          ),
+        ),
+        h(Bracketed, { tone:'spirit', className:'p-[18px]', style:{background:'linear-gradient(180deg,rgba(167,139,250,.07),transparent)', border:'1px solid rgba(167,139,250,.28)'} },
+          h('div', { className:'label-section mb-3' }, 'Linh Căn · Thiên Phú'),
+          h('div', { className:'flex items-center gap-3 mb-3' },
+            h('span', { style:{width:30, height:30, borderRadius:'50%', background:'var(--spirit-500)', boxShadow:'0 0 14px rgba(167,139,250,.6)', flexShrink:0} }),
+            h('div', null,
+              h('div', { style:{fontFamily:'var(--font-serif)', fontSize:16, color:'var(--spirit-200)'} }, 'Thiên Lôi Dị Căn'),
+              h('div', { style:{fontSize:11.5, color:'var(--spirit-600)'} }, 'Đơn dị linh căn · cực hiếm'),
+            ),
+          ),
+          h('div', { className:'flex justify-between pt-3 text-[12.5px]', style:{borderTop:'1px solid rgba(167,139,250,.2)'} },
+            h('span', { style:{color:'var(--jade-300)'} }, 'Hệ số tu luyện'),
+            h('span', { className:'mono', style:{color:'var(--spirit-200)'} }, '×4.2'),
+          ),
+        ),
+        h(Bracketed, { className:'p-[18px]', style:{background:'var(--ink-700)'} },
+          h('div', { className:'label-section mb-2' }, 'Công Pháp Chính'),
+          h('div', { style:{fontFamily:'var(--font-serif)', fontSize:16, color:'var(--gold-200)'} }, 'Cửu Tiêu Lôi Kiếp Quyết'),
+          h('div', { style:{fontSize:11.5, color:'var(--gold-500)', marginTop:4} }, 'Địa phẩm · Lôi hệ · Đại viên mãn ', h('span', { className:'mono' }, '60%')),
+          h('div', { className:'mt-3', style:{height:6, background:'var(--ink-800)', borderRadius:9999, overflow:'hidden'} },
+            h('div', { style:{height:'100%', width:'60%', background:'linear-gradient(90deg,#a78bfa,#cda45e)'} }),
+          ),
+        ),
+      ),
+      // CENTER
+      h(Bracketed, { className:'p-7', style:{background:'var(--ink-700)'} },
+        h('div', { className:'label-gold mb-5' }, 'Chỉ Số Cốt Lõi'),
+        h('div', { className:'grid grid-cols-2 gap-y-4', style:{columnGap:30} },
+          stats.map(([label, val, color], i) => h('div', { key:i },
+            h('div', { className:'flex justify-between mb-1.5 text-[13px]' },
+              h('span', { style:{color:'var(--gold-300)'} }, label),
+              h('span', { className:'mono', style:{color: color||'var(--gold-200)'} }, val),
+            ),
+            h('div', { style:{height:3, background:'var(--ink-800)', borderRadius:9999, overflow:'hidden'} },
+              h('div', { style:{height:'100%', width:'100%', background:'linear-gradient(90deg,var(--gold-700),var(--gold-500))'} }),
+            ),
+          ))
+        ),
+        h('div', { className:'mt-5 pt-4 flex flex-wrap justify-between items-center gap-3', style:{borderTop:'1px solid rgba(205,164,94,.12)'} },
+          h('div', { className:'text-[13px]', style:{color:'var(--jade-300)'} }, 'Né Tránh ', h('span', { className:'mono ml-1', style:{color:'var(--azure-400)'} }, '12.0%')),
+          h('div', { className:'text-[13px]', style:{color:'var(--jade-300)'} }, 'Điểm thuộc tính dư ', h('span', { className:'mono ml-1', style:{color:'var(--gold-500)'} }, '8 AP')),
+          h('button', { className:'btn-primary', style:{padding:'8px 18px', fontSize:12.5} }, 'Phân Phối Điểm'),
+        ),
+      ),
+      // RIGHT
+      h(Bracketed, { className:'p-5', style:{background:'var(--ink-700)'} },
+        h('div', { className:'label-gold mb-4' }, 'Trang Bị'),
+        h('div', { className:'grid grid-cols-2 gap-[9px]' },
+          eq.map(e => h('div', { key:e.slot, style:{border:`1px solid ${e.dot}66`, background:`linear-gradient(135deg, ${e.dot}1a, transparent)`, borderRadius:5, padding:9, display:'flex', gap:9, alignItems:'center'} },
+            h('span', { style:{width:30, height:30, flexShrink:0, borderRadius:4, background:`${e.dot}22`, border:`1px solid ${e.dot}66`} }),
+            h('div', { className:'min-w-0 flex-1' },
+              h('div', { style:{fontSize:10, textTransform:'uppercase', letterSpacing:1, color:'var(--jade-500)'} }, e.slot),
+              h('div', { className:`r-${e.r}`, style:{fontSize:12, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'} }, e.name),
+            ),
+          )),
+          [1,2].map(i => h('div', { key:'e'+i, style:{border:'1px dashed rgba(205,164,94,.18)', borderRadius:5, padding:9, display:'flex', gap:9, alignItems:'center', minHeight:48} },
+            h('span', { style:{width:30, height:30, flexShrink:0, borderRadius:4, background:'rgba(13,20,13,.5)'} }),
+            h('span', { style:{fontSize:11, color:'var(--jade-700)'} }, 'Trống'),
+          )),
+        ),
+        h('div', { className:'label-gold mt-6 mb-3.5' }, 'Kỹ Năng'),
+        h('div', { className:'flex flex-col gap-2' },
+          skills.map(s => h('div', { key:s.n, style:{display:'flex', gap:11, alignItems:'center', border:`1px solid ${s.dot}66`, background:`${s.dot}1a`, borderRadius:5, padding:'9px 11px'} },
+            h('span', { style:{width:8, height:8, flexShrink:0, borderRadius:'50%', background:s.dot} }),
+            h('div', { className:'min-w-0' },
+              h('div', { className:`r-${s.r}`, style:{fontSize:13, fontWeight:500} }, s.n),
+              h('div', { style:{fontSize:10.5, color:'var(--jade-500)'} }, s.d),
+            ),
+          )),
+        ),
+      ),
+    ),
+  );
+};
+
+// ═════════════ SCREEN: INVENTORY ═════════════
+const InvScreen = () => {
+  const items = [
+    {n:'Tử Tiêu Lôi Kiếm', r:'legend', q:1, dot:'#e0654e'},
+    {n:'Lôi Văn Phù', r:'epic', q:1, dot:'#c2a6ee'},
+    {n:'Hồi Khí Đan', r:'good', q:12, dot:'#8fc98c'},
+    {n:'Tử Kim Quan', r:'rare', q:1, dot:'#7fbce8'},
+    {n:'Linh Tâm Thảo', r:'rare', q:7, dot:'#7fbce8'},
+    {n:'Hắc Vụ Đan', r:'epic', q:3, dot:'#c2a6ee'},
+    {n:'Vạn Sa Tinh Thạch', r:'common', q:84, dot:'#d9d3c2'},
+    {n:'Mục Thần Ký', r:'mythic', q:1, dot:'#f0a98e'},
+    {n:'Túi Trữ Vật', r:'good', q:1, dot:'#8fc98c'},
+    {n:'Định Hồn Đan', r:'rare', q:5, dot:'#7fbce8'},
+  ];
+  const filters = ['Tất Cả','Vũ khí','Đan Dược','Nguyên Liệu','Tín Vật','Sách Pháp'];
+  const [activeF, setActiveF] = useState('Tất Cả');
+  const [selIdx, setSelIdx] = useState(0);
+  return h('section', { className:'min-h-screen px-10 py-8' },
+    h('header', { className:'mb-6 pb-4 flex justify-between items-end border-b flex-wrap gap-3', style:{borderColor:'rgba(205,164,94,.15)'} },
+      h('div', null,
+        h('div', { className:'label-section mb-2' }, 'Hành Trang · Túi Trữ Vật'),
+        h('h1', { style:{fontFamily:'var(--font-serif)', fontSize:30, fontWeight:700, textTransform:'uppercase', letterSpacing:'.06em', color:'var(--gold-200)'} }, 'Hành Trang'),
+      ),
+      h('div', { className:'text-right' },
+        h('div', { className:'label-section' }, 'Linh Thạch'),
+        h('div', { className:'mono', style:{fontSize:24, color:'var(--gold-500)'} }, '12,480'),
+      ),
+    ),
+    h('div', { className:'grid gap-5', style:{gridTemplateColumns:'180px 1fr 320px'} },
+      h(Bracketed, { className:'p-3 h-fit', style:{background:'var(--ink-700)'} },
+        h('div', { className:'label-section px-2 mb-3' }, 'Phân Loại'),
+        h('div', { className:'flex flex-col gap-1' },
+          filters.map(f => h('button', { key:f, onClick:()=>setActiveF(f), className:'relative text-left rounded-sm px-3 py-2 text-[13px]', style:{color: activeF===f?'var(--gold-100)':'var(--gold-300)', background: activeF===f?'rgba(205,164,94,.08)':'transparent'} },
+            activeF===f && h('span', { style:{position:'absolute', left:0, top:8, bottom:8, width:2, background:'var(--gold-500)', boxShadow:'0 0 9px rgba(205,164,94,.7)', borderRadius:2} }),
+            f,
+          ))
+        ),
+      ),
+      h(Bracketed, { className:'p-4', style:{background:'var(--ink-700)'} },
+        h('div', { className:'flex justify-between mb-3' },
+          h('div', { className:'label-gold' }, `Thẻ Vật Phẩm (${items.length})`),
+          h('div', { style:{fontSize:11, color:'var(--jade-500)'} }, 'Trọng lượng ', h('span', { className:'mono', style:{color:'var(--gold-300)'} }, '38 / 120')),
+        ),
+        h('div', { className:'grid gap-[10px]', style:{gridTemplateColumns:'repeat(auto-fill, minmax(130px, 1fr))', maxHeight:'calc(100vh - 280px)', overflowY:'auto'} },
+          items.map((it,i) => h('button', { key:i, onClick:()=>setSelIdx(i), style:{border:`1px solid ${i===selIdx ? it.dot : it.dot+'66'}`, background:`linear-gradient(135deg, ${it.dot}1a, transparent)`, borderRadius:6, padding:12, textAlign:'left', display:'flex', flexDirection:'column', boxShadow: i===selIdx ? `0 0 14px ${it.dot}33` : 'none', cursor:'pointer'} },
+            h('div', { style:{marginBottom:8, height:48, display:'flex', alignItems:'center', justifyContent:'center', border:`1px solid ${it.dot}66`, background:`${it.dot}1a`, borderRadius:3, color:it.dot, fontSize:18} }, '◆'),
+            h('div', { className:`r-${it.r}`, style:{fontSize:12.5, fontWeight:500, lineHeight:1.2} }, it.n),
+            h('div', { className:'flex justify-between mt-1 items-center', style:{fontSize:10.5, color:'var(--jade-500)'} },
+              h('span', null, it.r==='legend'?'Huyền Thoại':it.r==='mythic'?'Siêu Phẩm':it.r==='epic'?'Cực Phẩm':it.r==='rare'?'Hiếm':it.r==='good'?'Tốt':'Thường'),
+              it.q>1 && h('span', { className:'mono', style:{color:'var(--gold-300)'} }, `×${it.q}`),
+            ),
+          ))
+        ),
+      ),
+      h(Bracketed, { className:'p-5 h-fit', style:{background:'var(--ink-700)'} },
+        h('div', { className:'label-section mb-2' }, 'Chi Tiết Vật Phẩm'),
+        h('h2', { className:`r-${items[selIdx].r}`, style:{fontFamily:'var(--font-serif)', fontSize:20, marginBottom:12} }, items[selIdx].n),
+        h('div', { style:{height:128, marginBottom:16, display:'flex', alignItems:'center', justifyContent:'center', border:`1px solid ${items[selIdx].dot}66`, background:`${items[selIdx].dot}1a`, borderRadius:3, color:items[selIdx].dot, fontSize:48} }, '◆'),
+        h('p', { style:{fontFamily:'var(--font-serif)', fontSize:13, fontStyle:'italic', lineHeight:1.6, color:'var(--gold-300)', marginBottom:16} }, 'Vật phẩm tu tiên trân quý, được luyện chế từ thiên tài địa bảo.'),
+        h('div', { className:'flex gap-2' },
+          h('button', { className:'btn-primary flex-1', style:{fontSize:13} }, 'Sử Dụng'),
+          h('button', { className:'btn-secondary flex-1', style:{fontSize:13} }, 'Trang Bị'),
+        ),
+      ),
+    ),
+  );
+};
+
+// ═════════════ SCREEN: TRIBULATION (KIEP) ═════════════
+const KiepScreen = () => {
+  const bolts = Array.from({length:9}, (_,i) => ({ i:i+1, status: i<3?'ok':i===3?'active':'pending' }));
+  const bColors = {ok:{bg:'rgba(143,201,140,.15)',border:'rgba(143,201,140,.5)',dot:'#8fc98c'}, failed:{bg:'rgba(138,47,47,.18)',border:'rgba(138,47,47,.6)',dot:'#8a2f2f'}, active:{bg:'rgba(167,139,250,.18)',border:'rgba(167,139,250,.8)',dot:'#a78bfa'}, pending:{bg:'transparent',border:'rgba(205,164,94,.18)',dot:'var(--jade-700)'}};
+  return h('section', { className:'min-h-screen px-6 py-10 relative overflow-hidden' },
+    h('div', { style:{position:'absolute', inset:0, background:'radial-gradient(ellipse at center top, rgba(167,139,250,.15) 0%, rgba(26,20,34,.4) 35%, transparent 70%), radial-gradient(ellipse at center bottom, rgba(224,101,78,.1) 0%, transparent 60%)', pointerEvents:'none'} }),
+    [10,30,55,75,90].map((l,i) => h('div', { key:i, className:'anim-bolt', style:{position:'absolute', top:0, left:`${l}%`, width:2+(i%2), height:'60vh', background:`linear-gradient(180deg, ${i%2?'#a78bfa':'#cdbcff'}, transparent)`, animationDelay:`${i*0.6}s`, pointerEvents:'none', filter:'blur(.5px)'} })),
+    h('header', { className:'relative text-center mb-6 max-w-6xl mx-auto' },
+      h('div', { className:'label-section anim-pulse mb-2' }, 'Độ Kiếp · Lôi Cảnh'),
+      h('h1', { style:{fontFamily:'var(--font-serif)', fontSize:38, fontWeight:700, color:'var(--spirit-200)', textShadow:'0 0 24px rgba(167,139,250,.6)'} }, 'Thiên địa vô tình'),
+      h('p', { style:{fontFamily:'var(--font-serif)', fontStyle:'italic', color:'rgba(217,211,194,.8)', marginTop:8} }, 'Cửu Tiêu Lôi Kiếp · Đại đột phá Ngũ Hành Cảnh → Linh Thai Cảnh'),
+    ),
+    h('div', { className:'relative grid gap-6 max-w-6xl mx-auto', style:{gridTemplateColumns:'1fr 360px'} },
+      h('div', { className:'flex flex-col gap-5' },
+        h(Bracketed, { tone:'spirit', className:'h-72 overflow-hidden relative', style:{background:'linear-gradient(180deg, var(--void-900), var(--ink-900))', border:'1px solid rgba(167,139,250,.4)'} },
+          h('div', { className:'absolute inset-0 flex items-center justify-center' },
+            h('div', { className:'relative' },
+              h('div', { className:'absolute anim-ring', style:{inset:'-48px', borderRadius:'50%', border:'1px solid rgba(167,139,250,.6)'} }),
+              h('div', { className:'absolute anim-ring', style:{inset:'-32px', borderRadius:'50%', border:'1px solid rgba(167,139,250,.6)', animationDelay:'.7s'} }),
+              h('div', { className:'anim-glow', style:{width:128, height:128, borderRadius:'50%', background:'radial-gradient(circle, var(--spirit-300) 0%, var(--spirit-500) 40%, transparent 75%)'} }),
+              h('div', { style:{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-serif)', fontSize:15, color:'var(--spirit-200)', textShadow:'0 0 12px rgba(205,164,94,.7)'} }, '⚝'),
+            ),
+          ),
+          h('div', { style:{position:'absolute', right:32, top:48} },
+            h('div', { className:'anim-pop', style:{fontFamily:'var(--font-serif)', fontSize:24, fontWeight:700, color:'var(--ember-200)', textShadow:'0 0 12px rgba(217,119,87,.7)'} }, '−1,284'),
+          ),
+        ),
+        h(Bracketed, { className:'p-5', style:{background:'var(--ink-700)'} },
+          h('div', { className:'flex justify-between items-center mb-4' },
+            h('div', { className:'label-gold' }, 'Cửu Tiêu Lôi Kiếp · 9 Đạo'),
+            h('div', { style:{fontSize:12, color:'var(--jade-300)'} }, 'Đã qua ', h('span', { className:'mono', style:{color:'var(--gold-200)'} }, '3/9')),
+          ),
+          h('div', { className:'grid gap-2', style:{gridTemplateColumns:'repeat(9, 1fr)'} },
+            bolts.map(b => { const c = bColors[b.status]; return h('div', { key:b.i, className: b.status==='active'?'anim-pulse':'', style:{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:48, border:`1px solid ${c.border}`, background:c.bg, borderRadius:3} },
+              h('span', { style:{fontSize:10, color:'var(--jade-500)'} }, 'Đạo'),
+              h('span', { className:'mono', style:{fontSize:14, fontWeight:700, color:c.dot} }, b.i),
+            ); })
+          ),
+        ),
+        h(Bracketed, { className:'p-4', style:{background:'var(--ink-700)'} },
+          h('div', { className:'label-section mb-3' }, 'Hành Động'),
+          h('div', { className:'grid grid-cols-3 gap-2' },
+            h('button', { className:'btn-primary', style:{fontSize:14} }, 'Vận Công Kháng Lôi'),
+            h('button', { className:'btn-secondary', style:{fontSize:14} }, 'Dùng Bùa Hộ Mệnh'),
+            h('button', { className:'btn-jade', style:{fontSize:14} }, 'Cầu Khẩn Sư Tổ'),
+          ),
+        ),
+      ),
+      h('div', { className:'flex flex-col gap-4' },
+        h(Bracketed, { tone:'ember', className:'p-5', style:{background:'var(--ink-700)', border:'1px solid rgba(217,119,87,.4)'} },
+          h('div', { className:'label-section mb-2' }, 'Tỉ Lệ Thành Công'),
+          h('div', { className:'anim-pulse', style:{fontFamily:'var(--font-serif)', fontSize:44, fontWeight:700, lineHeight:1, color:'var(--gold-150)', textShadow:'0 0 20px rgba(240,189,114,.45)'} }, '72%'),
+          h('div', { className:'mt-3', style:{height:6, background:'var(--ink-800)', borderRadius:9999, overflow:'hidden'} },
+            h('div', { style:{height:'100%', width:'72%', background:'linear-gradient(90deg, var(--ember-500), var(--gold-150))'} }),
+          ),
+          h('div', { className:'mt-3', style:{fontSize:12, color:'var(--jade-300)'} }, 'Tâm cảnh ổn định ', h('span', { style:{color:'var(--gold-100)'} }, '· Minh Tâm Kiến Tính (+15%)')),
+        ),
+        h(Bracketed, { className:'p-4', style:{background:'var(--ink-700)'} },
+          h('div', { className:'label-gold mb-3' }, 'Pháp Bảo Phòng Kiếp'),
+          h('div', { className:'space-y-2.5 text-[13px]' },
+            [['Lôi Văn Phù','+8%','var(--spirit-300)'],['Tử Tiêu Kiếm','+12%','var(--ember-200)'],['Bích Ngọc Hộ Tâm','+5%','var(--leaf-500)']].map(([n,v,c],i) => h('div', { key:i, className:'flex justify-between'+(i<2?' border-b pb-2':''), style:{borderColor:'rgba(205,164,94,.15)'} },
+              h('span', { style:{color:'var(--gold-300)'} }, n),
+              h('span', { className:'mono', style:{color:c} }, v),
+            )),
+          ),
+        ),
+        h(Bracketed, { tone:'ember', className:'p-4', style:{background:'var(--ink-700)', border:'1px solid rgba(217,119,87,.4)'} },
+          h('div', { className:'flex justify-between mb-2 text-[13px]' },
+            h('span', { style:{color:'var(--gold-300)'} }, 'Sinh Lực'),
+            h('span', { className:'mono', style:{color:'var(--ember-500)'} }, h('span', { className:'anim-pulse', style:{display:'inline-block'} }, '8,432'), ' / 12,000'),
+          ),
+          h('div', { className:'relative', style:{height:12, background:'var(--ink-800)', borderRadius:9999, overflow:'hidden'} },
+            h('div', { style:{height:'100%', width:'70%', background:'linear-gradient(90deg, var(--blood-500), var(--ember-500))'} }),
+            h('div', { className:'anim-sweep', style:{position:'absolute', inset:'0 0 0 0', width:64, opacity:.6, background:'linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent)'} }),
+          ),
+        ),
+        h(Bracketed, { tone:'jade', className:'p-4', style:{background:'var(--ink-700)', border:'1px solid rgba(139,168,136,.28)'} },
+          h('div', { className:'label-section mb-2' }, 'Đạo tâm của ngươi'),
+          h('p', { style:{fontFamily:'var(--font-serif)', fontSize:13.5, fontStyle:'italic', lineHeight:1.7, color:'var(--gold-300)'} }, '"Trên đại đạo, ta đã đi quá xa để quay lại. Thiên kiếp giáng lâm, chỉ có thể nghênh đón."'),
+        ),
+      ),
+    ),
+  );
+};
+
+// ═════════════ SCREEN: COMBAT ═════════════
+const CombatScreen = () => h('section', { className:'min-h-screen p-10' },
+  h('h1', { className:'text-celestial mb-6', style:{fontSize:28, fontWeight:600} }, 'COMBAT · Chiến Đấu'),
+  h('p', { className:'text-jade-400 italic mb-8', style:{color:'var(--jade-400)'} }, 'Combat screen sẽ build trong Phase 4. Hiện tại preview animation:'),
+  h('div', { className:'grid grid-cols-3 gap-6 max-w-5xl' },
+    h(Bracketed, { className:'h-56 flex items-center justify-center relative overflow-hidden', style:{background:'var(--ink-700)'} },
+      h('div', { className:'label-section absolute top-3 left-1/2 -translate-x-1/2' }, 'Damage Popup (m-pop)'),
+      h('div', { className:'anim-pop', style:{fontFamily:'var(--font-serif)', fontSize:32, fontWeight:700, color:'var(--ember-200)', textShadow:'0 0 12px rgba(217,119,87,.7)'} }, '−2,480'),
+    ),
+    h(Bracketed, { tone:'ember', className:'h-56 anim-glow flex items-center justify-center', style:{background:'var(--ink-700)'} },
+      h('span', { className:'label-section' }, 'Border Glow (m-glow)'),
+    ),
+    h(Bracketed, { className:'h-56 relative overflow-hidden flex items-center justify-center', style:{background:'var(--ink-700)'} },
+      h('div', { style:{position:'relative', width:60, height:60} },
+        h('div', { className:'absolute inset-0 anim-ring rounded-full border', style:{borderColor:'var(--ember-500)'} }),
+        h('div', { className:'absolute inset-0 anim-ring rounded-full border', style:{borderColor:'var(--ember-500)', animationDelay:'.7s'} }),
+        h('div', { className:'absolute inset-0 rounded-full', style:{background:'radial-gradient(circle, var(--ember-500), transparent)'} }),
+      ),
+    ),
+  ),
+);
+
+// ═════════════ APP ═════════════
+const App = () => {
+  const [screen, setScreen] = useState('start');
+  const renderScreen = () => {
+    if (screen==='start') return h(StartScreen, { go:setScreen });
+    if (screen==='setup') return h(SetupScreen, { go:setScreen });
+    if (screen==='story') return h(StoryScreenSimple);
+    if (screen==='char')  return h(CharScreen);
+    if (screen==='inv')   return h(InvScreen);
+    if (screen==='combat') return h(CombatScreen);
+    if (screen==='kiep')  return h(KiepScreen);
+    return null;
+  };
+  return h('div', { style:{display:'flex', minHeight:'100vh'} },
+    h(NavRail, { active:screen, onPick:setScreen }),
+    h('div', { style:{flex:1, minWidth:0} }, renderScreen()),
+  );
+};
+
+createRoot(document.getElementById('root')).render(h(App));
+</script>
+</body>
+</html>

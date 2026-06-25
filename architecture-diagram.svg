@@ -1,0 +1,267 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 880" font-family="'Noto Serif', 'Times New Roman', serif">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0a0f0a"/>
+      <stop offset="100%" stop-color="#162216"/>
+    </linearGradient>
+    <linearGradient id="featureGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#cda45e"/>
+      <stop offset="100%" stop-color="#a07d3e"/>
+    </linearGradient>
+    <linearGradient id="stateGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8ba888"/>
+      <stop offset="100%" stop-color="#5a7a57"/>
+    </linearGradient>
+    <linearGradient id="coreGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#d97757"/>
+      <stop offset="100%" stop-color="#a55838"/>
+    </linearGradient>
+    <linearGradient id="aiGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#5b21b6"/>
+    </linearGradient>
+    <linearGradient id="serviceGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1e40af"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#cda45e"/>
+    </marker>
+    <marker id="arrowDown" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8ba888"/>
+    </marker>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="880" fill="url(#bgGrad)"/>
+
+  <!-- Title -->
+  <text x="600" y="40" text-anchor="middle" font-size="26" fill="#cda45e" font-weight="bold">Tu Tiên RPG — Kiến Trúc Hệ Thống Sau Refactor</text>
+  <text x="600" y="65" text-anchor="middle" font-size="13" fill="#8ba888" font-style="italic">Layered architecture: UI → State → Core/Services → AI/Database</text>
+
+  <!-- LAYER 1: FEATURES (UI) -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="100" width="1120" height="120" rx="12" fill="url(#featureGrad)" opacity="0.95"/>
+  </g>
+  <text x="60" y="125" font-size="14" fill="#0a0f0a" font-weight="bold" letter-spacing="2">FEATURES (UI Components)</text>
+
+  <g font-size="11" fill="#0a0f0a">
+    <rect x="60" y="140" width="100" height="30" rx="4" fill="#fff7e6"/>
+    <text x="110" y="160" text-anchor="middle">Initial Screen</text>
+
+    <rect x="170" y="140" width="100" height="30" rx="4" fill="#fff7e6"/>
+    <text x="220" y="160" text-anchor="middle">Game Setup</text>
+
+    <rect x="280" y="140" width="100" height="30" rx="4" fill="#fff7e6"/>
+    <text x="330" y="160" text-anchor="middle">Gameplay</text>
+
+    <rect x="390" y="140" width="100" height="30" rx="4" fill="#fff7e6"/>
+    <text x="440" y="160" text-anchor="middle">Char Sheet</text>
+
+    <rect x="500" y="140" width="100" height="30" rx="4" fill="#fff7e6"/>
+    <text x="550" y="160" text-anchor="middle">Inventory</text>
+
+    <rect x="610" y="140" width="100" height="30" rx="4" fill="#fff7e6"/>
+    <text x="660" y="160" text-anchor="middle">Combat Arena</text>
+
+    <rect x="720" y="140" width="100" height="30" rx="4" fill="#fef3c7" stroke="#d97757" stroke-width="2"/>
+    <text x="770" y="160" text-anchor="middle">★ World Map</text>
+
+    <rect x="830" y="140" width="100" height="30" rx="4" fill="#fef3c7" stroke="#d97757" stroke-width="2"/>
+    <text x="880" y="160" text-anchor="middle">★ Sect Hall</text>
+
+    <rect x="940" y="140" width="100" height="30" rx="4" fill="#fef3c7" stroke="#d97757" stroke-width="2"/>
+    <text x="990" y="160" text-anchor="middle">★ Cave Abode</text>
+
+    <rect x="1050" y="140" width="100" height="30" rx="4" fill="#fef3c7" stroke="#d97757" stroke-width="2"/>
+    <text x="1100" y="160" text-anchor="middle">★ Tribulation</text>
+
+    <rect x="60" y="180" width="100" height="30" rx="4" fill="#fff7e6"/>
+    <text x="110" y="200" text-anchor="middle">Crafting</text>
+
+    <rect x="170" y="180" width="100" height="30" rx="4" fill="#fff7e6"/>
+    <text x="220" y="200" text-anchor="middle">Trade</text>
+
+    <rect x="280" y="180" width="100" height="30" rx="4" fill="#fef3c7" stroke="#d97757" stroke-width="2"/>
+    <text x="330" y="200" text-anchor="middle">★ Secret Realm</text>
+
+    <rect x="390" y="180" width="100" height="30" rx="4" fill="#fff7e6"/>
+    <text x="440" y="200" text-anchor="middle">Handbook</text>
+  </g>
+
+  <text x="1140" y="200" text-anchor="end" font-size="10" fill="#0a0f0a" font-style="italic">★ = feature mới</text>
+
+  <!-- Arrow down to State -->
+  <line x1="600" y1="220" x2="600" y2="260" stroke="#cda45e" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="615" y="245" font-size="11" fill="#cda45e">đọc/dispatch</text>
+
+  <!-- LAYER 2: STATE -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="265" width="1120" height="100" rx="12" fill="url(#stateGrad)" opacity="0.95"/>
+  </g>
+  <text x="60" y="290" font-size="14" fill="#0a0f0a" font-weight="bold" letter-spacing="2">STATE (Zustand store + slices)</text>
+
+  <g font-size="11" fill="#0a0f0a">
+    <rect x="60" y="305" width="120" height="40" rx="4" fill="#e8f0e6"/>
+    <text x="120" y="325" text-anchor="middle" font-weight="bold">player</text>
+    <text x="120" y="338" text-anchor="middle" font-size="9">char, stats, equip</text>
+
+    <rect x="195" y="305" width="120" height="40" rx="4" fill="#e8f0e6"/>
+    <text x="255" y="325" text-anchor="middle" font-weight="bold">world</text>
+    <text x="255" y="338" text-anchor="middle" font-size="9">location, time</text>
+
+    <rect x="330" y="305" width="120" height="40" rx="4" fill="#e8f0e6"/>
+    <text x="390" y="325" text-anchor="middle" font-weight="bold">knowledge</text>
+    <text x="390" y="338" text-anchor="middle" font-size="9">NPC, lore, realm</text>
+
+    <rect x="465" y="305" width="120" height="40" rx="4" fill="#e8f0e6"/>
+    <text x="525" y="325" text-anchor="middle" font-weight="bold">combat</text>
+    <text x="525" y="338" text-anchor="middle" font-size="9">turn order, log</text>
+
+    <rect x="600" y="305" width="120" height="40" rx="4" fill="#e8f0e6"/>
+    <text x="660" y="325" text-anchor="middle" font-weight="bold">inventory</text>
+    <text x="660" y="338" text-anchor="middle" font-size="9">items, weight</text>
+
+    <rect x="735" y="305" width="120" height="40" rx="4" fill="#e8f0e6"/>
+    <text x="795" y="325" text-anchor="middle" font-weight="bold">settings</text>
+    <text x="795" y="338" text-anchor="middle" font-size="9">UI, NSFW, diff</text>
+
+    <rect x="870" y="305" width="120" height="40" rx="4" fill="#fef3c7" stroke="#d97757" stroke-width="2"/>
+    <text x="930" y="325" text-anchor="middle" font-weight="bold">★ society</text>
+    <text x="930" y="338" text-anchor="middle" font-size="9">sect, vendetta</text>
+
+    <rect x="1005" y="305" width="140" height="40" rx="4" fill="#fef3c7" stroke="#d97757" stroke-width="2"/>
+    <text x="1075" y="325" text-anchor="middle" font-weight="bold">★ cultivation</text>
+    <text x="1075" y="338" text-anchor="middle" font-size="9">linh căn, tâm cảnh</text>
+  </g>
+
+  <!-- Arrows down to Core and Services -->
+  <line x1="350" y1="365" x2="350" y2="410" stroke="#8ba888" stroke-width="2" marker-end="url(#arrowDown)"/>
+  <line x1="850" y1="365" x2="850" y2="410" stroke="#8ba888" stroke-width="2" marker-end="url(#arrowDown)"/>
+
+  <!-- LAYER 3a: CORE -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="415" width="600" height="220" rx="12" fill="url(#coreGrad)" opacity="0.95"/>
+  </g>
+  <text x="60" y="440" font-size="14" fill="#fff" font-weight="bold" letter-spacing="2">CORE (logic thuần — không React, testable)</text>
+
+  <g font-size="11" fill="#0a0f0a">
+    <rect x="60" y="455" width="170" height="55" rx="4" fill="#fef3c7"/>
+    <text x="145" y="473" text-anchor="middle" font-weight="bold">stats</text>
+    <text x="145" y="488" text-anchor="middle" font-size="9">calculate · leveling</text>
+    <text x="145" y="500" text-anchor="middle" font-size="9">realms · allocation</text>
+
+    <rect x="240" y="455" width="170" height="55" rx="4" fill="#fef3c7"/>
+    <text x="325" y="473" text-anchor="middle" font-weight="bold">combat</text>
+    <text x="325" y="488" text-anchor="middle" font-size="9">damage · status · turn</text>
+    <text x="325" y="500" text-anchor="middle" font-size="9">ai-action · log</text>
+
+    <rect x="420" y="455" width="200" height="55" rx="4" fill="#fef3c7"/>
+    <text x="520" y="473" text-anchor="middle" font-weight="bold">items</text>
+    <text x="520" y="488" text-anchor="middle" font-size="9">rarity · budget</text>
+    <text x="520" y="500" text-anchor="middle" font-size="9">crafting · pricing</text>
+
+    <rect x="60" y="520" width="170" height="55" rx="4" fill="#fde68a" stroke="#d97757" stroke-width="2"/>
+    <text x="145" y="538" text-anchor="middle" font-weight="bold">★ cultivation</text>
+    <text x="145" y="553" text-anchor="middle" font-size="9">linh căn · công pháp</text>
+    <text x="145" y="565" text-anchor="middle" font-size="9">độ kiếp · tâm cảnh</text>
+
+    <rect x="240" y="520" width="170" height="55" rx="4" fill="#fde68a" stroke="#d97757" stroke-width="2"/>
+    <text x="325" y="538" text-anchor="middle" font-weight="bold">★ world</text>
+    <text x="325" y="553" text-anchor="middle" font-size="9">map · locations</text>
+    <text x="325" y="565" text-anchor="middle" font-size="9">bí cảnh · time</text>
+
+    <rect x="420" y="520" width="200" height="55" rx="4" fill="#fde68a" stroke="#d97757" stroke-width="2"/>
+    <text x="520" y="538" text-anchor="middle" font-weight="bold">★ society</text>
+    <text x="520" y="553" text-anchor="middle" font-size="9">sects · relationships</text>
+    <text x="520" y="565" text-anchor="middle" font-size="9">reputation · vendetta</text>
+
+    <rect x="60" y="585" width="560" height="35" rx="4" fill="#fff" opacity="0.9"/>
+    <text x="340" y="606" text-anchor="middle" font-weight="bold" fill="#0a0f0a">types/ — TypeScript interfaces (single source of truth)</text>
+  </g>
+
+  <!-- LAYER 3b: SERVICES -->
+  <g filter="url(#shadow)">
+    <rect x="660" y="415" width="500" height="220" rx="12" fill="url(#serviceGrad)" opacity="0.95"/>
+  </g>
+  <text x="680" y="440" font-size="14" fill="#fff" font-weight="bold" letter-spacing="2">SERVICES (I/O với hệ thống ngoài)</text>
+
+  <g font-size="11" fill="#0a0f0a">
+    <rect x="680" y="455" width="220" height="55" rx="4" fill="#dbeafe"/>
+    <text x="790" y="473" text-anchor="middle" font-weight="bold">firestore.ts</text>
+    <text x="790" y="488" text-anchor="middle" font-size="9">save/load game state</text>
+    <text x="790" y="500" text-anchor="middle" font-size="9">multi-device sync</text>
+
+    <rect x="910" y="455" width="220" height="55" rx="4" fill="#dbeafe"/>
+    <text x="1020" y="473" text-anchor="middle" font-weight="bold">indexed-db.ts</text>
+    <text x="1020" y="488" text-anchor="middle" font-size="9">avatar cache layer</text>
+    <text x="1020" y="500" text-anchor="middle" font-size="9">offline-first</text>
+
+    <rect x="680" y="520" width="220" height="55" rx="4" fill="#dbeafe"/>
+    <text x="790" y="538" text-anchor="middle" font-weight="bold">image-gen.ts</text>
+    <text x="790" y="553" text-anchor="middle" font-size="9">Imagen 4 wrapper</text>
+    <text x="790" y="565" text-anchor="middle" font-size="9">cache theo prompt hash</text>
+
+    <rect x="910" y="520" width="220" height="55" rx="4" fill="#dbeafe" stroke="#d97757" stroke-width="2"/>
+    <text x="1020" y="538" text-anchor="middle" font-weight="bold">★ cloud-storage.ts</text>
+    <text x="1020" y="553" text-anchor="middle" font-size="9">avatar/lore lớn</text>
+    <text x="1020" y="565" text-anchor="middle" font-size="9">giảm size save</text>
+
+    <rect x="680" y="585" width="450" height="35" rx="4" fill="#fff" opacity="0.9"/>
+    <text x="905" y="606" text-anchor="middle" font-weight="bold" fill="#0a0f0a">firebase.ts — auth + init</text>
+  </g>
+
+  <!-- Arrows down to AI -->
+  <line x1="340" y1="635" x2="340" y2="685" stroke="#7c3aed" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="900" y1="635" x2="900" y2="685" stroke="#7c3aed" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- LAYER 4: AI -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="690" width="1120" height="160" rx="12" fill="url(#aiGrad)" opacity="0.95"/>
+  </g>
+  <text x="60" y="715" font-size="14" fill="#fff" font-weight="bold" letter-spacing="2">AI LAYER (Gemini 3 Flash + Imagen 4)</text>
+
+  <g font-size="11" fill="#0a0f0a">
+    <rect x="60" y="730" width="180" height="100" rx="4" fill="#ede9fe"/>
+    <text x="150" y="750" text-anchor="middle" font-weight="bold">client.ts</text>
+    <text x="150" y="767" text-anchor="middle" font-size="9">callGemini(prompt, schema)</text>
+    <text x="150" y="781" text-anchor="middle" font-size="9">SINGLE source</text>
+    <text x="150" y="795" text-anchor="middle" font-size="9">retry · backoff</text>
+    <text x="150" y="811" text-anchor="middle" font-size="9" fill="#7c3aed">► thay 10+ chỗ duplicate</text>
+
+    <rect x="260" y="730" width="180" height="100" rx="4" fill="#ede9fe"/>
+    <text x="350" y="750" text-anchor="middle" font-weight="bold">parser.ts</text>
+    <text x="350" y="767" text-anchor="middle" font-size="9">parseStoryWithDialogue</text>
+    <text x="350" y="781" text-anchor="middle" font-size="9">parse [REALM_LIST]</text>
+    <text x="350" y="795" text-anchor="middle" font-size="9">parse [QUEST_GIVEN]</text>
+    <text x="350" y="811" text-anchor="middle" font-size="9">parse [STAT_CHANGE]</text>
+
+    <rect x="460" y="730" width="180" height="100" rx="4" fill="#ede9fe"/>
+    <text x="550" y="750" text-anchor="middle" font-weight="bold">schemas.ts (Zod)</text>
+    <text x="550" y="767" text-anchor="middle" font-size="9">ItemSchema</text>
+    <text x="550" y="781" text-anchor="middle" font-size="9">NpcSchema</text>
+    <text x="550" y="795" text-anchor="middle" font-size="9">QuestSchema</text>
+    <text x="550" y="811" text-anchor="middle" font-size="9" fill="#7c3aed">► chống prompt injection</text>
+
+    <rect x="660" y="730" width="240" height="100" rx="4" fill="#ede9fe"/>
+    <text x="780" y="750" text-anchor="middle" font-weight="bold">prompts/</text>
+    <text x="780" y="767" text-anchor="middle" font-size="9">narrative · character-gen</text>
+    <text x="780" y="781" text-anchor="middle" font-size="9">item-gen · quest-gen</text>
+    <text x="780" y="795" text-anchor="middle" font-size="9">world-gen · tribulation</text>
+    <text x="780" y="811" text-anchor="middle" font-size="9">_shared/balancing-rules</text>
+
+    <rect x="920" y="730" width="220" height="100" rx="4" fill="#fef3c7" stroke="#d97757" stroke-width="2"/>
+    <text x="1030" y="750" text-anchor="middle" font-weight="bold">★ Cloud Functions Proxy</text>
+    <text x="1030" y="767" text-anchor="middle" font-size="9">(Khuyến nghị mạnh)</text>
+    <text x="1030" y="785" text-anchor="middle" font-size="9">- Ẩn API key</text>
+    <text x="1030" y="799" text-anchor="middle" font-size="9">- Rate limit per user</text>
+    <text x="1030" y="813" text-anchor="middle" font-size="9">- Centralized logging</text>
+  </g>
+
+  <!-- Footer note -->
+  <text x="600" y="870" text-anchor="middle" font-size="11" fill="#cda45e" font-style="italic">
+    Quy tắc: dòng dữ liệu chảy từ trên xuống. Core không biết React. AI không biết Firebase. Mỗi tầng chỉ giao tiếp với tầng kề.
+  </text>
+</svg>

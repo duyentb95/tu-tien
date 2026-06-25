@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tu Tiên RPG — Roadmap 6 Phase</title>
+<style>
+  :root {
+    --bg-deep: #0a0f0a;
+    --bg-mid: #162216;
+    --bg-card: #1a2519;
+    --gold: #cda45e;
+    --gold-soft: #e8d3a1;
+    --jade: #8ba888;
+    --red: #d97757;
+    --purple: #a78bfa;
+    --blue: #60a5fa;
+    --text: #e8d3a1;
+    --text-mute: #8ba888;
+    --border: rgba(205, 164, 94, 0.25);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Serif', 'Times New Roman', Georgia, serif;
+    background: linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-mid) 100%);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 40px 20px;
+    line-height: 1.6;
+  }
+
+  .container {
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 50px;
+    padding-bottom: 30px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h1 {
+    font-size: 2.4rem;
+    color: var(--gold);
+    margin-bottom: 12px;
+    letter-spacing: 2px;
+    text-shadow: 0 0 20px rgba(205, 164, 94, 0.3);
+  }
+
+  .subtitle {
+    color: var(--jade);
+    font-style: italic;
+    font-size: 1.05rem;
+  }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin: 30px 0;
+  }
+
+  .stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .stat-card .value {
+    font-size: 1.8rem;
+    color: var(--gold);
+    font-weight: bold;
+  }
+
+  .stat-card .label {
+    font-size: 0.85rem;
+    color: var(--text-mute);
+    margin-top: 4px;
+  }
+
+  .timeline {
+    position: relative;
+    padding-left: 60px;
+    margin-top: 40px;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 24px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, var(--gold) 0%, var(--jade) 50%, var(--purple) 100%);
+  }
+
+  .phase {
+    position: relative;
+    margin-bottom: 24px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .phase:hover {
+    border-color: var(--gold);
+    transform: translateX(4px);
+    box-shadow: -4px 4px 24px rgba(205, 164, 94, 0.15);
+  }
+
+  .phase.active {
+    border-color: var(--gold);
+    background: linear-gradient(135deg, var(--bg-card) 0%, rgba(205, 164, 94, 0.08) 100%);
+  }
+
+  .phase::before {
+    content: attr(data-phase);
+    position: absolute;
+    left: -52px;
+    top: 18px;
+    width: 36px;
+    height: 36px;
+    background: var(--bg-deep);
+    border: 2px solid var(--gold);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--gold);
+    font-weight: bold;
+    font-size: 0.95rem;
+  }
+
+  .phase-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .phase-title {
+    font-size: 1.3rem;
+    color: var(--gold);
+  }
+
+  .phase-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 0.85rem;
+    color: var(--text-mute);
+  }
+
+  .meta-tag {
+    background: rgba(205, 164, 94, 0.1);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 12px;
+  }
+
+  .phase-summary {
+    margin-top: 10px;
+    color: var(--text);
+    font-size: 0.95rem;
+  }
+
+  .phase-detail {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease;
+  }
+
+  .phase.active .phase-detail {
+    max-height: 2000px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .deliverable {
+    background: rgba(139, 168, 136, 0.08);
+    border-left: 3px solid var(--jade);
+    padding: 10px 14px;
+    margin: 12px 0;
+    border-radius: 4px;
+  }
+
+  .deliverable strong {
+    color: var(--jade);
+  }
+
+  .task-list {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .task-list li {
+    padding: 6px 0 6px 24px;
+    position: relative;
+    font-size: 0.92rem;
+    color: var(--text);
+  }
+
+  .task-list li::before {
+    content: '◆';
+    position: absolute;
+    left: 4px;
+    color: var(--gold);
+  }
+
+  .task-list .new::before {
+    content: '★';
+    color: var(--red);
+  }
+
+  .arrow-icon {
+    color: var(--gold);
+    transition: transform 0.3s;
+    font-size: 1.2rem;
+  }
+
+  .phase.active .arrow-icon {
+    transform: rotate(180deg);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 0.88rem;
+  }
+
+  th, td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    color: var(--gold);
+    font-weight: normal;
+    background: rgba(205, 164, 94, 0.05);
+  }
+
+  .legend {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 24px 0;
+    font-size: 0.9rem;
+    color: var(--text-mute);
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+
+  footer {
+    text-align: center;
+    margin-top: 60px;
+    padding-top: 30px;
+    border-top: 1px solid var(--border);
+    color: var(--text-mute);
+    font-size: 0.9rem;
+    font-style: italic;
+  }
+
+  .progress-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(205, 164, 94, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 12px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold) 0%, var(--jade) 100%);
+    transition: width 0.6s ease;
+  }
+
+  @media (max-width: 720px) {
+    .timeline { padding-left: 40px; }
+    .phase::before { left: -40px; width: 28px; height: 28px; font-size: 0.8rem; top: 22px;}
+    h1 { font-size: 1.6rem; }
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Tu Tiên RPG — Lộ Trình 6 Phase</h1>
+      <p class="subtitle">Từ prototype đơn file 1.3MB đến game tu tiên thế giới mở v1.0</p>
+    </header>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="value">22</div>
+        <div class="label">Tuần (1 dev full-time)</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">6</div>
+        <div class="label">Phase chính</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">9</div>
+        <div class="label">Hệ thống mới (★)</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">15</div>
+        <div class="label">UI Features</div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><span class="legend-dot" style="background: var(--gold)"></span> Refactor &amp; Foundation</div>
+      <div class="legend-item"><span class="legend-dot" style="background: var(--jade)"></span> Core Mechanics</div>
+      <div class="legend-item"><span class="legend-dot" style="background: var(--red)"></span> Tính năng mới (★)</div>
+      <div class="legend-item"><span class="legend-dot" style="background: var(--purple)"></span> Polish &amp; Launch</div>
+    </div>
+
+    <div class="timeline">
+
+      <!-- PHASE 0 -->
+      <div class="phase" data-phase="0">
+        <div class="phase-header">
+          <div>
+            <div class="phase-title">Setup Nền Tảng</div>
+            <div class="phase-summary">Khởi tạo Vite + React + TypeScript, ESLint, Vitest, Firebase env, CI baseline.</div>
+          </div>
+          <div class="phase-meta">
+            <span class="meta-tag">Tuần 1</span>
+            <span class="meta-tag">Foundation</span>
+            <span class="arrow-icon">▾</span>
+          </div>
+        </div>
+        <div class="phase-detail">
+          <ul class="task-list">
+            <li>Khởi tạo Vite + React 18 + TypeScript thay cho Google Canvas</li>
+            <li>Cấu hình ESLint, Prettier, Vitest, Playwright, Tailwind</li>
+            <li>Kết nối Firebase project, tách env keys (không commit)</li>
+            <li>GitHub Actions CI: lint + test + build trên mỗi PR</li>
+            <li>Setup Zustand store empty + Firebase auth flow</li>
+          </ul>
+          <div class="deliverable">
+            <strong>Deliverable:</strong> Repo chạy <code>npm run dev</code>, có route Hello World, CI xanh.
+          </div>
+          <div class="progress-bar"><div class="progress-fill" style="width: 5%"></div></div>
+        </div>
+      </div>
+
+      <!-- PHASE 1 -->
+      <div class="phase" data-phase="1">
+        <div class="phase-header">
+          <div>
+            <div class="phase-title">Refactor Extraction</div>
+            <div class="phase-summary">Tách <code>PREVIEW.md</code> 1.3MB thành các module modular. Feature parity 100%, không thêm tính năng mới.</div>
+          </div>
+          <div class="phase-meta">
+            <span class="meta-tag">Tuần 2–5</span>
+            <span class="meta-tag">Refactor</span>
+            <span class="arrow-icon">▾</span>
+          </div>
+        </div>
+        <div class="phase-detail">
+          <table>
+            <thead>
+              <tr><th>Tuần</th><th>Việc</th><th>Output</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>2</td><td>core/stats, core/items, data/*</td><td>Functions có unit test ≥ 70%</td></tr>
+              <tr><td>2</td><td>ai/client.ts + retry + narrative prompt</td><td>1 chỗ duy nhất gọi Gemini</td></tr>
+              <tr><td>3</td><td>state/slices/player + persist Firestore</td><td>Save/load qua store</td></tr>
+              <tr><td>3</td><td>features/initial-screen, game-setup</td><td>Flow tạo nhân vật chạy</td></tr>
+              <tr><td>4</td><td>features/gameplay (story + dialogue)</td><td>AI kể chuyện hoạt động</td></tr>
+              <tr><td>4</td><td>features/inventory, character-sheet</td><td>Trang bị/tháo item OK</td></tr>
+              <tr><td>5</td><td>features/combat-arena, core/combat</td><td>Combat ngang prototype</td></tr>
+              <tr><td>5</td><td>features/crafting, trade</td><td>Feature parity 100%</td></tr>
+            </tbody>
+          </table>
+          <div class="deliverable">
+            <strong>Deliverable:</strong> Web app modular, đúng feature prototype, có test, có CI. Snapshot tests pass.
+          </div>
+          <div class="progress-bar"><div class="progress-fill" style="width: 25%"></div></div>
+        </div>
+      </div>
+
+      <!-- PHASE 2 -->
+      <div class="phase" data-phase="2">
+        <div class="phase-header">
+          <div>
+            <div class="phase-title">Hệ Thống Tu Luyện Chiều Sâu</div>
+            <div class="phase-summary">Linh căn, công pháp, độ kiếp, tâm cảnh — biến text-adventure AI thành game tu tiên thực sự.</div>
+          </div>
+          <div class="phase-meta">
+            <span class="meta-tag">Tuần 6–8</span>
+            <span class="meta-tag">★ Mechanics</span>
+            <span class="arrow-icon">▾</span>
+          </div>
+        </div>
+        <div class="phase-detail">
+          <ul class="task-list">
+            <li class="new">Linh Căn (Spiritual Roots): Đơn → Ngũ + Dị linh căn (Lôi/Phong/Băng/Quang/Ám)</li>
+            <li class="new">Công pháp chính: Hoàng → Huyền → Địa → Thiên → Tiên → Thần phẩm</li>
+            <li class="new">Hệ số tu luyện: linh căn × công pháp × thiên thời địa lợi</li>
+            <li class="new">Độ Kiếp: 9 đạo lôi, fail nhẹ → trọng thương, fail nặng → tẩu hỏa nhập ma, fail thảm → tử</li>
+            <li class="new">Tâm cảnh: ngộ đạo, moral choice, kinh sách → tăng tỉ lệ thành công độ kiếp</li>
+            <li class="new">Cutscene độ kiếp: Imagen tạo background lôi kiếp + animation HP drop</li>
+            <li>Tu luyện kín thất: chọn 1–365 ngày, fast-forward, AI summarize sự kiện</li>
+          </ul>
+          <div class="deliverable">
+            <strong>Deliverable:</strong> Player đột phá Trúc Cơ với cutscene độ kiếp đầy đủ.
+          </div>
+          <div class="progress-bar"><div class="progress-fill" style="width: 40%"></div></div>
+        </div>
+      </div>
+
+      <!-- PHASE 3 -->
+      <div class="phase" data-phase="3">
+        <div class="phase-header">
+          <div>
+            <div class="phase-title">Bản Đồ Thế Giới Mở</div>
+            <div class="phase-summary">Chuyển từ "AI kể địa điểm" sang "thế giới có cấu trúc" với map UI, fog of war, bí cảnh.</div>
+          </div>
+          <div class="phase-meta">
+            <span class="meta-tag">Tuần 9–11</span>
+            <span class="meta-tag">★ World</span>
+            <span class="arrow-icon">▾</span>
+          </div>
+        </div>
+        <div class="phase-detail">
+          <ul class="task-list">
+            <li class="new">World map data model: graph node (location) + edge (đường đi có cost)</li>
+            <li class="new">Map UI Canvas (react-konva): zoom, pan, click fast-travel</li>
+            <li class="new">Fog of war: chỉ hiện location đã đến hoặc đã nghe</li>
+            <li class="new">Layer overlay: phe phái kiểm soát, tài nguyên đặc trưng</li>
+            <li class="new">Bí cảnh (Secret Realms): instance dungeon timed, AI sinh sơ đồ phòng + boss + loot</li>
+            <li class="new">Thời gian + thời tiết ảnh hưởng tu luyện và combat</li>
+            <li class="new">Random encounter trên đường di chuyển (theo level range vùng đất)</li>
+          </ul>
+          <div class="deliverable">
+            <strong>Deliverable:</strong> Click bản đồ để di chuyển, vào được ít nhất 1 bí cảnh hoàn chỉnh.
+          </div>
+          <div class="progress-bar"><div class="progress-fill" style="width: 55%"></div></div>
+        </div>
+      </div>
+
+      <!-- PHASE 4 -->
+      <div class="phase" data-phase="4">
+        <div class="phase-header">
+          <div>
+            <div class="phase-title">Combat &amp; Kỹ Năng Nâng Cao</div>
+            <div class="phase-summary">Pháp bảo, trận pháp, linh thú, combat 4-way, cảnh giới gap penalty.</div>
+          </div>
+          <div class="phase-meta">
+            <span class="meta-tag">Tuần 12–14</span>
+            <span class="meta-tag">★ Combat</span>
+            <span class="arrow-icon">▾</span>
+          </div>
+        </div>
+        <div class="phase-detail">
+          <ul class="task-list">
+            <li class="new">Pháp bảo: phẩm cấp Phàm → Linh → Pháp → Bảo → Tiên khí, có pháp bảo level riêng</li>
+            <li class="new">Ngự kiếm phi hành: phi kiếm cho ranged attack, bay trên world map</li>
+            <li class="new">Trận pháp: deploy formation flag → buff/debuff toàn đội</li>
+            <li class="new">Mê trận thám hiểm: puzzle trong bí cảnh phải giải</li>
+            <li class="new">Linh thú: thu phục khi HP &lt; 20%, level riêng, ăn linh thạch để tiến hóa</li>
+            <li class="new">Combat 4-way: phe thứ 3 (tà phái), phe thứ 4 (thiên tai)</li>
+            <li class="new">Cảnh giới gap penalty: chênh ≥ 1 đại cảnh giới → damage ×0.1, taken ×5</li>
+          </ul>
+          <div class="deliverable">
+            <strong>Deliverable:</strong> Combat tu tiên có chiều sâu rõ rệt, pháp bảo + trận pháp + linh thú đồng hành.
+          </div>
+          <div class="progress-bar"><div class="progress-fill" style="width: 70%"></div></div>
+        </div>
+      </div>
+
+      <!-- PHASE 5 -->
+      <div class="phase" data-phase="5">
+        <div class="phase-header">
+          <div>
+            <div class="phase-title">Hệ Thống Xã Hội</div>
+            <div class="phase-summary">Tông môn, đạo lữ, cừu hận, danh vọng, động phủ — thế giới có "linh hồn", NPC có agenda.</div>
+          </div>
+          <div class="phase-meta">
+            <span class="meta-tag">Tuần 15–17</span>
+            <span class="meta-tag">★ Society</span>
+            <span class="arrow-icon">▾</span>
+          </div>
+        </div>
+        <div class="phase-detail">
+          <ul class="task-list">
+            <li class="new">Tông môn: thi vào / tiến cử / cứu trưởng lão. Bậc: ngoại môn → nội môn → chân truyền → trưởng lão → tông chủ</li>
+            <li class="new">Cống hiến điểm: từ nhiệm vụ tông môn, đổi linh thạch / công pháp / đan dược tàng kinh các</li>
+            <li class="new">Nội môn đại hội: tournament định kỳ, top 10 vào tàng kinh các</li>
+            <li class="new">Phản môn: penalty nặng (truy sát + danh vọng -1000)</li>
+            <li class="new">Đạo lữ: affinity ≥ 80 + prerequisites → unlock song tu (tăng tốc tu luyện cộng hưởng)</li>
+            <li class="new">Cừu hận: NPC chết / nhục mạ → sư huynh đệ / sư phụ / con cái spawn truy sát</li>
+            <li class="new">Danh vọng theo phe: tông môn, quốc gia, ma đạo, chính đạo (xung đột nhau)</li>
+            <li class="new">Động phủ: mua đất, xây phòng (luyện đan thất, dược viên), trồng linh thảo</li>
+            <li class="new">Trận pháp phòng ngự động phủ: chống NPC tập kích vắng mặt</li>
+          </ul>
+          <div class="deliverable">
+            <strong>Deliverable:</strong> Player gia nhập tông môn, kết đạo lữ, sở hữu động phủ với linh thảo trồng được.
+          </div>
+          <div class="progress-bar"><div class="progress-fill" style="width: 85%"></div></div>
+        </div>
+      </div>
+
+      <!-- PHASE 6 -->
+      <div class="phase" data-phase="6">
+        <div class="phase-header">
+          <div>
+            <div class="phase-title">Polish, Balance &amp; Launch</div>
+            <div class="phase-summary">Playtest 50h, tinh chỉnh cân bằng, onboarding, performance, accessibility, mobile, launch v1.0.</div>
+          </div>
+          <div class="phase-meta">
+            <span class="meta-tag">Tuần 18–22</span>
+            <span class="meta-tag">Launch</span>
+            <span class="arrow-icon">▾</span>
+          </div>
+        </div>
+        <div class="phase-detail">
+          <ul class="task-list">
+            <li>Balance pass: heatmap "chỗ player chết", tinh chỉnh damage, độ kiếp, economy</li>
+            <li>Onboarding: 3 quest đầu tutorial, tooltip theo bối cảnh, mở rộng Handbook</li>
+            <li>Performance: code-split feature, memoize selector, avatar lên Cloud Storage</li>
+            <li>Mobile: gesture swipe tab, action wheel combat, layout 1 cột</li>
+            <li>Accessibility: contrast AA, keyboard nav combat (1–9 skill, Enter), screen reader story</li>
+            <li>Launch checklist: Privacy/TOS (đặc biệt NSFW), rate limit Gemini, save export/import</li>
+            <li>Community: Discord, Facebook, hệ thống bug report trong game</li>
+          </ul>
+          <div class="deliverable">
+            <strong>Deliverable:</strong> v1.0 public release. Day-1 retention ≥ 35%, AI cost / DAU ≤ $0.10, crash rate ≤ 0.5%.
+          </div>
+          <div class="progress-bar"><div class="progress-fill" style="width: 100%"></div></div>
+        </div>
+      </div>
+
+    </div>
+
+    <footer>
+      <p>Đọc thêm: <strong>BUILD_PLAN.md</strong> (tổng quan) · <strong>ARCHITECTURE.md</strong> (chi tiết module) · <strong>architecture-diagram.svg</strong> (sơ đồ kiến trúc)</p>
+      <p style="margin-top: 8px;">Kiến tạo từ phân tích PREVIEW.md — Game tu tiên nhập vai dựa theo tiểu thuyết thế giới mở</p>
+    </footer>
+  </div>
+
+<script>
+  // Toggle phase detail
+  document.querySelectorAll('.phase').forEach(phase => {
+    phase.addEventListener('click', (e) => {
+      // Don't toggle if clicking inside detail section's interactive elements
+      if (e.target.closest('.phase-detail') && e.target.tagName !== 'A') return;
+      phase.classList.toggle('active');
+    });
+  });
+
+  // Auto-open phase 0 on load
+  document.querySelector('.phase[data-phase="0"]').classList.add('active');
+</script>
+</body>
+</html>

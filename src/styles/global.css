@@ -1,0 +1,286 @@
+@import './tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ──────────────────────────────────────────────────────────────
+   BASE LAYER
+   ────────────────────────────────────────────────────────────── */
+@layer base {
+  html, body, #root {
+    height: 100%;
+    background-color: var(--ink-900);
+    color: var(--gold-200);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background:
+      radial-gradient(1200px 700px at 78% -8%, rgba(205, 164, 94, 0.07), transparent 60%),
+      linear-gradient(176deg, #0a0f0a 0%, #0d140d 55%, #0a0f0a 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  ::selection {
+    background-color: rgba(205, 164, 94, 0.35);
+    color: var(--gold-50);
+  }
+
+  /* Scrollbar — gold mảnh, hover sáng hơn */
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-track { background: var(--ink-900); }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(205, 164, 94, 0.22);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(205, 164, 94, 0.4); }
+
+  /* Heading: Noto Serif gold */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-serif);
+    color: var(--gold-200);
+    letter-spacing: 0.01em;
+  }
+
+  code, pre, .mono { font-family: var(--font-mono); }
+
+  *:focus-visible {
+    outline: 2px solid var(--gold-500);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   COMPONENT LAYER — primitive tu tiên có thể dùng lại
+   ────────────────────────────────────────────────────────────── */
+@layer components {
+
+  /* Panel với 4 corner brackets — motif chủ đạo design v2 */
+  .panel-bracket {
+    position: relative;
+    border: 1px solid var(--border-gold-subtle);
+    background: var(--ink-700);
+    border-radius: var(--radius-md);
+  }
+  .panel-bracket::before,
+  .panel-bracket::after {
+    content: '';
+    position: absolute;
+    width: 17px;
+    height: 17px;
+    pointer-events: none;
+    z-index: 3;
+  }
+  .panel-bracket::before {
+    top: 7px; left: 7px;
+    border-top: 2px solid var(--gold-500);
+    border-left: 2px solid var(--gold-500);
+  }
+  .panel-bracket::after {
+    bottom: 7px; right: 7px;
+    border-bottom: 2px solid var(--gold-500);
+    border-right: 2px solid var(--gold-500);
+  }
+
+  /* Khi cần đủ 4 góc — dùng kèm <span class="bracket-corner tl/tr/bl/br"></span> */
+  .bracket-corner {
+    position: absolute;
+    width: 17px;
+    height: 17px;
+    pointer-events: none;
+    z-index: 3;
+  }
+  .bracket-corner.tl { top: 7px; left: 7px; border-top: 2px solid var(--gold-500); border-left: 2px solid var(--gold-500); }
+  .bracket-corner.tr { top: 7px; right: 7px; border-top: 2px solid var(--gold-500); border-right: 2px solid var(--gold-500); }
+  .bracket-corner.bl { bottom: 7px; left: 7px; border-bottom: 2px solid var(--gold-500); border-left: 2px solid var(--gold-500); }
+  .bracket-corner.br { bottom: 7px; right: 7px; border-bottom: 2px solid var(--gold-500); border-right: 2px solid var(--gold-500); }
+
+  /* Panel chuẩn (không bracket) */
+  .panel-gold {
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-gold-subtle);
+    background: var(--ink-700);
+  }
+  .panel-jade {
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-jade-subtle);
+    background: var(--ink-700);
+  }
+  .panel-spirit {
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-spirit-subtle);
+    background: linear-gradient(180deg, rgba(167, 139, 250, 0.07), transparent);
+  }
+
+  /* CTA chính — gold gradient, kim chữ in đậm */
+  .btn-primary {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    color: var(--ink-900);
+    background: linear-gradient(180deg, var(--gold-200), var(--gold-500));
+    border: none;
+    padding: 13px 18px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: filter 0.2s ease, transform 0.2s ease;
+  }
+  .btn-primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+  }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* CTA phụ — viền gold mảnh */
+  .btn-secondary {
+    font-family: var(--font-serif);
+    color: var(--gold-500);
+    background: transparent;
+    border: 1px solid rgba(205, 164, 94, 0.2);
+    padding: 11px 18px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .btn-secondary:hover:not(:disabled) {
+    border-color: var(--gold-500);
+    background: rgba(205, 164, 94, 0.06);
+  }
+
+  /* Jade button — cho action thứ yếu (back, info) */
+  .btn-jade {
+    font-family: var(--font-serif);
+    color: var(--jade-300);
+    background: transparent;
+    border: 1px solid rgba(205, 164, 94, 0.2);
+    padding: 11px 18px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .btn-jade:hover:not(:disabled) {
+    color: var(--jade-200);
+    border-color: rgba(139, 168, 136, 0.5);
+  }
+
+  .btn-ghost {
+    color: var(--gold-300);
+    background: transparent;
+    border: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: color 0.2s, background 0.2s;
+    border-radius: var(--radius-sm);
+  }
+  .btn-ghost:hover { color: var(--gold-100); background: rgba(28, 24, 18, 0.5); }
+
+  /* Text effects */
+  .text-celestial {
+    background: linear-gradient(135deg, var(--gold-100) 0%, var(--gold-500) 50%, var(--gold-700) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  /* Section label — chữ in hoa nhỏ, letter-spacing rộng, jade */
+  .label-section {
+    font-size: 10.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--jade-500);
+  }
+  .label-section-gold {
+    font-family: var(--font-serif);
+    font-size: 13px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gold-500);
+  }
+
+  /* Divider */
+  .divider-gold {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold-500), transparent);
+    box-shadow: 0 0 6px rgba(205, 164, 94, 0.4);
+  }
+
+  /* Stat row — dùng trong character sheet */
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+  }
+  .stat-row > .stat-label { color: var(--gold-300); }
+  .stat-row > .stat-value {
+    font-family: var(--font-mono);
+    color: var(--gold-200);
+  }
+
+  /* Equipment slot card — viền màu theo rarity */
+  .slot {
+    border: 1px solid;
+    border-radius: 5px;
+    padding: 9px;
+    display: flex;
+    gap: 9px;
+    align-items: center;
+  }
+  .slot-empty {
+    border: 1px dashed rgba(205, 164, 94, 0.18);
+    border-radius: 5px;
+    padding: 9px;
+    display: flex;
+    gap: 9px;
+    align-items: center;
+    min-height: 48px;
+  }
+
+  /* Skill row */
+  .skill-row {
+    display: flex;
+    gap: 11px;
+    align-items: center;
+    border: 1px solid;
+    border-radius: 5px;
+    padding: 9px 11px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   UTILITIES
+   ────────────────────────────────────────────────────────────── */
+@layer utilities {
+  .text-rarity-common { color: var(--rarity-common); }
+  .text-rarity-good { color: var(--rarity-good); }
+  .text-rarity-rare { color: var(--rarity-rare); }
+  .text-rarity-epic { color: var(--rarity-epic); }
+  .text-rarity-mythic { color: var(--rarity-mythic); }
+  .text-rarity-legendary {
+    color: var(--rarity-legendary);
+    text-shadow: 0 0 8px rgba(224, 101, 78, 0.8);
+  }
+
+  /* Animation utilities */
+  .anim-rise      { animation: tt-rise 0.6s ease-out both; }
+  .anim-drift     { animation: tt-drift 3s ease-in-out infinite; }
+  .anim-pulse     { animation: tt-pulse 2.5s ease-in-out infinite; }
+  .anim-shimmer   { animation: tt-shimmer 2.6s linear infinite; }
+  .anim-spin-slow { animation: tt-spin 8s linear infinite; }
+
+  /* Combat motion (chỉ dùng trong CombatScreen / TribulationScreen) */
+  .anim-pop       { animation: m-pop 2.6s cubic-bezier(.34, 1.56, .64, 1) infinite; }
+  .anim-strike    { animation: m-strike 3.4s steps(1) infinite; }
+  .anim-bolt      { animation: m-bolt 3.4s ease-out infinite; transform-origin: top; }
+  .anim-ring      { animation: m-ring 2.2s ease-out infinite; }
+  .anim-core      { animation: m-core 2.6s ease-in-out infinite; }
+  .anim-bloom     { animation: m-bloom 2.6s ease-in-out infinite; }
+  .anim-glow      { animation: m-glow 2.4s ease-in-out infinite; }
+  .anim-sweep     { animation: m-sweepx 1.6s ease-in-out infinite; }
+}

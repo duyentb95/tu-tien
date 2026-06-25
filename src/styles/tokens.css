@@ -1,0 +1,219 @@
+/**
+ * DESIGN TOKENS — Mặc Hội Tiên Đồ (v2)
+ * ---------------------------------------------------------------
+ * Trích từ "Tu Tien Design System.dc.html" (user upload 2026-06-25).
+ * Mọi token đều có version CSS variable + Tailwind theme tương đương.
+ *
+ * Layout convention:
+ *   - Heading / cảnh giới / tên nhân vật → font Noto Serif
+ *   - Body / UI / button → font Be Vietnam Pro
+ *   - Numbers / stats / EXP → font JetBrains Mono
+ *
+ * Motif: corner brackets ┏ ┓ ┗ ┛ trên các panel quan trọng.
+ */
+:root {
+  /* ───── INK (DARK BASE) ───── */
+  --ink-900: #0a0f0a; /* deepest void — body */
+  --ink-800: #0d140d;
+  --ink-750: #0e160d; /* mới: panel inner gradient */
+  --ink-700: #10180f; /* mới: card surface chính */
+  --ink-650: #121b12; /* mới: portrait pattern */
+  --ink-600: #141e15;
+  --ink-500: #1c1812;
+  --ink-400: #2a2418;
+
+  /* ───── VOID (PURPLE-TINTED DARKS) ───── */
+  --void-900: #1a1422;
+  --void-800: #241b30;
+
+  /* ───── GOLD (KIM SẮC CHỦ ĐẠO) ───── */
+  --gold: #cda45e;
+  --gold-50: #f9efd6;
+  --gold-100: #efe0a0;
+  --gold-150: #f0bd72; /* mới: warm gold accent */
+  --gold-200: #e8d3a1;
+  --gold-300: #d9d3c2;
+  --gold-500: #cda45e;
+  --gold-700: #a8823f;
+
+  /* ───── JADE (LỤC SẮC) ───── */
+  --jade-200: #a9bba4;
+  --jade-300: #9fb09b;
+  --jade-400: #8ba888;
+  --jade-500: #7d9079;
+  --jade-600: #6f8a6d;
+  --jade-700: #5e7a5d;
+  --jade-800: #3e4f3c;
+
+  /* ───── EMBER (ANTHROPIC ORANGE — ACCENT) ───── */
+  --ember-200: #f0a98e;
+  --ember-500: #d97757;
+  --ember-700: #e0654e; /* mới: combat damage / glow */
+
+  /* ───── SPIRIT (LINH KHÍ — PURPLE) ───── */
+  --spirit-200: #cdbcff;
+  --spirit-300: #c2a6ee;
+  --spirit-400: #a986d8;
+  --spirit-500: #a78bfa;
+  --spirit-600: #9b86b8;
+
+  /* ───── AZURE (THIÊN ĐẠO / BĂNG HỆ) ───── */
+  --azure-300: #7fbce8; /* mới: ice/water rarity */
+  --azure-400: #9ec9e8;
+  --azure-600: #6aa3c4;
+  --azure-700: #5b9bd1; /* mới: phụ kiện rarity glow */
+
+  /* ───── SINH KHÍ / DUNG HỢP ───── */
+  --leaf-400: #6fae6e; /* mới: equipment slot active */
+  --leaf-500: #8fc98c;
+
+  /* ───── BLOOD (SÁT PHẠT / DANGER) ───── */
+  --blood-500: #8a2f2f;
+
+  /* ───── BORDER & SHADOW ───── */
+  --border-gold-faint: rgba(205, 164, 94, 0.12);
+  --border-gold-subtle: rgba(205, 164, 94, 0.22);
+  --border-gold-strong: rgba(205, 164, 94, 0.55);
+  --border-jade-subtle: rgba(139, 168, 136, 0.28);
+  --border-spirit-subtle: rgba(167, 139, 250, 0.28);
+
+  --shadow-glow-gold: 0 0 14px rgba(205, 164, 94, 0.18) inset;
+  --shadow-glow-gold-outer: 0 0 26px rgba(205, 164, 94, 0.55);
+  --shadow-glow-spirit: 0 0 14px rgba(167, 139, 250, 0.6);
+  --shadow-glow-ember: 0 0 24px rgba(224, 101, 78, 0.85);
+  --shadow-inset-deep: inset 0 2px 8px rgba(0, 0, 0, 0.6);
+
+  /* ───── TYPOGRAPHY ───── */
+  --font-serif: 'Noto Serif', 'Noto Serif Vietnamese', Georgia, serif;
+  --font-body: 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
+  --font-story: var(--font-serif);
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+
+  /* ───── RARITY COLORS (đồng bộ với prototype getItemRarityColor) ───── */
+  --rarity-common: #d9d3c2;     /* Thường */
+  --rarity-good: #8fc98c;       /* Tốt */
+  --rarity-rare: #7fbce8;       /* Hiếm */
+  --rarity-epic: #c2a6ee;       /* Cực Phẩm */
+  --rarity-mythic: #f0a98e;     /* Siêu Phẩm */
+  --rarity-legendary: #e0654e;  /* Huyền Thoại */
+
+  /* ───── SPACING ───── */
+  --space-tight: 6px;
+  --space-base: 12px;
+  --space-loose: 20px;
+  --space-section: 40px;
+
+  /* ───── RADIUS ───── */
+  --radius-sm: 3px;  /* design dùng border-radius nhỏ — cổ điển */
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-pill: 9999px;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   KEYFRAMES — port từ design system v2
+   Hai prefix:
+     tt-*   = UI chung (rise, drift, pulse, shimmer, flash, drain, spin)
+     m-*    = combat motion (strike, bolt, ring, core, pop, drain, sweep, type)
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── UI animations ── */
+@keyframes tt-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes tt-drift {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-9px); }
+}
+@keyframes tt-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+@keyframes tt-shimmer {
+  0%   { background-position: -180% 0; }
+  100% { background-position: 180% 0; }
+}
+@keyframes tt-flash {
+  0%, 100% { opacity: 0; }
+  8%       { opacity: 0.9; }
+  20%      { opacity: 0.1; }
+}
+@keyframes tt-drain {
+  from { width: 88%; }
+  to   { width: 34%; }
+}
+@keyframes tt-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Combat motion animations ── */
+@keyframes m-runx {
+  from { left: 0; }
+  to   { left: calc(100% - 14px); }
+}
+@keyframes m-type {
+  0%   { width: 0; }
+  45%  { width: 100%; }
+  82%  { width: 100%; }
+  100% { width: 0; }
+}
+@keyframes m-caret {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+@keyframes m-rise {
+  0%   { opacity: 0; transform: translateY(20px); }
+  24%  { opacity: 1; transform: translateY(0); }
+  80%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(20px); }
+}
+@keyframes m-glow {
+  0%, 100% { box-shadow: 0 0 5px rgba(224, 101, 78, 0.25); border-color: rgba(224, 101, 78, 0.35); }
+  50%      { box-shadow: 0 0 24px rgba(224, 101, 78, 0.85); border-color: rgba(224, 101, 78, 0.95); }
+}
+@keyframes m-sweepx {
+  0%   { transform: translateX(-160%) skewX(-18deg); }
+  100% { transform: translateX(260%) skewX(-18deg); }
+}
+@keyframes m-drain {
+  0%   { width: 92%; }
+  40%  { width: 26%; }
+  64%  { width: 26%; }
+  100% { width: 92%; }
+}
+@keyframes m-pop {
+  0%   { opacity: 0; transform: translateY(8px) scale(0.7); }
+  14%  { opacity: 1; transform: translateY(-2px) scale(1.18); }
+  34%  { opacity: 1; transform: translateY(-18px) scale(1); }
+  54%  { opacity: 0; transform: translateY(-32px) scale(0.95); }
+  100% { opacity: 0; }
+}
+@keyframes m-strike {
+  0%, 100% { opacity: 0; }
+  5%       { opacity: 1; }
+  13%      { opacity: 0.15; }
+  21%      { opacity: 0.9; }
+  30%      { opacity: 0; }
+}
+@keyframes m-bolt {
+  0%, 100% { opacity: 0; transform: scaleY(0); }
+  5%       { opacity: 1; transform: scaleY(1); }
+  26%      { opacity: 0.7; transform: scaleY(1); }
+  34%      { opacity: 0; transform: scaleY(1); }
+}
+@keyframes m-ring {
+  0%   { transform: scale(0.2); opacity: 0.95; }
+  70%  { opacity: 0.22; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+@keyframes m-core {
+  0%   { transform: scale(0.5) rotate(45deg); opacity: 0; }
+  28%  { transform: scale(1) rotate(45deg); opacity: 1; }
+  72%  { transform: scale(1) rotate(45deg); opacity: 1; }
+  100% { transform: scale(0.5) rotate(45deg); opacity: 0; }
+}
+@keyframes m-bloom {
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
+  50%      { opacity: 0.9; transform: scale(1.12); }
+}
