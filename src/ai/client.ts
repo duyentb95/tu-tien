@@ -40,6 +40,16 @@ export interface CallOptions {
   maxOutputTokens?: number;
   responseMimeType?: 'text/plain' | 'application/json';
   signal?: AbortSignal;
+  /**
+   * Thinking budget (Gemini 2.5 series).
+   * 0 = disable thinking (fast + cheap + ít 503 trên free tier).
+   * undefined = default Google (auto-thinking ~350 tokens, tốn quota).
+   * Số dương = budget cap thinking tokens.
+   *
+   * Cho game narrative thông thường: set 0 — không cần reasoning sâu, viết truyện thôi.
+   * Cho combat AI decision / boss strategy: có thể bật (vd 256).
+   */
+  thinkingBudget?: number;
 }
 
 /** Status code có thể retry — 429 (rate limit), 5xx (server error) */
@@ -90,13 +100,21 @@ const callGeminiOnce = async (
   opts: CallOptions = {},
 ): Promise<string> => {
   const url = `${GEMINI_BASE}/${modelName}:generateContent?key=${getApiKey()}`;
+  // Default: disable thinking cho game narrative (3-5× rẻ hơn, ít 503 trên free tier).
+  // Override qua opts.thinkingBudget nếu cần reasoning (vd combat AI decision).
+  const thinkingBudget = opts.thinkingBudget ?? 0;
+  const generationConfig: Record<string, unknown> = {
+    temperature: opts.temperature ?? 0.9,
+    maxOutputTokens: opts.maxOutputTokens ?? 4096,
+    responseMimeType: opts.responseMimeType ?? 'text/plain',
+  };
+  // Chỉ Gemini 2.5 series support thinkingConfig
+  if (modelName.includes('2.5')) {
+    generationConfig.thinkingConfig = { thinkingBudget };
+  }
   const body = {
     contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: {
-      temperature: opts.temperature ?? 0.9,
-      maxOutputTokens: opts.maxOutputTokens ?? 4096,
-      responseMimeType: opts.responseMimeType ?? 'text/plain',
-    },
+    generationConfig,
   };
 
   const res = await fetchWithRetry(url, {
