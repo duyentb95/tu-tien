@@ -9,6 +9,13 @@ export interface NarrativeContext {
   currentLocation?: string;
   lastAction?: string;
   isOpening?: boolean;
+  // ─── 2-tier lore (Refactor 3) ───
+  /** Tin đồn về NPC chưa gặp — AI có thể reference khi narrative gặp thật */
+  loreNpcs?: Array<{ id: string; name: string; description: string; materialized?: boolean }>;
+  loreLocations?: Array<{ id: string; name: string; description: string; region?: string; materialized?: boolean }>;
+  /** Active world entities — đã materialize, AI cần reference đúng tên + state */
+  worldNpcs?: Array<{ id: string; name: string; description?: string; loreId?: string }>;
+  worldLocations?: Array<{ id: string; name: string; description?: string; loreId?: string }>;
 }
 
 /**

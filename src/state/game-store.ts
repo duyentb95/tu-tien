@@ -3,7 +3,8 @@ import { immer } from 'zustand/middleware/immer';
 import type { PlayerCharacter } from '@gametypes/character';
 import type { Item, ItemCategory, Rarity } from '@gametypes/item';
 import type { Skill, SkillKind } from '@gametypes/skill';
-import type { Location, GameTime, Faction } from '@gametypes/world';
+import type { Location, LocationType, GameTime, Faction } from '@gametypes/world';
+import type { LoreNPC, LoreLocation, LoreItem, LoreQuest } from '@gametypes/lore';
 import type { Difficulty } from '@data/difficulty';
 import {
   INITIAL_AP,
@@ -117,6 +118,12 @@ export interface KnowledgeSlice {
   factions: Record<string, Faction>;
   realmProgressionList: string[];
   lore: Record<string, unknown>;
+  // ─── 2-tier lore (Refactor 3) ───
+  /** Tin đồn về NPC chưa gặp. Khi WORLD_NPC fire với loreId → mark materialized */
+  loreNpcs: Record<string, LoreNPC>;
+  loreLocations: Record<string, LoreLocation>;
+  loreItems: Record<string, LoreItem>;
+  loreQuests: Record<string, LoreQuest>;
 }
 
 export interface StoryEntry {
@@ -278,6 +285,10 @@ const DEFAULT_KNOWLEDGE: KnowledgeSlice = {
   factions: {},
   realmProgressionList: [],
   lore: {},
+  loreNpcs: {},
+  loreLocations: {},
+  loreItems: {},
+  loreQuests: {},
 };
 
 const SAVE_KEY = 'tu-tien:save:slot-0';
@@ -547,6 +558,32 @@ export const useGameStore = create<GameState>()(
         const player = get().player!;
         const settings = get().settings;
         const realm = player.realm;
+        const knowledge = get().knowledge;
+
+        // Build lore context cho AI (limit để prompt không phình to)
+        const loreNpcsArr = Object.values(knowledge.loreNpcs).slice(0, 10);
+        const loreLocsArr = Object.values(knowledge.loreLocations).slice(0, 10);
+        const worldNpcsArr = Object.values(knowledge.characters)
+          .slice(0, 10)
+          .map((c) => {
+            const ch = c as { id?: string; name?: string; description?: string; loreId?: string };
+            return {
+              id: ch.id ?? '',
+              name: ch.name ?? '',
+              ...(ch.description ? { description: ch.description } : {}),
+              ...(ch.loreId ? { loreId: ch.loreId } : {}),
+            };
+          });
+        const worldLocsArr = Object.values(knowledge.locations)
+          .slice(0, 10)
+          .map((l) => ({
+            id: l.id,
+            name: l.name,
+            ...(l.description ? { description: l.description } : {}),
+            ...((l as Location & { loreId?: string }).loreId
+              ? { loreId: (l as Location & { loreId?: string }).loreId! }
+              : {}),
+          }));
 
         const parsed = await generateNarrative({
           settings,
@@ -554,6 +591,10 @@ export const useGameStore = create<GameState>()(
           ...(realm ? { realm } : {}),
           recentHistory,
           lastAction: actionText,
+          loreNpcs: loreNpcsArr,
+          loreLocations: loreLocsArr,
+          worldNpcs: worldNpcsArr,
+          worldLocations: worldLocsArr,
         });
 
         set((s) => {
@@ -1973,6 +2014,115 @@ function applyGameEvents(
           }
         });
         notify.epic(`Kết đạo lữ: ${e.npcName}`, 'Song tu cộng hưởng +30% EXP khi đồng hành');
+        break;
+      }
+
+      // ─── 2-tier lore (Refactor 3) ───
+      case 'LORE_NPC': {
+        set((s) => {
+          // Skip nếu đã có (tránh ghi đè materialized state)
+          if (s.knowledge.loreNpcs[e.id]) return;
+          s.knowledge.loreNpcs[e.id] = {
+            id: e.id,
+            name: e.name,
+            description: e.description,
+            introducedAtTurn: s.turn,
+            materialized: false,
+            ...(e.source ? { source: e.source } : {}),
+          };
+        });
+        notify.info(`Tin đồn mới · ${e.name}`, e.description.slice(0, 80));
+        break;
+      }
+      case 'LORE_LOCATION': {
+        set((s) => {
+          if (s.knowledge.loreLocations[e.id]) return;
+          s.knowledge.loreLocations[e.id] = {
+            id: e.id,
+            name: e.name,
+            description: e.description,
+            introducedAtTurn: s.turn,
+            materialized: false,
+            ...(e.category ? { category: e.category as LocationType } : {}),
+            ...(e.region ? { region: e.region } : {}),
+            ...(e.source ? { source: e.source } : {}),
+          };
+        });
+        notify.info(`Địa danh nghe đồn · ${e.name}`, e.description.slice(0, 80));
+        break;
+      }
+      case 'LORE_ITEM': {
+        set((s) => {
+          if (s.knowledge.loreItems[e.id]) return;
+          s.knowledge.loreItems[e.id] = {
+            id: e.id,
+            name: e.name,
+            description: e.description,
+            introducedAtTurn: s.turn,
+            materialized: false,
+            ...(e.rarity ? { rarity: e.rarity } : {}),
+            ...(e.source ? { source: e.source } : {}),
+          };
+        });
+        break;
+      }
+      case 'LORE_QUEST': {
+        set((s) => {
+          if (s.knowledge.loreQuests[e.id]) return;
+          s.knowledge.loreQuests[e.id] = {
+            id: e.id,
+            title: e.title,
+            description: e.description,
+            introducedAtTurn: s.turn,
+            assigned: false,
+            ...(e.source ? { source: e.source } : {}),
+          };
+        });
+        notify.info(`Tin đồn nhiệm vụ · ${e.title}`, e.description.slice(0, 80));
+        break;
+      }
+      case 'WORLD_NPC': {
+        set((s) => {
+          // Materialize entity vào knowledge.characters
+          s.knowledge.characters[e.id] = {
+            id: e.id,
+            name: e.name,
+            description: e.description ?? '',
+            role: 'npc',
+            level: e.level,
+            stance: e.stance,
+            loreId: e.loreId,
+          };
+          // Mark lore tương ứng đã materialized
+          if (e.loreId && s.knowledge.loreNpcs[e.loreId]) {
+            s.knowledge.loreNpcs[e.loreId]!.materialized = true;
+          }
+        });
+        // Nếu có loreId → notify "tin đồn hóa thật"
+        if (e.loreId && get().knowledge.loreNpcs[e.loreId]) {
+          notify.epic(`Hội ngộ · ${e.name}`, `Người ngươi từng nghe đồn nay xuất hiện`);
+        }
+        break;
+      }
+      case 'WORLD_LOCATION': {
+        set((s) => {
+          const existing = s.knowledge.locations[e.id];
+          s.knowledge.locations[e.id] = {
+            ...existing,
+            id: e.id,
+            name: e.name,
+            type: (e.category as LocationType) ?? existing?.type ?? 'wilderness',
+            description: e.description ?? existing?.description ?? '',
+            neighbors: existing?.neighbors ?? [],
+            discoveredByPlayer: true,
+          } as Location;
+          if (e.loreId && s.knowledge.loreLocations[e.loreId]) {
+            s.knowledge.loreLocations[e.loreId]!.materialized = true;
+          }
+        });
+        if (e.loreId && get().knowledge.loreLocations[e.loreId]) {
+          notify.epic(`Đến nơi · ${e.name}`, `Địa danh từng nghe đồn nay hiện ra trước mắt`);
+        }
         break;
       }
     }

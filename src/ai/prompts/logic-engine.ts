@@ -46,6 +46,11 @@ export interface LogicEngineContext {
   isOpening?: boolean;
   /** Difficulty multiplier — Dễ: tăng probability tích cực, Khó: tăng tiêu cực */
   difficulty?: string;
+  // ─── 2-tier lore (Refactor 3) ───
+  loreNpcs?: Array<{ id: string; name: string; description: string; materialized?: boolean }>;
+  loreLocations?: Array<{ id: string; name: string; description: string; region?: string; materialized?: boolean }>;
+  worldNpcs?: Array<{ id: string; name: string; loreId?: string }>;
+  worldLocations?: Array<{ id: string; name: string; loreId?: string }>;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -81,6 +86,36 @@ export type LogicResponse = z.infer<typeof LogicResponseSchema>;
 // ─────────────────────────────────────────────────────────────
 // Prompt builder
 // ─────────────────────────────────────────────────────────────
+
+/** Build lore context block — chỉ inject nếu có lore entries (tránh nhồi prompt rỗng) */
+const buildLoreContextBlock = (ctx: LogicEngineContext): string => {
+  const unmaterializedNpcs = (ctx.loreNpcs ?? []).filter((x) => !x.materialized);
+  const unmaterializedLocs = (ctx.loreLocations ?? []).filter((x) => !x.materialized);
+  const npcs = ctx.worldNpcs ?? [];
+  const locs = ctx.worldLocations ?? [];
+  if (unmaterializedNpcs.length === 0 && unmaterializedLocs.length === 0 && npcs.length === 0 && locs.length === 0) {
+    return '';
+  }
+  const lines: string[] = ['[CONTEXT THẾ GIỚI ĐÃ CÓ — REFERENCE ĐÚNG TÊN]'];
+
+  if (npcs.length > 0) {
+    lines.push('\nNPCs đã gặp (dùng đúng id khi tương tác):');
+    npcs.slice(0, 8).forEach((n) => lines.push(`  - ${n.name} (id: ${n.id})${n.loreId ? ` ← từ tin đồn ${n.loreId}` : ''}`));
+  }
+  if (locs.length > 0) {
+    lines.push('\nĐịa danh đã đến:');
+    locs.slice(0, 8).forEach((l) => lines.push(`  - ${l.name} (id: ${l.id})${l.loreId ? ` ← từ tin đồn ${l.loreId}` : ''}`));
+  }
+  if (unmaterializedNpcs.length > 0) {
+    lines.push('\nNPC đã NGHE ĐỒN (nếu xuất hiện thật → tag WORLD_NPC với loreId tương ứng):');
+    unmaterializedNpcs.slice(0, 6).forEach((n) => lines.push(`  - ${n.name} (loreId: ${n.id}) — ${n.description.slice(0, 80)}`));
+  }
+  if (unmaterializedLocs.length > 0) {
+    lines.push('\nĐịa danh đã NGHE ĐỒN (nếu player đến → WORLD_LOCATION với loreId):');
+    unmaterializedLocs.slice(0, 6).forEach((l) => lines.push(`  - ${l.name} (loreId: ${l.id})${l.region ? ` ở ${l.region}` : ''} — ${l.description.slice(0, 80)}`));
+  }
+  return lines.join('\n');
+};
 
 export const buildLogicEnginePrompt = (ctx: LogicEngineContext): string => {
   const { settings, player, realm, recentHistory, lastAction, isOpening, difficulty } = ctx;
@@ -141,6 +176,7 @@ Probability dựa trên độ khó:
 [GAME TAGS CHO PHÉP TRONG "commands"]
 Mỗi tag 1 dòng. Chỉ dùng các tag dưới (không bịa tag mới):
 
+━━ Stats / Items ━━
   [EXP+ N]                              — exp gained (tu luyện, giết quái, hoàn quest)
   [HP+ N] / [HP- N]                     — máu thay đổi
   [CURRENCY+ N] / [CURRENCY- N]         — linh thạch ±
@@ -150,15 +186,44 @@ Mỗi tag 1 dòng. Chỉ dùng các tag dưới (không bịa tag mới):
                                           Phẩm chất: Thường/Tốt/Hiếm/Cực Phẩm/Siêu Phẩm/Huyền Thoại
                                           Loại: Vũ khí/Đan dược/Nguyên liệu/Tín vật/Sách kỹ năng
   [SKILL Tên|kind|Phẩm chất]            — học skill mới (kind: combat_basic/combat_ultimate/adventure)
+
+━━ Progression ━━
   [REALM_BREAK]                         — trigger đột phá cảnh giới
   [TRIBULATION lý do]                   — trigger độ kiếp cutscene (chỉ khi đạt level 10/20/30...)
   [COMBAT Tên kẻ địch|Cấp độ]           — bắt đầu combat
   [LOCATION id|Tên]                     — đổi địa điểm
   [STATUS_ADD status_id|hours]          — áp long-term status (TRONG_THUONG, TRUNG_DOC...)
   [NOTE Tin nhắn]                       — notification ngắn cho player
+
+━━ Quests ━━
   [QUEST_GIVEN Tiêu đề|kind|Mô tả|Tên giao]  — nhận nhiệm vụ mới (kind: main/side/sect/cultivation/hidden)
   [QUEST_COMPLETE Tiêu đề chính xác]    — hoàn thành nhiệm vụ
   [QUEST_FAILED Tiêu đề chính xác]      — thất bại nhiệm vụ
+
+━━ 2-tier Lore (QUAN TRỌNG — pattern "foreshadowing") ━━
+
+  TIER 1 — LORE_* (tin đồn, chưa gặp thật):
+    [LORE_NPC id="lore_npc_<slug>" name="..." description="..." source="..."]
+    [LORE_LOCATION id="lore_loc_<slug>" name="..." description="..." category="city|sect|wilderness|secret_realm|mountain|ruins" region="..."]
+    [LORE_ITEM id="lore_item_<slug>" name="..." description="..." rarity="..."]
+    [LORE_QUEST id="lore_quest_<slug>" title="..." description="..." source="..."]
+
+  Khi nào dùng LORE_*:
+  - NPC khác kể về một nhân vật/địa danh (vd "Tần Phụng kể về Vạn Pháp Tông ở phía bắc")
+  - Player đọc sách/bia đá nhắc tới entity chưa gặp
+  - Tin đồn trên giang hồ về cao thủ/báu vật
+
+  TIER 2 — WORLD_* (entity hiện thực hóa khi player thực sự gặp):
+    [WORLD_NPC id="<slug>" loreId="lore_npc_<slug>" name="..." description="..." level=10 stance="hostile|neutral|friendly"]
+    [WORLD_LOCATION id="<slug>" loreId="lore_loc_<slug>" name="..." description="..." category="..."]
+
+  Khi nào dùng WORLD_*:
+  - Player ĐẾN địa danh (lần đầu hoặc lần thứ N) → nếu trước đó có LORE_LOCATION cùng concept, link loreId về
+  - Player GẶP NPC mặt đối mặt
+  - loreId là OPTIONAL — chỉ link khi có lore trước đó
+
+  Quy ước slug: chỉ ascii lowercase + underscore, vd "van_phap_tong", "tan_phung"
+  Lợi ích: AI có thể foreshadow → mạch truyện liên kết, player nhớ "đã nghe đồn về cái này"
 `.trim();
 
   const formatBlock = `
@@ -183,10 +248,13 @@ Mỗi tag 1 dòng. Chỉ dùng các tag dưới (không bịa tag mới):
 KHÔNG viết gì ngoài JSON. KHÔNG dùng markdown wrapper.
 `.trim();
 
+  const loreContextBlock = buildLoreContextBlock(ctx);
+
   return [
     SYSTEM_PERSONA,
     personaBlock,
     worldBlock,
+    loreContextBlock,
     historyBlock,
     actionBlock,
     taskBlock,

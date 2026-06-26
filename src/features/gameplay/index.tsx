@@ -17,12 +17,15 @@ import { ActionPanel } from './ActionPanel';
 import { WelcomeOverlay } from '@features/tutorial/WelcomeOverlay';
 import { autoBackup } from '@services/save-manager';
 
-// Lazy: 2 modal nặng — chỉ load khi user mở
+// Lazy: 3 modal nặng — chỉ load khi user mở
 const HandbookModal = lazy(() =>
   import('@features/tutorial').then((m) => ({ default: m.HandbookModal })),
 );
 const SaveManagerModal = lazy(() =>
   import('@features/save-manager').then((m) => ({ default: m.SaveManagerModal })),
+);
+const LoreBookModal = lazy(() =>
+  import('@features/lore-book').then((m) => ({ default: m.LoreBookModal })),
 );
 
 export const GameplayScreen = () => {
@@ -40,6 +43,7 @@ export const GameplayScreen = () => {
   const getCurrentPayload = useGameStore((s) => s.getCurrentPayload);
   const [handbookOpen, setHandbookOpen] = useState(false);
   const [saveManagerOpen, setSaveManagerOpen] = useState(false);
+  const [loreBookOpen, setLoreBookOpen] = useState(false);
 
   // Global keyboard shortcuts
   useKeyboard(
@@ -122,6 +126,7 @@ export const GameplayScreen = () => {
             onClick={() => useGameStore.getState().startCombat('Hắc Vụ Lang', Math.max(1, player.level))}
           />
           <NavButton label="Độ Kiếp" icon="⚡" onClick={() => setStage('tribulation')} />
+          <NavButton label="Tàng Thư" icon="☷" onClick={() => setLoreBookOpen(true)} />
           <NavButton label="Lưu Trữ" icon="◭" onClick={() => setSaveManagerOpen(true)} />
           <NavButton label="Cẩm Nang" icon="?" onClick={() => setHandbookOpen(true)} />
           <NavButton
@@ -179,6 +184,7 @@ export const GameplayScreen = () => {
       <Suspense fallback={null}>
         {handbookOpen && <HandbookModal open onClose={() => setHandbookOpen(false)} />}
         {saveManagerOpen && <SaveManagerModal open onClose={() => setSaveManagerOpen(false)} />}
+        {loreBookOpen && <LoreBookModal open onClose={() => setLoreBookOpen(false)} />}
       </Suspense>
     </div>
   );

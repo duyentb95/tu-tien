@@ -83,6 +83,11 @@ const generateNarrativeHybrid = async (ctx: NarrativeContext): Promise<ParsedNar
     ...(ctx.currentLocation !== undefined ? { currentLocation: ctx.currentLocation } : {}),
     ...(ctx.isOpening !== undefined ? { isOpening: ctx.isOpening } : {}),
     difficulty: ctx.settings.difficulty,
+    // Pass lore context để AI tag WORLD_* với loreId đúng
+    ...(ctx.loreNpcs ? { loreNpcs: ctx.loreNpcs } : {}),
+    ...(ctx.loreLocations ? { loreLocations: ctx.loreLocations } : {}),
+    ...(ctx.worldNpcs ? { worldNpcs: ctx.worldNpcs } : {}),
+    ...(ctx.worldLocations ? { worldLocations: ctx.worldLocations } : {}),
   };
   const logicPrompt = buildLogicEnginePrompt(logicCtx);
   const logicResp = await callGemini(logicPrompt, {

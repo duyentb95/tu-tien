@@ -1,0 +1,1 @@
+export { LoreBookModal } from './LoreBookModal';

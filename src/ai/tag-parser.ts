@@ -40,9 +40,38 @@ export type GameEvent =
   | { type: 'QUEST_COMPLETE'; title: string }
   | { type: 'QUEST_FAILED'; title: string }
   | { type: 'AFFINITY_DELTA'; npcName: string; amount: number }
-  | { type: 'DAO_LU'; npcName: string };
+  | { type: 'DAO_LU'; npcName: string }
+  // ─── 2-tier lore (Refactor 3) ───
+  | { type: 'LORE_NPC'; id: string; name: string; description: string; source?: string }
+  | { type: 'LORE_LOCATION'; id: string; name: string; description: string; category?: string; region?: string; source?: string }
+  | { type: 'LORE_ITEM'; id: string; name: string; description: string; rarity?: string; source?: string }
+  | { type: 'LORE_QUEST'; id: string; title: string; description: string; source?: string }
+  | { type: 'WORLD_NPC'; id: string; loreId?: string; name: string; description?: string; level?: number; stance?: string }
+  | { type: 'WORLD_LOCATION'; id: string; loreId?: string; name: string; description?: string; category?: string };
 
 const TAG_REGEX = /\[([A-Z_]+)([+\-]?)\s*([^\]]*)\]/g;
+
+/**
+ * Parse key="value" attribute syntax từ body.
+ * Vd input: 'id="lore_npc_x" name="Tần Phụng" description="Trưởng làng"'
+ * Output: { id: 'lore_npc_x', name: 'Tần Phụng', description: 'Trưởng làng' }
+ *
+ * Hỗ trợ:
+ *   - Double quote: name="value"
+ *   - Single quote: name='value'
+ *   - Number không quote: level=10
+ */
+const parseKVAttrs = (body: string): Record<string, string> => {
+  const result: Record<string, string> = {};
+  const re = /(\w+)\s*=\s*(?:"([^"]*)"|'([^']*)'|(\S+))/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(body)) !== null) {
+    const key = m[1]!;
+    const value = m[2] ?? m[3] ?? m[4] ?? '';
+    result[key] = value;
+  }
+  return result;
+};
 
 export const parseGameTags = (raw: string): GameEvent[] => {
   const events: GameEvent[] = [];
@@ -195,6 +224,93 @@ export const parseGameTags = (raw: string): GameEvent[] => {
       case 'DAO_LU':
         if (body) events.push({ type: 'DAO_LU', npcName: body });
         break;
+
+      // ─── 2-tier lore (Refactor 3) ───
+      case 'LORE_NPC': {
+        const attrs = parseKVAttrs(body);
+        if (attrs.id && attrs.name && attrs.description) {
+          events.push({
+            type: 'LORE_NPC',
+            id: attrs.id,
+            name: attrs.name,
+            description: attrs.description,
+            ...(attrs.source ? { source: attrs.source } : {}),
+          });
+        }
+        break;
+      }
+      case 'LORE_LOCATION': {
+        const attrs = parseKVAttrs(body);
+        if (attrs.id && attrs.name && attrs.description) {
+          events.push({
+            type: 'LORE_LOCATION',
+            id: attrs.id,
+            name: attrs.name,
+            description: attrs.description,
+            ...(attrs.category ? { category: attrs.category } : {}),
+            ...(attrs.region ? { region: attrs.region } : {}),
+            ...(attrs.source ? { source: attrs.source } : {}),
+          });
+        }
+        break;
+      }
+      case 'LORE_ITEM': {
+        const attrs = parseKVAttrs(body);
+        if (attrs.id && attrs.name && attrs.description) {
+          events.push({
+            type: 'LORE_ITEM',
+            id: attrs.id,
+            name: attrs.name,
+            description: attrs.description,
+            ...(attrs.rarity ? { rarity: attrs.rarity } : {}),
+            ...(attrs.source ? { source: attrs.source } : {}),
+          });
+        }
+        break;
+      }
+      case 'LORE_QUEST': {
+        const attrs = parseKVAttrs(body);
+        if (attrs.id && attrs.title && attrs.description) {
+          events.push({
+            type: 'LORE_QUEST',
+            id: attrs.id,
+            title: attrs.title,
+            description: attrs.description,
+            ...(attrs.source ? { source: attrs.source } : {}),
+          });
+        }
+        break;
+      }
+      case 'WORLD_NPC': {
+        const attrs = parseKVAttrs(body);
+        if (attrs.id && attrs.name) {
+          const lvl = attrs.level ? parseInt(attrs.level, 10) : undefined;
+          events.push({
+            type: 'WORLD_NPC',
+            id: attrs.id,
+            name: attrs.name,
+            ...(attrs.loreId ? { loreId: attrs.loreId } : {}),
+            ...(attrs.description ? { description: attrs.description } : {}),
+            ...(lvl !== undefined && !Number.isNaN(lvl) ? { level: lvl } : {}),
+            ...(attrs.stance ? { stance: attrs.stance } : {}),
+          });
+        }
+        break;
+      }
+      case 'WORLD_LOCATION': {
+        const attrs = parseKVAttrs(body);
+        if (attrs.id && attrs.name) {
+          events.push({
+            type: 'WORLD_LOCATION',
+            id: attrs.id,
+            name: attrs.name,
+            ...(attrs.loreId ? { loreId: attrs.loreId } : {}),
+            ...(attrs.description ? { description: attrs.description } : {}),
+            ...(attrs.category ? { category: attrs.category } : {}),
+          });
+        }
+        break;
+      }
     }
   }
 
