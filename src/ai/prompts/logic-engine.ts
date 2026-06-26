@@ -141,6 +141,40 @@ export const buildLogicEnginePrompt = (ctx: LogicEngineContext): string => {
 ${player.description ? `- Background: ${player.description}` : ''}
 `.trim();
 
+  // Phase 13.1B: Canon fidelity rules
+  const fidelity = (settings as { canonFidelity?: 'strict' | 'liberal' | 'original' }).canonFidelity;
+  const fidelityBlock = settings.isFanFictionMode && fidelity
+    ? (() => {
+        if (fidelity === 'strict') {
+          return `
+[ĐỘ TRUNG THÀNH CANON: STRICT — bám sát nguyên tác]
+- TUYỆT ĐỐI không tạo NPC hoặc event không có trong nguyên tác.
+- KHÔNG spoil các plot tương lai của truyện gốc (assume reader đang đọc dở).
+- Tính cách + power level NPC PHẢI bám sát mô tả gốc — không buff/nerf tùy ý.
+- Khi cần NPC mới (đệ tử ngoại môn, dân thường, lính canh) thì OK nhưng KHÔNG để họ trở thành nhân vật then chốt.
+- Nếu player định hành động trái canon, scenario có thể đưa "consequence cảnh báo" (sư phụ ngăn cản, thiên cơ khó lay chuyển...).
+`.trim();
+        }
+        if (fidelity === 'original') {
+          return `
+[ĐỘ TRUNG THÀNH CANON: ORIGINAL — chỉ mượn cosmology]
+- Chỉ giữ realm system + đơn vị thời gian + thuật ngữ + cosmology của nguyên tác.
+- TỰ DO tạo NPC mới, sect mới, location mới, arc mới — không bị ràng buộc plot gốc.
+- KHÔNG cần đảm bảo NPC gốc xuất hiện đúng vị trí/thời gian.
+- Vẫn giữ vibe + tone tổng thể của universe gốc để fan không bị tụt mood.
+`.trim();
+        }
+        // liberal (default)
+        return `
+[ĐỘ TRUNG THÀNH CANON: LIBERAL — cùng universe, story mới]
+- Set trong cùng universe gốc, NPC chính giữ tính cách + power level đại khái đúng.
+- ĐƯỢC PHÉP tạo arc mới + side NPC mới + side quest mới.
+- TRÁNH contradict major canon events (vd không cho main villain chết sớm hơn nguyên tác nếu chưa tới timeline đó).
+- Nếu player phá vỡ canon, scenario có thể tạo "alternate timeline" hợp lý.
+`.trim();
+      })()
+    : '';
+
   const worldBlock = `
 [BỐI CẢNH THẾ GIỚI]
 - Tiêu đề truyện: ${settings.storyTitle || 'Mặc Hội Tiên Đồ'}
@@ -148,6 +182,7 @@ ${player.description ? `- Background: ${player.description}` : ''}
 ${settings.isFanFictionMode ? `- Fan-fiction của: ${settings.fanFicOriginalWork ?? '(không rõ)'}` : ''}
 ${settings.theme ? `- Thể loại: ${settings.theme}` : ''}
 ${settings.isNsfwMode ? '- Chế độ 18+: BẬT (cho phép tạo scenario nsfw)' : '- Chế độ 18+: TẮT (chỉ sfw)'}
+${fidelityBlock ? '\n' + fidelityBlock : ''}
 `.trim();
 
   const historyBlock = recentHistory.length

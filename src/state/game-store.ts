@@ -106,6 +106,15 @@ export interface GameSettings {
   fanFicOriginalWork?: string;
   /** Kiểu: hóa thân (nhân vật có sẵn) hoặc khởi sinh (nhân vật mới) */
   fanFicCharacterType?: 'incarnate' | 'newborn';
+  /**
+   * Phase 13.1B: Mức độ trung thành với canon gốc.
+   * - strict: bám sát nguyên tác, KHÔNG bịa NPC/event không có trong sách, không spoil
+   * - liberal: cùng universe nhưng story mới, NPC chính giữ tính cách (default)
+   * - original: chỉ mượn power system + cosmology, AI tự do tạo nội dung
+   */
+  canonFidelity?: 'strict' | 'liberal' | 'original';
+  /** Phase 13.1A: Canon pack ID nếu user dùng pack có sẵn (vd 'muc-than-ky') */
+  canonPackId?: string;
   /** Mô tả thêm theme/setting đã AI analyze populate */
   theme?: string;
   setting?: string;
@@ -233,6 +242,11 @@ interface GameState {
     characterName: string;
     characterDescription?: string;
   }) => Promise<void>;
+  /**
+   * Phase 13.1D: Apply world genesis result từ wizard — hydrate settings + knowledge
+   * tương tự analyzeFanFic nhưng cho open-world (không phải fan-fic).
+   */
+  applyWorldGenesis: (result: import('@ai/prompts/world-genesis').WorldGenesisResult) => void;
   startNewGame: (init: {
     characterName: string;
     gender: string;
@@ -458,6 +472,11 @@ export const useGameStore = create<GameState>()(
       }),
 
     analyzeFanFic: async (form) => {
+      // Phase 13.1A: Check canon pack registry trước — nếu user gõ tên truyện có pack
+      // sẵn, skip AI call và dùng pack data trực tiếp (nhanh + chính xác hơn nhiều).
+      const { findCanonPackByTitle } = await import('@data/canon-packs');
+      const pack = findCanonPackByTitle(form.originalWork);
+
       // Lazy import — chỉ load khi user thực sự click "Phân Tích"
       const [{ buildFanFicAnalyzePrompt, FanFicAnalyzeSchema }, { callGemini }] = await Promise.all([
         import('@ai/prompts/fan-fic-analyze'),
@@ -470,13 +489,62 @@ export const useGameStore = create<GameState>()(
       });
 
       try {
-        const prompt = buildFanFicAnalyzePrompt(form);
-        const result = await callGemini(prompt, {
-          temperature: 0.7,           // thấp hơn narrative để bám nguyên tác
-          maxOutputTokens: 2000,
-          responseMimeType: 'application/json',
-          schema: FanFicAnalyzeSchema,
-        });
+        let result;
+        if (pack) {
+          // Convert CanonPack → FanFicAnalyzeResult shape (drop-in)
+          set((s) => { s.settings.canonPackId = pack.id; });
+          result = {
+            storyTitle: `${pack.title}: ${form.characterName}`,
+            theme: pack.themes.join(', '),
+            setting: pack.description + '\n\n' + pack.cosmology.description,
+            currencyName: pack.currencyName,
+            characterName: form.characterName,
+            characterGender: 'Nam',
+            characterPersonality: form.characterDescription ?? 'Tính cách tùy chọn phù hợp universe.',
+            characterBackstory:
+              form.characterType === 'incarnate'
+                ? `Hóa thân ${form.characterName} trong ${pack.title}.`
+                : (form.characterDescription ?? pack.newbornBackstoryHints?.[0] ?? 'Nhân vật mới khởi sinh trong universe.'),
+            realmList: pack.cosmology.realmList,
+            startingLocation: pack.defaultStartingLocation,
+            initialWorldElements: [
+              { name: pack.defaultStartingLocation, type: 'LOCATION' as const, description: 'Vị trí khởi đầu.' },
+              ...pack.signatureLocations.slice(0, 4).map((l) => ({
+                name: l.name, type: 'LOCATION' as const, description: l.description,
+              })),
+              ...pack.signatureNpcs.slice(0, 5).map((n) => ({
+                name: n.name, type: 'NPC' as const, description: `${n.role}. ${n.description}`,
+              })),
+            ],
+            initialSects: pack.signatureSects.map((s) => ({
+              name: s.name,
+              alignment: s.alignment,
+              description: s.description,
+              ...(s.philosophy ? { philosophy: s.philosophy } : {}),
+              joinLevelMin: s.joinLevelMin ?? 1,
+            })),
+            initialBeasts: pack.signatureBeasts.map((b) => ({
+              name: b.name, rarity: b.rarity, kind: b.kind, description: b.description, basePower: b.basePower,
+            })),
+            initialItems: pack.signatureItems.map((i) => ({
+              name: i.name, category: i.category, rarity: i.rarity, description: i.description,
+            })),
+            initialSkills: pack.signatureSkills.map((s) => ({
+              name: s.name, kind: s.kind, rarity: s.rarity, description: s.description,
+            })),
+            cultivationTerms: pack.terminology.map((t) => ({
+              term: t.term, kind: t.kind, explanation: t.explanation,
+            })),
+          };
+        } else {
+          const prompt = buildFanFicAnalyzePrompt(form);
+          result = await callGemini(prompt, {
+            temperature: 0.7,           // thấp hơn narrative để bám nguyên tác
+            maxOutputTokens: 2000,
+            responseMimeType: 'application/json',
+            schema: FanFicAnalyzeSchema,
+          });
+        }
 
         // Hydrate settings
         set((s) => {
@@ -659,6 +727,101 @@ export const useGameStore = create<GameState>()(
         });
         throw err;
       }
+    },
+
+    /**
+     * Phase 13.1D: Apply world genesis result từ wizard.
+     * KHÔNG set isFanFictionMode (đây là open-world tự sinh, không phải fan-fic).
+     * Hydrate setting + knowledge.locations + characters + sects + items + skills + terms.
+     */
+    applyWorldGenesis: (result) => {
+      set((s) => {
+        s.settings.isFanFictionMode = false; // open-world, không phải fan-fic
+        s.settings.storyTitle = result.worldName;
+        s.settings.theme = result.theme;
+        s.settings.setting = `${result.tagline}\n\n${result.setting}`;
+        s.settings.currencyName = result.currencyName;
+        s.settings.realmListOverride = result.realmList;
+        s.knowledge.realmProgressionList = result.realmList;
+
+        // Seed locations (giống analyzeFanFic radial layout)
+        const VIEW_W = 1000;
+        const VIEW_H = 700;
+        const center = { x: VIEW_W / 2, y: VIEW_H / 2 };
+        const locIds: string[] = [];
+        const slug = (name: string): string =>
+          name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .replace(/đ/g, 'd').replace(/\s+/g, '_').replace(/[^\w]/g, '');
+
+        result.locations.forEach((loc, i) => {
+          const id = slug(loc.name);
+          locIds.push(id);
+          let x: number, y: number;
+          if (i === 0) { x = center.x; y = center.y; }
+          else {
+            const angle = ((i - 1) / Math.max(1, result.locations.length - 1)) * Math.PI * 2;
+            const radius = 240;
+            x = center.x + Math.cos(angle) * radius;
+            y = center.y + Math.sin(angle) * radius;
+          }
+          s.knowledge.locations[id] = {
+            id, name: loc.name, type: 'wilderness',
+            description: loc.description, neighbors: [],
+            discoveredByPlayer: true, visitedByPlayer: i === 0,
+            x, y, levelRange: [1, 10], travelCost: 4,
+          } as Location;
+        });
+        if (locIds.length >= 2) {
+          const firstLoc = s.knowledge.locations[locIds[0]!] as Location;
+          firstLoc.neighbors = locIds.slice(1);
+          for (let i = 1; i < locIds.length; i++) {
+            const cur = s.knowledge.locations[locIds[i]!] as Location;
+            const neighbors = [locIds[0]!];
+            if (locIds.length > 2 && i - 1 >= 1) neighbors.push(locIds[i - 1]!);
+            const nextIdx = i + 1 >= locIds.length ? 1 : i + 1;
+            if (locIds.length > 2 && nextIdx !== i) neighbors.push(locIds[nextIdx]!);
+            cur.neighbors = Array.from(new Set(neighbors));
+          }
+        }
+
+        // NPCs
+        result.npcs.forEach((n) => {
+          const id = slug(n.name);
+          s.knowledge.characters[id] = {
+            id, name: n.name, description: `${n.role}. ${n.description}`, role: 'npc',
+          };
+        });
+
+        // Sects via fan-fic stash mechanism (apply on startNewGame)
+        (s.settings as Record<string, unknown>)._fanFicStartingLocId = locIds[0] ?? null;
+        (s.settings as Record<string, unknown>)._fanFicSects = result.sects.map((sct) => ({
+          id: slug(sct.name),
+          name: sct.name,
+          alignment: sct.alignment,
+          description: sct.description,
+          philosophy: sct.philosophy ?? '"Đạo pháp tự nhiên."',
+          primaryElements: ['kim', 'moc'],
+          joinRequirements: { levelMin: 1 },
+          signatureTechniques: [`${sct.name} Tâm Pháp`, `${sct.name} Bí Thuật`],
+        }));
+
+        // Items + skills + terms stash
+        (s.settings as Record<string, unknown>)._fanFicItems = result.items;
+        (s.settings as Record<string, unknown>)._fanFicSkills = result.skills;
+        (s.settings as Record<string, unknown>)._fanFicTerms = result.terminology;
+
+        // Seed lore items
+        for (const it of result.items) {
+          const id = `lore_item_${slug(it.name).slice(0, 40)}`;
+          if (!s.knowledge.loreItems[id]) {
+            s.knowledge.loreItems[id] = {
+              id, name: it.name, description: it.description,
+              rarity: it.rarity, introducedAtTurn: 0, materialized: false,
+              source: result.worldName,
+            };
+          }
+        }
+      });
     },
 
     startNewGame: async (init) => {

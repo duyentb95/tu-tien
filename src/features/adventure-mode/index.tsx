@@ -2,6 +2,9 @@ import { useState, useMemo } from 'react';
 import { useGameStore } from '@state/game-store';
 import { Bracketed } from '@shared/components/CornerBracket';
 import { FAN_FIC_SEEDS, matchSeed, type FanFicSeedExample } from '@data/fan-fic-seeds';
+import { CANON_PACKS, findCanonPackByTitle } from '@data/canon-packs';
+import { WorldGenesisWizard } from './WorldGenesisWizard';
+import type { WorldGenesisResult } from '@ai/prompts/world-genesis';
 import { notify } from '@state/notifications';
 
 /**
@@ -15,13 +18,14 @@ import { notify } from '@state/notifications';
  *     └── FanFic → Wizard (3 fields) → AI Phân Tích → Setup (đã hydrate)
  */
 
-type View = 'mode-pick' | 'fanfic-wizard';
+type View = 'mode-pick' | 'fanfic-wizard' | 'genesis-wizard';
 
 export const AdventureModeScreen = () => {
   const setStage = useGameStore((s) => s.setStage);
   const settings = useGameStore((s) => s.settings);
   const updateSettings = useGameStore((s) => s.updateSettings);
   const analyzeFanFic = useGameStore((s) => s.analyzeFanFic);
+  const applyWorldGenesis = useGameStore((s) => s.applyWorldGenesis);
   const isAiThinking = useGameStore((s) => s.isAiThinking);
 
   const [view, setView] = useState<View>('mode-pick');
@@ -32,6 +36,11 @@ export const AdventureModeScreen = () => {
   const [characterType, setCharacterType] = useState<'incarnate' | 'newborn'>('incarnate');
   const [characterName, setCharacterName] = useState('');
   const [characterDescription, setCharacterDescription] = useState('');
+  // Phase 13.1B: Canon fidelity
+  const [canonFidelity, setCanonFidelity] = useState<'strict' | 'liberal' | 'original'>('liberal');
+
+  // Phase 13.1A: Pack có sẵn match được không?
+  const matchedPack = useMemo(() => findCanonPackByTitle(originalWork), [originalWork]);
 
   // Autocomplete suggestions
   const suggestions = useMemo(() => matchSeed(originalWork), [originalWork]);
@@ -42,12 +51,14 @@ export const AdventureModeScreen = () => {
   );
 
   const handleDefaultMode = () => {
-    updateSettings({
-      storyTitle: '',
-      isFanFictionMode: false,
-      isNsfwMode: nsfwOn,
-      allowNsfw: nsfwOn,
-    });
+    // Phase 13.1D: thay vì empty form, mở World Genesis Wizard
+    updateSettings({ isNsfwMode: nsfwOn, allowNsfw: nsfwOn });
+    setView('genesis-wizard');
+  };
+
+  const handleGenesisConfirm = (result: WorldGenesisResult) => {
+    applyWorldGenesis(result);
+    notify.epic('Thế giới đã thành hình', `"${result.worldName}" đã sẵn sàng cho ngươi.`);
     setStage('setup');
   };
 
@@ -57,7 +68,8 @@ export const AdventureModeScreen = () => {
       return;
     }
     try {
-      updateSettings({ isNsfwMode: nsfwOn, allowNsfw: nsfwOn });
+      // Phase 13.1B: lưu fidelity vào settings trước khi analyze
+      updateSettings({ isNsfwMode: nsfwOn, allowNsfw: nsfwOn, canonFidelity });
       await analyzeFanFic({
         originalWork: originalWork.trim(),
         characterType,
@@ -106,13 +118,13 @@ export const AdventureModeScreen = () => {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <ModeCard
-                  title="Phiêu Lưu Mặc Định"
-                  description="Tự do sáng tạo một thế giới và nhân vật hoàn toàn mới của riêng bạn."
+                  title="✦ Sáng Thế Tự Do"
+                  description="Tự tạo MỘT thế giới tu tiên mới qua wizard 4 bước (tone + cosmology + magic + themes). AI dệt nên realm + sect + lore độc nhất chỉ cho ngươi."
                   onClick={handleDefaultMode}
                 />
                 <ModeCard
-                  title="Phiêu Lưu Đồng Nhân"
-                  description="Hóa thân thành một nhân vật trong thế giới truyện/phim bạn yêu thích. AI sẽ phân tích nguyên tác."
+                  title="◭ Đồng Nhân Nguyên Tác"
+                  description="Nhập vai nhân vật trong truyện yêu thích. 10+ pack có sẵn (Mục Thần Ký, Phàm Nhân, Đấu Phá...). Tự gõ tên truyện khác → AI tự phân tích."
                   onClick={() => setView('fanfic-wizard')}
                 />
               </div>
@@ -171,6 +183,41 @@ export const AdventureModeScreen = () => {
                 </button>
               </div>
               <div className="mb-5 h-px bg-gold-700/20" />
+
+              {/* Phase 13.1A: Canon pack quick-pick (10 truyện có sẵn — không cần AI analyze) */}
+              <div className="mb-5">
+                <label className="label-gold mb-2 flex items-center gap-2">
+                  <span style={{ color: 'var(--spirit-500)' }}>★</span>
+                  Truyện Có Sẵn (10 packs đã được biên soạn — instant load, không bịa)
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {CANON_PACKS.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => { setOriginalWork(p.title); if (!characterName && p.popularCharacters?.[0]) setCharacterName(p.popularCharacters[0].name); }}
+                      disabled={isAiThinking}
+                      className={`rounded-sm border px-2 py-1 text-[11.5px] transition-colors ${
+                        matchedPack?.id === p.id
+                          ? 'border-spirit-400 bg-spirit-900/40 text-spirit-200'
+                          : 'border-gold-700/30 bg-ink-800 text-gold-300 hover:border-spirit-500/50 hover:text-spirit-300'
+                      }`}
+                      title={p.description}
+                    >
+                      {p.title}
+                    </button>
+                  ))}
+                </div>
+                {matchedPack && (
+                  <p className="mt-2 text-[11px] italic text-spirit-400">
+                    ✓ Pack "<strong>{matchedPack.title}</strong>" sẽ được dùng — bỏ qua AI analyze, lore chính xác từ nguyên tác.
+                  </p>
+                )}
+                {!matchedPack && originalWork.trim() && (
+                  <p className="mt-2 text-[11px] italic text-jade-500">
+                    Không có pack cho "{originalWork}" — AI sẽ tự phân tích (có thể có sai sót).
+                  </p>
+                )}
+              </div>
 
               {/* Field 1: Tên tác phẩm gốc */}
               <div className="mb-5">
@@ -280,6 +327,37 @@ export const AdventureModeScreen = () => {
                 </div>
               )}
 
+              {/* Phase 13.1B: Canon fidelity */}
+              <div className="mb-5">
+                <label className="label-gold mb-2 flex items-center gap-2">
+                  <span style={{ color: 'var(--gold-500)' }}>▌</span>
+                  Mức Độ Trung Thành Canon
+                </label>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <RadioCard
+                    label="Strict"
+                    sublabel="Bám sát nguyên tác, không spoil"
+                    checked={canonFidelity === 'strict'}
+                    onClick={() => setCanonFidelity('strict')}
+                    disabled={isAiThinking}
+                  />
+                  <RadioCard
+                    label="Liberal (Khuyến nghị)"
+                    sublabel="Cùng universe, story mới"
+                    checked={canonFidelity === 'liberal'}
+                    onClick={() => setCanonFidelity('liberal')}
+                    disabled={isAiThinking}
+                  />
+                  <RadioCard
+                    label="Original"
+                    sublabel="Mượn cosmology, tự do sáng tạo"
+                    checked={canonFidelity === 'original'}
+                    onClick={() => setCanonFidelity('original')}
+                    disabled={isAiThinking}
+                  />
+                </div>
+              </div>
+
               {/* NSFW toggle (compact) */}
               <div className="mb-5">
                 <label
@@ -316,6 +394,13 @@ export const AdventureModeScreen = () => {
                 )}
               </div>
             </>
+          )}
+
+          {view === 'genesis-wizard' && (
+            <WorldGenesisWizard
+              onCancel={() => setView('mode-pick')}
+              onConfirm={handleGenesisConfirm}
+            />
           )}
         </Bracketed>
       </div>
