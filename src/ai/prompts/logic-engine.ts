@@ -1,0 +1,198 @@
+/**
+ * Logic Engine — Step 1 của "Hybrid Xúc Xắc" pattern (theo prototype).
+ *
+ * Mục đích: tách quyết định LOGIC (state mutation, item gen, quest trigger) khỏi
+ * VĂN PHONG (prose). AI logic engine sinh 6 scenarios khả thi với:
+ *   - probability (0-100, sum ~100) — weight cho dice roll
+ *   - summary — mô tả 2-3 câu chuyện gì xảy ra
+ *   - classification_tags — phân loại độ dài/sắc thái/nsfw
+ *   - relevant_entities — NPC/item liên quan
+ *   - commands — game tags ([EXP+], [ITEM], [QUEST_GIVEN]...) sẽ apply nếu chosen
+ *
+ * Client dice roll theo probability → pick 1 scenario → step 2 (Narrative Engine)
+ * dùng scenario.summary + style hints để viết prose. Commands được append vào raw
+ * để tag-parser apply state mutation.
+ *
+ * Lợi ích:
+ *   1. AI không phải juggle game rules + prose cùng lúc → văn phong tốt hơn
+ *   2. State mutations consistent (logic engine focus 100% vào tags)
+ *   3. Dice roll random nhưng có weight → cảm giác "thiên cơ" không cố định
+ *   4. Có thể inspect scenarios trước khi commit (debugging)
+ */
+
+import { z } from 'zod';
+import type { PlayerCharacter } from '@gametypes/character';
+import type { GameSettings } from '@state/game-store';
+
+/** Persona expert đứng giữa narrative + game state mutations */
+const SYSTEM_PERSONA = `Ngươi là **EXPERT LOGIC ENGINE** cho game tu tiên text-based.
+Nhiệm vụ: Phân tích tình huống hiện tại + hành động vừa rồi của nhân vật, sinh ra **6 KỊCH BẢN KHẢ THI** mà câu chuyện có thể tiếp diễn.
+
+KHÔNG viết văn phong. KHÔNG kể chuyện. Chỉ trả về JSON cấu trúc.
+
+Mỗi scenario phải:
+- Có xác suất (probability) hợp lý dựa trên: độ khó game, chỉ số nhân vật (atk/def/lvl), tâm cảnh, may rủi.
+- Tổng probability của 6 scenarios = ~100 (không cần chính xác 100, miễn cộng lại > 80 và < 120).
+- Phân bổ đa dạng: nên có ít nhất 1 scenario tích cực, 1 tiêu cực, 1 trung lập, 1 sự kiện bất ngờ.
+- "commands" liệt kê các game tag sẽ apply nếu scenario này được chọn (1 chuỗi, mỗi tag 1 dòng).`;
+
+export interface LogicEngineContext {
+  settings: GameSettings;
+  player: PlayerCharacter;
+  realm?: string;
+  recentHistory: string[];
+  lastAction?: string;
+  currentLocation?: string;
+  isOpening?: boolean;
+  /** Difficulty multiplier — Dễ: tăng probability tích cực, Khó: tăng tiêu cực */
+  difficulty?: string;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Zod schema — bắt buộc AI trả đúng shape
+// ─────────────────────────────────────────────────────────────
+
+export const ClassificationTagsSchema = z.object({
+  /** Độ dài narrative AI sẽ viết: 'ngắn' < 100 từ, 'trung bình' 100-200, 'dài' 200+ */
+  length: z.enum(['ngắn', 'trung bình', 'dài']),
+  /** Sắc thái: tích cực = win/đột phá, tiêu cực = thất bại/bị thương, trung lập = info/dialogue */
+  tone: z.enum(['tích cực', 'tiêu cực', 'trung lập']),
+  /** NSFW: chỉ 'nsfw' khi settings.isNsfwMode bật + scenario có yếu tố 18+ */
+  rating: z.enum(['sfw', 'nsfw']),
+});
+
+export const ScenarioSchema = z.object({
+  probability: z.number().min(0).max(100),
+  summary: z.string().min(10).max(500),
+  classification_tags: ClassificationTagsSchema,
+  /** Tên NPC/item/location liên quan đến scenario (giúp narrative engine reference đúng) */
+  relevant_entities: z.array(z.string()).max(10),
+  /** Game tags sẽ apply, mỗi tag 1 dòng. Vd "[EXP+ 50]\n[ITEM Trường Kiếm|Thường|Vũ khí]" */
+  commands: z.string(),
+});
+
+export const LogicResponseSchema = z.object({
+  scenarios: z.array(ScenarioSchema).min(3).max(8),
+});
+
+export type Scenario = z.infer<typeof ScenarioSchema>;
+export type LogicResponse = z.infer<typeof LogicResponseSchema>;
+
+// ─────────────────────────────────────────────────────────────
+// Prompt builder
+// ─────────────────────────────────────────────────────────────
+
+export const buildLogicEnginePrompt = (ctx: LogicEngineContext): string => {
+  const { settings, player, realm, recentHistory, lastAction, isOpening, difficulty } = ctx;
+
+  const personaBlock = `
+[BỐI CẢNH NHÂN VẬT]
+- Tên: ${player.Name}
+- Cấp độ: ${player.level} (${realm ?? 'Phàm Nhân'})
+- HP: ${player.finalStats.hp}/${player.finalStats.maxhp} · ATK ${player.finalStats.atk} · DEF ${player.finalStats.def} · SPD ${player.finalStats.spd}
+- Linh thạch: ${player.currency}
+- Linh căn: ${player.spiritualRoot ? `${player.spiritualRoot.type} (${player.spiritualRoot.elements.join(',')}) ×${player.spiritualRoot.cultivationMultiplier}` : '(chưa khai thông)'}
+- Tính cách: ${player.personality ?? 'chưa rõ'}
+${player.description ? `- Background: ${player.description}` : ''}
+`.trim();
+
+  const worldBlock = `
+[BỐI CẢNH THẾ GIỚI]
+- Tiêu đề truyện: ${settings.storyTitle || 'Mặc Hội Tiên Đồ'}
+- Độ khó: ${difficulty ?? settings.difficulty}
+${settings.isFanFictionMode ? `- Fan-fiction của: ${settings.fanFicOriginalWork ?? '(không rõ)'}` : ''}
+${settings.theme ? `- Thể loại: ${settings.theme}` : ''}
+${settings.isNsfwMode ? '- Chế độ 18+: BẬT (cho phép tạo scenario nsfw)' : '- Chế độ 18+: TẮT (chỉ sfw)'}
+`.trim();
+
+  const historyBlock = recentHistory.length
+    ? `\n[LỊCH SỬ GẦN ĐÂY (${recentHistory.length} turn cuối)]\n${recentHistory.map((h, i) => `(T-${recentHistory.length - i}) ${h}`).join('\n\n')}\n`
+    : '';
+
+  const actionBlock = lastAction
+    ? `\n[HÀNH ĐỘNG VỪA RỒI]\n"${lastAction}"\n`
+    : '';
+
+  const taskBlock = isOpening
+    ? `
+[NHIỆM VỤ]
+Đây là CHƯƠNG MỞ ĐẦU. Sinh 6 scenarios cho cảnh nhân vật chính xuất hiện lần đầu.
+- 2-3 scenarios setup bối cảnh nhẹ (gặp NPC, được giao quest, nhận item khởi đầu)
+- 1-2 scenarios sự kiện bất ngờ (kỳ ngộ, gặp hiểm họa nhỏ)
+- 1 scenario yên tĩnh (tu luyện đơn giản, suy ngẫm)
+- Mỗi scenario PHẢI có commands inject 1-3 game tags để start nhân vật với item/currency/quest hợp lý.
+`.trim()
+    : `
+[NHIỆM VỤ]
+Sinh 6 scenarios cho hệ quả của hành động vừa rồi. Phân bổ:
+- 1-2 scenarios "đúng như ngươi tính" (tích cực, làm theo mong đợi)
+- 1-2 scenarios "có biến" (xuất hiện NPC bất ngờ, gặp item, twist nhẹ)
+- 1 scenario "tệ" (gặp khó khăn, bị thương, mất tài nguyên)
+- 1 scenario "bất ngờ lớn" (kỳ ngộ, đột phá, hoặc nguy hiểm cao)
+
+Probability dựa trên độ khó:
+- Dễ: scenarios tích cực ~60-70%, tiêu cực ~10-15%
+- Thường: tích cực ~45%, tiêu cực ~25%, trung lập ~30%
+- Khó: tích cực ~30%, tiêu cực ~40%, trung lập ~30%
+- Ác Mộng: tích cực ~20%, tiêu cực ~50%, bất ngờ lớn 10% chết người
+`.trim();
+
+  const tagReferenceBlock = `
+[GAME TAGS CHO PHÉP TRONG "commands"]
+Mỗi tag 1 dòng. Chỉ dùng các tag dưới (không bịa tag mới):
+
+  [EXP+ N]                              — exp gained (tu luyện, giết quái, hoàn quest)
+  [HP+ N] / [HP- N]                     — máu thay đổi
+  [CURRENCY+ N] / [CURRENCY- N]         — linh thạch ±
+  [AP+ N]                               — điểm tiềm năng (sau đột phá)
+  [STAT atk+5] / [STAT def-3] ...       — buff/debuff vĩnh viễn 1 stat
+  [ITEM Tên|Phẩm chất|Loại]             — nhận item mới
+                                          Phẩm chất: Thường/Tốt/Hiếm/Cực Phẩm/Siêu Phẩm/Huyền Thoại
+                                          Loại: Vũ khí/Đan dược/Nguyên liệu/Tín vật/Sách kỹ năng
+  [SKILL Tên|kind|Phẩm chất]            — học skill mới (kind: combat_basic/combat_ultimate/adventure)
+  [REALM_BREAK]                         — trigger đột phá cảnh giới
+  [TRIBULATION lý do]                   — trigger độ kiếp cutscene (chỉ khi đạt level 10/20/30...)
+  [COMBAT Tên kẻ địch|Cấp độ]           — bắt đầu combat
+  [LOCATION id|Tên]                     — đổi địa điểm
+  [STATUS_ADD status_id|hours]          — áp long-term status (TRONG_THUONG, TRUNG_DOC...)
+  [NOTE Tin nhắn]                       — notification ngắn cho player
+  [QUEST_GIVEN Tiêu đề|kind|Mô tả|Tên giao]  — nhận nhiệm vụ mới (kind: main/side/sect/cultivation/hidden)
+  [QUEST_COMPLETE Tiêu đề chính xác]    — hoàn thành nhiệm vụ
+  [QUEST_FAILED Tiêu đề chính xác]      — thất bại nhiệm vụ
+`.trim();
+
+  const formatBlock = `
+[ĐỊNH DẠNG ĐẦU RA — BẮT BUỘC JSON]
+{
+  "scenarios": [
+    {
+      "probability": 35,
+      "summary": "Mô tả 2-3 câu chuyện gì xảy ra trong scenario này. Không viết văn phong, chỉ tóm tắt logic.",
+      "classification_tags": {
+        "length": "trung bình",
+        "tone": "tích cực",
+        "rating": "sfw"
+      },
+      "relevant_entities": ["Sư huynh Mặc Uyên", "Linh Tâm Thảo"],
+      "commands": "[EXP+ 30]\\n[NOTE Tìm thấy được dược liệu]"
+    },
+    ... (5 scenarios khác)
+  ]
+}
+
+KHÔNG viết gì ngoài JSON. KHÔNG dùng markdown wrapper.
+`.trim();
+
+  return [
+    SYSTEM_PERSONA,
+    personaBlock,
+    worldBlock,
+    historyBlock,
+    actionBlock,
+    taskBlock,
+    tagReferenceBlock,
+    formatBlock,
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+};

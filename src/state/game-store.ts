@@ -102,6 +102,13 @@ export interface GameSettings {
   setting?: string;
   /** Hệ thống cảnh giới (override realmList default) */
   realmListOverride?: string[];
+  /**
+   * Hybrid Logic Engine mode (default true).
+   * true = 2-step (Logic Engine sinh 6 scenarios + dice + Narrative Engine viết prose)
+   * false = single-call legacy (1 prompt làm hết — fallback nếu user cần tiết kiệm quota)
+   * Hybrid tốn 2x API call nhưng văn phong + state consistency tốt hơn nhiều.
+   */
+  useHybridLogic?: boolean;
 }
 
 export interface KnowledgeSlice {
@@ -262,6 +269,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   narratorPronoun: 'Để AI quyết định',
   currencyName: 'Linh Thạch',
   playerAvatarUrl: null,
+  useHybridLogic: true,         // default ON — văn phong tốt hơn nhiều
 };
 
 const DEFAULT_KNOWLEDGE: KnowledgeSlice = {

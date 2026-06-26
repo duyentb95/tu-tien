@@ -136,6 +136,16 @@ export const GameplayScreen = () => {
         </nav>
       </header>
 
+      {/* Mode badge — bottom-right */}
+      {settings.useHybridLogic !== false && (
+        <div
+          className="fixed bottom-3 right-3 z-10 rounded-sm border border-spirit-500/30 bg-ink-800/80 px-2 py-1 text-[10px] uppercase tracking-wider text-spirit-300 backdrop-blur-sm"
+          title="2-step Hybrid: Logic Engine sinh 6 scenarios + dice roll + Narrative Engine viết prose"
+        >
+          <span aria-hidden style={{ color: 'var(--spirit-400)' }}>✦</span> Hybrid Logic
+        </div>
+      )}
+
       {/* Error banner */}
       {lastError && (
         <div className="mx-auto mb-3 max-w-7xl rounded-md border border-blood-500/50 bg-blood-500/10 px-4 py-2 text-sm text-ember-200">
