@@ -8,7 +8,7 @@
 
 **Game:** Mặc Hội Tiên Đồ — RPG tu tiên nhập vai thế giới mở, AI-driven (Gemini).
 
-**Trạng thái:** **v1.2.0 production** tại https://tien-do.netlify.app. Hoàn thành Phase 1-12 + 6/8 pattern port từ Google Canvas RPG (Item Pipeline, Entity Injection, EP Scoring 4-criteria, 2-tier Summary, Trade Negotiation, Visual Combat VFX). Xem `CHANGELOG.md`.
+**Trạng thái:** **v1.3.0 production** tại https://tien-do.netlify.app. Hoàn thành Phase 1-13 + 6/8 pattern port từ Google Canvas RPG + Creative Engine (10 canon packs đa truyện + fidelity toggle strict/liberal/original + World Genesis Wizard cho open-world). Xem `CHANGELOG.md`.
 
 **Stack:** Vite + React 18 + TypeScript strict + Tailwind + Zustand+Immer + Zod + Firebase (optional cloud sync) + Gemini 2.5 Flash via Cloudflare Worker proxy + lottie-react.
 
@@ -25,6 +25,9 @@
 - **Trade System** (`src/types/trade.ts` + `src/features/trader/TraderModal.tsx`): `traderSession` state với wares + multipliers, modal 2-pane auto-open khi `[ENTER_TRADE_MODE]`.
 - **Visual Combat VFX** (`src/features/combat/VisualCombatFX.tsx`): floating damage numbers + screen shake + impact flash. CSS keyframes `fx-float-up`/`fx-shake`/`fx-fade-out`.
 - **Fan-fic wizard** (`src/ai/prompts/fan-fic-analyze.ts`): 3 fields → AI analyze hydrate full settings + initialWorldElements. KHÔNG còn preset cứng.
+- **Canon Pack registry** (`src/data/canon-packs/` + `src/types/canon-pack.ts`): 10 truyện đã biên soạn metadata canonical (Mục Thần Ký, Phàm Nhân, Tru Tiên, Đấu Phá...). `analyzeFanFic` check pack trước, skip AI nếu match.
+- **Canon Fidelity** (`settings.canonFidelity`): strict | liberal | original — inject vào logic-engine prompt với rule riêng từng mode.
+- **World Genesis Wizard** (`src/features/adventure-mode/WorldGenesisWizard.tsx` + `src/ai/world-genesis-service.ts`): 4-step wizard (Tone → Cosmology → Magic density → Themes) → AI sinh world hoàn chỉnh cho open-world mode.
 - **Multi-key rotation** (`src/ai/client.ts`): N keys round-robin + per-key block 60s khi 429. Support `VITE_GEMINI_API_KEY_1..10`.
 - **AI Proxy** (`proxy/cloudflare-worker.js`): ẩn key server-side, rate limit per IP. Env `VITE_AI_PROXY_URL`.
 

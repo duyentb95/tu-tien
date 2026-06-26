@@ -486,4 +486,9 @@ Action preview %, universe-faithful naming, 2-phase loading, Tra Cứu Nhanh, en
 ### Phase 12 — Visual Combat + Trader UI
 12.1 Visual Combat VFX overlay · 12.2 Trader Modal 2-pane.
 
-**Hiện trạng:** v1.2.0 production, deploy https://tien-do.netlify.app.
+### Phase 13 — Creative Engine (vượt mặt Google Canvas reference)
+13.1A Canon Pack registry (10 truyện đa dạng genre đã biên soạn metadata canonical) ·
+13.1B Canon Fidelity toggle (strict/liberal/original) ·
+13.1D World Genesis Wizard (4-step cho open-world tự sinh).
+
+**Hiện trạng:** v1.3.0 production, deploy https://tien-do.netlify.app.

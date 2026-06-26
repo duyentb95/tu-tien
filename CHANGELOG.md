@@ -5,6 +5,21 @@ Versioning theo [SemVer](https://semver.org/lang/vi/).
 
 ---
 
+## [1.3.0] — 2026-06-26
+
+### Added — Phase 13 (Creative Engine — vượt mặt Google Canvas reference)
+
+- **Canon Pack registry** (`src/data/canon-packs/` + `src/types/canon-pack.ts`): 10 truyện đa dạng genre đã được biên soạn metadata canonical (cosmology, sects, NPCs, items, skills, beasts, locations, terminology). Mỗi pack ~80-120 LOC. Khi user gõ tên truyện match pack → skip AI analyze, hydrate trực tiếp từ pack data → instant + chính xác hơn nhiều so với để AI tự nhớ. Pack list: Mục Thần Ký, Phàm Nhân Tu Tiên, Tru Tiên, Tiên Nghịch, Đấu Phá Thương Khung, Đế Bá, Già Thiên, Hoàn Mỹ Thế Giới, Vô Thượng Sát Thần, Thần Mộ, Thôn Phệ Tinh Không.
+- **Canon Fidelity toggle** (`settings.canonFidelity`): 3 mức — **STRICT** (bám sát nguyên tác, cấm spoil/bịa), **LIBERAL** (cùng universe, story mới, default), **ORIGINAL** (chỉ mượn cosmology, tự do sáng tạo). Inject vào logic-engine prompt với rule chi tiết cho từng mode.
+- **World Genesis Wizard** (`src/features/adventure-mode/WorldGenesisWizard.tsx` + `src/ai/world-genesis-service.ts`): 4-step wizard cho open-world mode — Tone chips → Cosmology shape (đơn/song/cửu/multiverse) → Magic density → Themes + inspiration keyword → Preview với Re-roll. AI sinh ra world hoàn chỉnh (realm list + 4-6 sects + locations + NPCs + items + skills + terminology + suggested backstories). Thay placeholder "Phiêu Lưu Mặc Định" cũ.
+
+### Changed
+
+- "Phiêu Lưu Mặc Định" → "✦ Sáng Thế Tự Do" (mở World Genesis Wizard).
+- "Phiêu Lưu Đồng Nhân" → "◭ Đồng Nhân Nguyên Tác" với canon pack quick-pick (10 chip buttons) bên trên input gõ tự do.
+
+---
+
 ## [1.2.0] — 2026-06-26
 
 ### Added — Phase 12 (Visual Combat + Trader UI)
