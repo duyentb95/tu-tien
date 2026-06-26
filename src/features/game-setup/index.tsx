@@ -74,8 +74,10 @@ export const GameSetupScreen = () => {
 
         {usingMock && (
           <div className="mb-6 rounded-md border border-spirit-500/40 bg-void-900/50 px-4 py-3 text-sm text-spirit-200">
-            <strong>Chế độ Mock:</strong> chưa cấu hình <code>VITE_GEMINI_API_KEY</code> nên
-            game sẽ dùng kịch bản dựng sẵn (6 chunk). Vẫn demo được toàn bộ flow.
+            <strong>Chế độ Mock:</strong> chưa cấu hình AI provider (cần ít nhất 1 trong:
+            <code className="mx-1">VITE_AI_PROXY_URL</code>,
+            <code className="mx-1">VITE_GEMINI_API_KEY</code>, hoặc
+            <code className="mx-1">VITE_DEEPSEEK_API_KEY</code>). Game sẽ dùng kịch bản dựng sẵn (6 chunk).
           </div>
         )}
 

@@ -152,7 +152,35 @@ export const resetMockCursor = () => {
   mockCursor = 0;
 };
 
+/**
+ * Detect Mock Mode — fallback khi KHÔNG có bất kỳ AI provider nào configured.
+ *
+ * Trả false (= dùng AI thật) nếu BẤT KỲ env nào set:
+ *   - VITE_AI_PROXY_URL              (Cloudflare Worker / Firebase Function Gemini proxy)
+ *   - VITE_AI_PROXY_URL_DEEPSEEK     (DeepSeek qua proxy)
+ *   - VITE_GEMINI_API_KEY[_N]        (Gemini direct, 1 hoặc nhiều keys)
+ *   - VITE_DEEPSEEK_API_KEY[_N]      (DeepSeek direct, 1 hoặc nhiều keys)
+ *
+ * Chỉ trả true khi cả 4 nguồn đều rỗng/không có.
+ */
 export const shouldUseMockAi = (): boolean => {
-  const key = import.meta.env.VITE_GEMINI_API_KEY;
-  return !key || key === '' || key === 'mock';
+  const env = import.meta.env as Record<string, string | undefined>;
+
+  // Proxy URLs?
+  if (env.VITE_AI_PROXY_URL && env.VITE_AI_PROXY_URL !== '') return false;
+  if (env.VITE_AI_PROXY_URL_DEEPSEEK && env.VITE_AI_PROXY_URL_DEEPSEEK !== '') return false;
+
+  // Direct keys — single + numbered variants (1-10)
+  const hasGeminiKey =
+    (env.VITE_GEMINI_API_KEY && env.VITE_GEMINI_API_KEY !== '' && env.VITE_GEMINI_API_KEY !== 'mock') ||
+    Array.from({ length: 10 }, (_, i) => env[`VITE_GEMINI_API_KEY_${i + 1}`]).some((k) => k && k !== '');
+  if (hasGeminiKey) return false;
+
+  const hasDeepseekKey =
+    (env.VITE_DEEPSEEK_API_KEY && env.VITE_DEEPSEEK_API_KEY !== '' && env.VITE_DEEPSEEK_API_KEY !== 'mock') ||
+    Array.from({ length: 10 }, (_, i) => env[`VITE_DEEPSEEK_API_KEY_${i + 1}`]).some((k) => k && k !== '');
+  if (hasDeepseekKey) return false;
+
+  // Không có gì → mock
+  return true;
 };
