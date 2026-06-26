@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from 'react';
 import {
   useGameStore,
   selectPlayer,
@@ -11,6 +12,9 @@ import { Bracketed } from '@shared/components/CornerBracket';
 import { PlayerSidebar } from './PlayerSidebar';
 import { StoryView } from './StoryView';
 import { ActionPanel } from './ActionPanel';
+import { HandbookModal, WelcomeOverlay } from '@features/tutorial';
+import { SaveManagerModal } from '@features/save-manager';
+import { autoBackup } from '@services/save-manager';
 
 export const GameplayScreen = () => {
   const player = useGameStore(selectPlayer);
@@ -24,6 +28,23 @@ export const GameplayScreen = () => {
   const turn = useGameStore((s) => s.turn);
   const realmList = useGameStore((s) => s.knowledge.realmProgressionList);
   const reset = useGameStore((s) => s.reset);
+  const getCurrentPayload = useGameStore((s) => s.getCurrentPayload);
+  const [handbookOpen, setHandbookOpen] = useState(false);
+  const [saveManagerOpen, setSaveManagerOpen] = useState(false);
+
+  // Auto-backup mỗi 10 lượt — rotate qua 3 slot autobackup
+  const lastBackupTurnRef = useRef(turn);
+  useEffect(() => {
+    if (!player) return;
+    if (turn - lastBackupTurnRef.current >= 10) {
+      const payload = getCurrentPayload();
+      const success = autoBackup(payload as Parameters<typeof autoBackup>[0]);
+      if (success) {
+        console.info(`[auto-backup] Saved at turn ${turn}`);
+      }
+      lastBackupTurnRef.current = turn;
+    }
+  }, [turn, player, getCurrentPayload]);
 
   if (!player) {
     return (
@@ -71,6 +92,8 @@ export const GameplayScreen = () => {
             onClick={() => useGameStore.getState().startCombat('Hắc Vụ Lang', Math.max(1, player.level))}
           />
           <NavButton label="Độ Kiếp" icon="⚡" onClick={() => setStage('tribulation')} />
+          <NavButton label="Lưu Trữ" icon="◭" onClick={() => setSaveManagerOpen(true)} />
+          <NavButton label="Cẩm Nang" icon="?" onClick={() => setHandbookOpen(true)} />
           <NavButton
             label="Thoát"
             icon="⊗"
@@ -110,6 +133,11 @@ export const GameplayScreen = () => {
           />
         </div>
       </div>
+
+      {/* Tutorial overlays */}
+      <WelcomeOverlay />
+      <HandbookModal open={handbookOpen} onClose={() => setHandbookOpen(false)} />
+      <SaveManagerModal open={saveManagerOpen} onClose={() => setSaveManagerOpen(false)} />
     </div>
   );
 };
