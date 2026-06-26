@@ -17,7 +17,27 @@ import { z } from 'zod';
  */
 
 // ─────────────────────────────────────────────────────────────
-// Multi-key rotation
+// Proxy mode — Phase 7.1 (production hardening)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Nếu set VITE_AI_PROXY_URL → tất cả request đi qua proxy URL đó
+ * (Cloudflare Worker, Firebase Function, etc.) thay vì gọi Gemini trực tiếp.
+ *
+ * Lợi ích:
+ *   - API key ẩn ở server-side, không expose client
+ *   - Rate limit + origin whitelist enforce server-side
+ *   - Multi-key rotation server-side
+ *   - CORS, auth, monitoring tập trung
+ *
+ * Khi proxy mode ON, client.ts skip toàn bộ key collection + model fallback —
+ * server xử lý tất cả. Client chỉ POST { prompt, temperature, ... }.
+ */
+const AI_PROXY_URL = import.meta.env.VITE_AI_PROXY_URL as string | undefined;
+const USE_PROXY = !!AI_PROXY_URL && AI_PROXY_URL.length > 0;
+
+// ─────────────────────────────────────────────────────────────
+// Multi-key rotation (chỉ active khi KHÔNG dùng proxy)
 // ─────────────────────────────────────────────────────────────
 
 /**
@@ -71,7 +91,9 @@ const blockKey = (key: string, durationMs = 60_000) => {
 const nextApiKey = (): string => {
   if (API_KEYS.length === 0) {
     throw new Error(
-      '[ai/client] Không có API key nào. Set VITE_GEMINI_API_KEY hoặc VITE_GEMINI_API_KEY_1..N trong env.',
+      USE_PROXY
+        ? '[ai/client] Proxy mode bật nhưng nextApiKey() vẫn bị gọi (bug)'
+        : '[ai/client] Không có API key nào. Set VITE_GEMINI_API_KEY hoặc VITE_GEMINI_API_KEY_1..N trong env, hoặc set VITE_AI_PROXY_URL.',
     );
   }
   // Thử tối đa N lần (N = số key), skip blocked
@@ -240,6 +262,11 @@ export async function callGemini<T>(
     opts = { ...opts, responseMimeType: 'application/json' };
   }
 
+  // ─── Proxy mode: gọi worker/function, server xử lý tất cả ───
+  if (USE_PROXY) {
+    return callViaProxy(prompt, opts);
+  }
+
   let lastError: unknown;
 
   for (const model of GEMINI_MODELS) {
@@ -326,8 +353,83 @@ export async function callGemini<T>(
   throw lastError ?? new Error('[ai/client] Tất cả model + key đều fail. Thử lại sau vài phút.');
 }
 
-/** Tiện ích cho UI/debug — biết đang dùng bao nhiêu keys */
-export const getKeyCount = (): number => API_KEYS.length;
+/**
+ * Gọi qua proxy (Cloudflare Worker / Firebase Function).
+ * Proxy contract:
+ *   POST {url}/chat
+ *   Body: { prompt, temperature?, maxOutputTokens?, responseMimeType?, thinkingBudget? }
+ *   Response 200: { text: string, model: string }
+ *   Response 4xx/5xx: { error: string }
+ */
+async function callViaProxy<T>(
+  prompt: string,
+  opts: CallOptions & { schema?: z.ZodSchema<T> },
+): Promise<string | T> {
+  const url = AI_PROXY_URL!.endsWith('/chat') ? AI_PROXY_URL! : `${AI_PROXY_URL}/chat`;
+
+  // Proxy có retry built-in (server-side), client chỉ retry 2 lần cho network error
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          temperature: opts.temperature ?? 0.9,
+          maxOutputTokens: opts.maxOutputTokens ?? 4096,
+          responseMimeType: opts.responseMimeType ?? 'text/plain',
+          thinkingBudget: opts.thinkingBudget ?? 0,
+        }),
+        signal: opts.signal,
+      });
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        // 429 từ proxy = rate limit, không retry
+        if (res.status === 429 || res.status === 403) {
+          throw new Error(`[ai/proxy] ${errBody.error ?? 'Forbidden'}`);
+        }
+        lastError = new Error(`[ai/proxy] HTTP ${res.status}: ${errBody.error ?? ''}`);
+        if (attempt < 1) {
+          await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+          continue;
+        }
+        throw lastError;
+      }
+
+      const data = (await res.json()) as { text: string; model?: string };
+      const text = data.text;
+      if (!text) throw new Error('[ai/proxy] Empty response');
+
+      if (opts.schema) {
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          throw new Error(`[ai/proxy] Invalid JSON: ${text.slice(0, 200)}`);
+        }
+        return opts.schema.parse(parsed);
+      }
+      return text;
+    } catch (e) {
+      lastError = e;
+      // Network error → retry
+      if (attempt < 1) {
+        console.warn(`[ai/proxy] Network error, retry 1/2:`, e);
+        await new Promise((r) => setTimeout(r, 1500));
+        continue;
+      }
+    }
+  }
+  throw lastError ?? new Error('[ai/proxy] Failed after 2 attempts');
+}
+
+/** Tiện ích cho UI/debug — biết đang dùng bao nhiêu keys (0 khi proxy mode) */
+export const getKeyCount = (): number => (USE_PROXY ? 0 : API_KEYS.length);
+
+/** Biết hiện tại đang ở mode nào */
+export const isUsingProxy = (): boolean => USE_PROXY;
 
 /** Tiện ích: ước lượng token count (rough: 1 token ≈ 4 chars cho EN, ≈ 2 chars cho VI). */
 export const estimateTokens = (text: string): number => {

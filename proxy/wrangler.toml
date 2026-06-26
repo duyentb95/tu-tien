@@ -1,0 +1,26 @@
+name = "mac-do-ai-proxy"
+main = "cloudflare-worker.js"
+compatibility_date = "2026-06-01"
+
+# ─── KV namespace cho rate limit ───
+# Tạo qua: wrangler kv:namespace create RATELIMIT
+# Sau đó paste id vào dưới
+[[kv_namespaces]]
+binding = "RATELIMIT"
+id = "REPLACE_WITH_KV_ID_AFTER_CREATE"
+
+# ─── Env vars cấu hình ở dashboard sau ───
+# Secrets (qua: wrangler secret put NAME):
+#   GEMINI_API_KEY_1       — bắt buộc ít nhất 1 key
+#   GEMINI_API_KEY_2       — optional, rotation
+#   GEMINI_API_KEY_3       — optional, rotation
+# Plain vars:
+#   GEMINI_MODEL           — optional, default "gemini-2.5-flash"
+
+[vars]
+# Có thể set ở đây hoặc qua dashboard
+# GEMINI_MODEL = "gemini-2.5-flash"
+
+# ─── Observability ───
+[observability]
+enabled = true
