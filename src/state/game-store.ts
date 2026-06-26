@@ -469,27 +469,121 @@ export const useGameStore = create<GameState>()(
           // Knowledge realmList
           s.knowledge.realmProgressionList = result.realmList;
 
-          // Seed initialWorldElements vào knowledge
-          for (const elem of result.initialWorldElements) {
-            const id = elem.name.toLowerCase().replace(/\s+/g, '_').replace(/[^\w]/g, '');
-            if (elem.type === 'LOCATION') {
-              s.knowledge.locations[id] = {
-                id,
-                name: elem.name,
-                type: 'wilderness',
-                description: elem.description,
-                neighbors: [],
-                discoveredByPlayer: true,
-                visitedByPlayer: false,
-              } as Location;
-            } else if (elem.type === 'NPC') {
-              s.knowledge.characters[id] = {
-                id,
-                name: elem.name,
-                description: elem.description,
-                role: 'npc',
-              };
+          // Seed initialWorldElements vào knowledge với x/y radial layout cho map
+          const locations = result.initialWorldElements.filter((e) => e.type === 'LOCATION');
+          const npcs = result.initialWorldElements.filter((e) => e.type === 'NPC');
+          const VIEW_W = 1000;
+          const VIEW_H = 700;
+          const center = { x: VIEW_W / 2, y: VIEW_H / 2 };
+          const locIds: string[] = [];
+
+          locations.forEach((elem, i) => {
+            const id = elem.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+              .replace(/đ/g, 'd').replace(/\s+/g, '_').replace(/[^\w]/g, '');
+            locIds.push(id);
+
+            // Radial layout — location 0 ở center (starting), others spread quanh radius
+            let x: number, y: number;
+            if (i === 0) {
+              x = center.x;
+              y = center.y;
+            } else {
+              const angle = ((i - 1) / Math.max(1, locations.length - 1)) * Math.PI * 2;
+              const radius = 240;
+              x = center.x + Math.cos(angle) * radius;
+              y = center.y + Math.sin(angle) * radius;
             }
+
+            s.knowledge.locations[id] = {
+              id,
+              name: elem.name,
+              type: 'wilderness',
+              description: elem.description,
+              neighbors: [],   // sẽ fill bên dưới
+              discoveredByPlayer: true,
+              visitedByPlayer: i === 0, // first = starting location
+              x,
+              y,
+              levelRange: [1, 10],
+              travelCost: 4,
+            } as Location;
+          });
+
+          // Connect neighbors: location 0 (center) connect tới tất cả khác (hub-spoke)
+          // + mỗi outer location connect tới 2 outer kề (ring)
+          if (locIds.length >= 2) {
+            const firstLoc = s.knowledge.locations[locIds[0]!] as Location;
+            firstLoc.neighbors = locIds.slice(1);
+            for (let i = 1; i < locIds.length; i++) {
+              const cur = s.knowledge.locations[locIds[i]!] as Location;
+              const prev = i - 1;
+              const next = i + 1 >= locIds.length ? 1 : i + 1;
+              const neighbors = [locIds[0]!];
+              if (locIds.length > 2 && prev >= 1) neighbors.push(locIds[prev]!);
+              if (locIds.length > 2 && next !== i) neighbors.push(locIds[next]!);
+              cur.neighbors = Array.from(new Set(neighbors));
+            }
+          }
+
+          npcs.forEach((elem) => {
+            const id = elem.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+              .replace(/đ/g, 'd').replace(/\s+/g, '_').replace(/[^\w]/g, '');
+            s.knowledge.characters[id] = {
+              id,
+              name: elem.name,
+              description: elem.description,
+              role: 'npc',
+            };
+          });
+
+          // Lưu starting location id để startNewGame dùng
+          (s.settings as Record<string, unknown>)._fanFicStartingLocId = locIds[0] ?? null;
+
+          // Lưu fan-fic sects + beasts để startNewGame apply
+          if (result.initialSects && result.initialSects.length > 0) {
+            (s.settings as Record<string, unknown>)._fanFicSects = result.initialSects.map((sct) => {
+              const id = sct.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+                .replace(/đ/g, 'd').replace(/\s+/g, '_').replace(/[^\w]/g, '');
+              return {
+                id,
+                name: sct.name,
+                alignment: sct.alignment,
+                description: sct.description,
+                philosophy: sct.philosophy ?? '"Đại đạo vô cùng."',
+                primaryElements: ['kim', 'moc'], // generic fallback
+                joinRequirements: { levelMin: sct.joinLevelMin },
+                signatureTechniques: [`${sct.name} Tâm Pháp`, `${sct.name} Bí Thuật`],
+              };
+            });
+          }
+          if (result.initialBeasts && result.initialBeasts.length > 0) {
+            (s.settings as Record<string, unknown>)._fanFicBeasts = result.initialBeasts.map((bst) => {
+              const id = bst.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+                .replace(/đ/g, 'd').replace(/\s+/g, '_').replace(/[^\w]/g, '');
+              const power = bst.basePower ?? 100;
+              const baseHp = Math.round(power * 1.5);
+              const baseAtk = Math.round(power * 0.4);
+              const baseDef = Math.round(power * 0.2);
+              const captureChance = bst.rarity === 'Huyền Thoại' ? 3 :
+                                    bst.rarity === 'Siêu Phẩm' ? 8 :
+                                    bst.rarity === 'Cực Phẩm' ? 15 :
+                                    bst.rarity === 'Hiếm' ? 25 :
+                                    bst.rarity === 'Tốt' ? 40 : 60;
+              return {
+                id,
+                baseName: bst.name,
+                rarity: bst.rarity,
+                kind: bst.kind,
+                baseStats: { hp: baseHp, atk: baseAtk, def: baseDef, spd: 30 },
+                captureRequirement: { baseCaptureChance: captureChance },
+                stages: [
+                  { name: bst.name, minLevel: 1, statMultiplier: 1, description: bst.description },
+                  { name: `${bst.name} Tiến Hóa`, minLevel: 20, statMultiplier: 2.5,
+                    description: `${bst.name} đã trưởng thành, sức mạnh tăng vọt.`,
+                    evolutionCost: { currency: 2000 } },
+                ],
+              };
+            });
           }
 
           // Lưu lại tên + giới tính + personality + backstory để Setup screen tự fill
@@ -516,7 +610,10 @@ export const useGameStore = create<GameState>()(
 
     startNewGame: async (init) => {
       const player = makePlayer(init);
-      player.current_location_id = 'thanh_van_phong';
+      // Phase 8.3: Fan-fic mode dùng custom starting location từ analyze
+      const fanFicStartId = (get().settings as { _fanFicStartingLocId?: string | null })._fanFicStartingLocId;
+      const isFanFicWithCustomWorld = get().settings.isFanFictionMode && fanFicStartId && get().knowledge.locations[fanFicStartId];
+      player.current_location_id = isFanFicWithCustomWorld ? fanFicStartId : 'thanh_van_phong';
       set((s) => {
         s.player = player;
         Object.assign(s.settings, init.settings);
@@ -525,16 +622,24 @@ export const useGameStore = create<GameState>()(
         s.turn = 0;
         s.inventory = {};
         s.skills = {};
-        // Initialize world: load default locations + factions
-        const locDict: Record<string, MapLocation> = {};
-        DEFAULT_LOCATIONS.forEach((l) => {
-          locDict[l.id] = { ...l };
-        });
+        // Initialize world: nếu fan-fic có custom locations → GIỮ, KHÔNG overwrite
+        // Default mode → load DEFAULT_LOCATIONS
+        if (!isFanFicWithCustomWorld) {
+          const locDict: Record<string, MapLocation> = {};
+          DEFAULT_LOCATIONS.forEach((l) => {
+            locDict[l.id] = { ...l };
+          });
+          s.knowledge.locations = locDict;
+        }
+        // Mark starting location visited
+        if (player.current_location_id && s.knowledge.locations[player.current_location_id]) {
+          s.knowledge.locations[player.current_location_id]!.visitedByPlayer = true;
+          s.knowledge.locations[player.current_location_id]!.discoveredByPlayer = true;
+        }
         const facDict: Record<string, typeof DEFAULT_FACTIONS[number]> = {};
         DEFAULT_FACTIONS.forEach((f) => {
           facDict[f.id] = f;
         });
-        s.knowledge.locations = locDict;
         s.knowledge.factions = facDict;
         s.lastError = null;
         s.prevStage = s.stage;
@@ -2408,3 +2513,36 @@ export { applyBeastExp, canEvolve, beastMaxExp } from '@core/cultivation/spirit-
 // Re-export sect data for convenience
 export { DEFAULT_SECTS, SECT_MISSION_POOL, TANG_KINH_CATALOG, getSect } from '@data/default-sects';
 export { SECT_RANK_DISPLAY, SECT_RANK_ORDER, SECT_RANK_REQUIREMENT } from '@gametypes/sect';
+
+// ─── Phase 8.3: Fan-fic aware selectors ───
+import { DEFAULT_SECTS as _DEFAULT_SECTS } from '@data/default-sects';
+import { BEAST_TEMPLATES as _BEAST_TEMPLATES } from '@data/default-beasts';
+import type { Sect } from '@gametypes/sect';
+import type { BeastTemplate } from '@gametypes/spirit-beast';
+
+/**
+ * Get sects available cho universe hiện tại.
+ * Fan-fic mode → return AI-generated sects (replace defaults).
+ * Default mode → return 15 default sects.
+ */
+export const selectAvailableSects = (s: GameState): Sect[] => {
+  const fanFicSects = (s.settings as { _fanFicSects?: Sect[] })._fanFicSects;
+  if (s.settings.isFanFictionMode && fanFicSects && fanFicSects.length > 0) {
+    return fanFicSects;
+  }
+  return _DEFAULT_SECTS;
+};
+
+/**
+ * Get beasts available cho universe hiện tại.
+ * Fan-fic mode → return AI-generated beasts + giữ lại defaults làm fallback chung.
+ * Default mode → return 25 default beasts.
+ */
+export const selectAvailableBeasts = (s: GameState): BeastTemplate[] => {
+  const fanFicBeasts = (s.settings as { _fanFicBeasts?: BeastTemplate[] })._fanFicBeasts;
+  if (s.settings.isFanFictionMode && fanFicBeasts && fanFicBeasts.length > 0) {
+    // Fan-fic beasts ưu tiên, nhưng vẫn giữ defaults cho random encounter
+    return [...fanFicBeasts, ..._BEAST_TEMPLATES];
+  }
+  return _BEAST_TEMPLATES;
+};

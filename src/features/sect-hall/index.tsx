@@ -3,7 +3,7 @@ import {
   useGameStore,
   selectSectMembership,
   selectClaimedMissions,
-  DEFAULT_SECTS,
+  selectAvailableSects,
   SECT_MISSION_POOL,
   TANG_KINH_CATALOG,
   getSect,
@@ -42,6 +42,8 @@ export const SectHallScreen = () => {
   const leaveSect = useGameStore((s) => s.leaveSect);
   const claimMission = useGameStore((s) => s.claimSectMission);
   const redeem = useGameStore((s) => s.redeemFromTangKinh);
+  // Phase 8.3: Fan-fic aware sect list
+  const availableSects = useGameStore(selectAvailableSects);
 
   const [tab, setTab] = useState<Tab>(membership ? 'overview' : 'browse');
 
@@ -305,7 +307,7 @@ export const SectHallScreen = () => {
       {/* ─── BROWSE TAB ─── */}
       {tab === 'browse' && (
         <div className="grid gap-4 lg:grid-cols-2">
-          {DEFAULT_SECTS.map((sect) => {
+          {availableSects.map((sect) => {
             const isMine = membership?.sectId === sect.id;
             return (
               <Bracketed

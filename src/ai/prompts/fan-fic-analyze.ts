@@ -54,6 +54,28 @@ export const FanFicAnalyzeSchema = z.object({
       description: z.string(),
     }),
   ).min(2).max(12),
+  /** 2-4 tông môn/môn phái nổi tiếng của universe — replace default 15 sects */
+  initialSects: z.array(
+    z.object({
+      name: z.string(),
+      alignment: z.enum(['chinh', 'ma', 'trung', 'an']).default('trung'),
+      description: z.string(),
+      philosophy: z.string().optional(),
+      /** Có thể gia nhập từ cấp nào (mặc định 1) */
+      joinLevelMin: z.number().default(1),
+    }),
+  ).min(0).max(6),
+  /** 2-4 linh thú đặc trưng universe — replace default 25 beasts */
+  initialBeasts: z.array(
+    z.object({
+      name: z.string(),
+      rarity: z.enum(['Thường', 'Tốt', 'Hiếm', 'Cực Phẩm', 'Siêu Phẩm', 'Huyền Thoại']).default('Tốt'),
+      kind: z.enum(['beast', 'dragon', 'phoenix', 'sword_spirit', 'spirit', 'mystical']).default('beast'),
+      description: z.string(),
+      /** Stat power estimate, scale theo level — vd 50 = mid common */
+      basePower: z.number().min(10).max(2000).default(100),
+    }),
+  ).min(0).max(6),
 });
 
 export type FanFicAnalyzeResult = z.infer<typeof FanFicAnalyzeSchema>;
@@ -101,6 +123,22 @@ Ngươi là **AI phân tích văn học** chuyên về tiểu thuyết tu tiên 
    - NPC: tên + 1 câu role/relationship (vd "Tần Phụng — trưởng làng, ông ngoại nuôi Tần Mục")
    - CHỈ chọn entity xuất hiện ngay đoạn mở đầu nguyên tác, KHÔNG spoil late-game
 
+5. **initialSects**: 2-4 tông môn nổi tiếng của universe (replace default 15 sects mặc định):
+   - VD Mục Thần Ký: "Bích Bạch Cung", "Tô Tà Tông", "Đại Phố Châu" (alignment trung)
+   - VD Đấu Phá: "Vân Lam Tông", "Hắc Hoàng Tông", "Già Mã Đế Quốc"
+   - VD Phàm Nhân: "Thất Huyền Môn", "Hoàng Phong Cốc", "Linh Văn Tông"
+   - VD Mặc Đồ default (nếu universe lạ): "Thanh Vân Môn", "Vạn Pháp Tông", "Huyết Sát Tông"
+   - alignment: 'chinh' | 'ma' | 'trung' | 'an'
+   - joinLevelMin: cấp tối thiểu (1-50)
+
+6. **initialBeasts**: 2-4 linh thú/yêu thú đặc trưng universe:
+   - VD Mục Thần Ký: "Thái Hư Cổ Long Mã" (Huyền Thoại dragon), "Vô Trác Đại Bằng" (phoenix), "Bạch Xà"
+   - VD Đấu Phá: "Phong Hỗn Tử Cánh Thiên Xà Vương" (Huyền Thoại), "Hỏa Vân Long"
+   - VD Phàm Nhân: "Tinh Linh Hồ", "Hắc Vụ Lang"
+   - kind: 'beast' | 'dragon' | 'phoenix' | 'sword_spirit' | 'spirit' | 'mystical'
+   - rarity: 'Thường' | 'Tốt' | 'Hiếm' | 'Cực Phẩm' | 'Siêu Phẩm' | 'Huyền Thoại'
+   - basePower: 50-200 (Thường/Tốt), 300-600 (Hiếm), 800-1500 (Cực+), 1500-2000 (Huyền Thoại)
+
 [QUY TẮC CẤM]
 - KHÔNG dùng cảnh giới Luyện Khí/Trúc Cơ/Kim Đan nếu nguyên tác có hệ thống riêng (vd Đế Bá = Sinh Mệnh Cung)
 - KHÔNG bịa tên NPC không có trong nguyên tác (trừ khi Khởi Sinh + không biết universe)
@@ -122,6 +160,12 @@ TRẢ VỀ DUY NHẤT 1 JSON OBJECT theo schema:
   "startingLocation": "...",
   "initialWorldElements": [
     { "name": "...", "type": "NPC" | "LOCATION", "description": "..." }
+  ],
+  "initialSects": [
+    { "name": "...", "alignment": "chinh|ma|trung|an", "description": "...", "philosophy": "...", "joinLevelMin": 1 }
+  ],
+  "initialBeasts": [
+    { "name": "...", "rarity": "Hiếm", "kind": "dragon", "description": "...", "basePower": 300 }
   ]
 }
 
