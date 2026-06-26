@@ -16,12 +16,26 @@ const DIFFICULTIES: Difficulty[] = ['Dễ', 'Thường', 'Khó', 'Ác Mộng'];
 export const GameSetupScreen = () => {
   const startNewGame = useGameStore((s) => s.startNewGame);
   const setStage = useGameStore((s) => s.setStage);
+  const settings = useGameStore((s) => s.settings);
 
-  const [characterName, setCharacterName] = useState('');
-  const [gender, setGender] = useState<string>(GENDERS[0]);
-  const [personality, setPersonality] = useState<string>(PLAYER_PERSONALITIES[0]);
-  const [description, setDescription] = useState('');
-  const [storyTitle, setStoryTitle] = useState('');
+  // Khi user qua wizard fan-fic, _pendingChar được hydrate bởi analyzeFanFic
+  const pendingChar = (settings as unknown as { _pendingChar?: {
+    name: string; gender: string; personality: string; description: string;
+  } })._pendingChar;
+
+  const [characterName, setCharacterName] = useState(pendingChar?.name ?? '');
+  const [gender, setGender] = useState<string>(
+    pendingChar?.gender && (GENDERS as readonly string[]).includes(pendingChar.gender)
+      ? pendingChar.gender
+      : GENDERS[0],
+  );
+  const [personality, setPersonality] = useState<string>(
+    pendingChar?.personality && (PLAYER_PERSONALITIES as readonly string[]).includes(pendingChar.personality)
+      ? pendingChar.personality
+      : PLAYER_PERSONALITIES[0],
+  );
+  const [description, setDescription] = useState(pendingChar?.description ?? '');
+  const [storyTitle, setStoryTitle] = useState(settings.storyTitle ?? '');
   const [writingStyle, setWritingStyle] = useState<string>(WRITING_STYLES[0]);
   const [narratorPronoun, setNarratorPronoun] = useState<string>(NARRATOR_PRONOUNS[0]);
   const [difficulty, setDifficulty] = useState<Difficulty>('Thường');

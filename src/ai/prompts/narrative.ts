@@ -1,6 +1,5 @@
 import type { PlayerCharacter } from '@gametypes/character';
 import type { GameSettings } from '@state/game-store';
-import { findFanFicPreset, buildLoreInjection, FAN_FIC_PRESETS } from '@data/fan-fic-presets';
 
 export interface NarrativeContext {
   settings: GameSettings;
@@ -11,6 +10,47 @@ export interface NarrativeContext {
   lastAction?: string;
   isOpening?: boolean;
 }
+
+/**
+ * Build "grounding block" cho fan-fic mode — chỉ inject info user đã chọn.
+ * AI Gemini tự dùng knowledge public về universe để dệt narrative đúng nguyên tác.
+ *
+ * Không cần inject lore cứng — AI biết Mục Thần Ký = Tần Mục/Đại Hoang/Linh Hải khi
+ * thấy storyTitle + realmList đúng.
+ */
+const buildFanFicGroundingBlock = (settings: GameSettings): string => {
+  const lines: string[] = [
+    '[BỐI CẢNH ĐỒNG NHÂN — BẮT BUỘC TUÂN THỦ NGUYÊN TÁC]',
+  ];
+  if (settings.fanFicOriginalWork) {
+    lines.push(`Đây là fan-fiction của tác phẩm gốc: **"${settings.fanFicOriginalWork}"**`);
+  }
+  if (settings.fanFicCharacterType) {
+    const typeLabel = settings.fanFicCharacterType === 'incarnate'
+      ? 'Hóa Thân (nhân vật CÓ SẴN trong nguyên tác — giữ đúng vai trò, mối quan hệ)'
+      : 'Khởi Sinh (nhân vật MỚI sống trong universe gốc — AI tự dệt vào lore hợp lý)';
+    lines.push(`Kiểu nhân vật chính: ${typeLabel}`);
+  }
+  if (settings.theme) {
+    lines.push(`Thể loại: ${settings.theme}`);
+  }
+  if (settings.setting) {
+    lines.push(`\nBối cảnh thế giới gốc:\n${settings.setting}`);
+  }
+  if (settings.realmListOverride && settings.realmListOverride.length > 0) {
+    lines.push(`\nHệ thống cảnh giới NGUYÊN TÁC (PHẢI DÙNG đúng tên, KHÔNG dùng "Luyện Khí/Trúc Cơ/Kim Đan" nếu không có trong list):`);
+    lines.push(settings.realmListOverride.map((r, i) => `  ${i + 1}. ${r}`).join('\n'));
+  }
+  lines.push(`
+LƯU Ý KHI VIẾT NARRATIVE:
+- Dùng đúng tên NPC, địa danh, hệ thống cảnh giới của nguyên tác
+- Văn phong theo tinh thần nguyên tác (nghiêm túc/hài hước/bi tráng tùy bộ)
+- KHÔNG bịa thuật ngữ lạ ngoài nguyên tác
+- KHÔNG spoiler twist late-game ở đoạn mở đầu
+- Tôn trọng mối quan hệ nhân vật chính với các NPC khác (sư huynh/đệ tử/kẻ địch)`);
+
+  return lines.join('\n');
+};
 
 const TAG_REFERENCE = `
 [ĐỊNH DẠNG TAG GAME — BẮT BUỘC dùng khi có sự kiện]
@@ -43,13 +83,12 @@ KHÔNG quá 6 tag/chunk (giữ tiết tấu).
 export const buildNarrativePrompt = (ctx: NarrativeContext): string => {
   const { settings, player, realm, recentHistory, lastAction, isOpening } = ctx;
 
-  // Inject fan-fic preset lore nếu có (priority: fanFicPresetId > storyTitle match)
-  const presetIdField = (settings as { fanFicPresetId?: string | null }).fanFicPresetId;
-  const presetById = presetIdField
-    ? FAN_FIC_PRESETS.find((p) => p.id === presetIdField)
-    : null;
-  const preset = presetById ?? findFanFicPreset(settings.storyTitle);
-  const loreBlock = preset && preset.id !== 'tieu-dao' ? buildLoreInjection(preset) : '';
+  // Fan-fic context — đã được hydrate qua wizard + AI analyzer (Phase 1 refactor).
+  // KHÔNG cần preset cứng nữa: settings.theme/setting/realmListOverride đã chứa
+  // toàn bộ lore mà AI analyzer trả về. AI Gemini có public knowledge về universe.
+  const loreBlock = settings.isFanFictionMode
+    ? buildFanFicGroundingBlock(settings)
+    : '';
 
   const personaBlock = `
 [BỐI CẢNH NHÂN VẬT]

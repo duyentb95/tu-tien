@@ -90,8 +90,18 @@ export interface GameSettings {
   narratorPronoun: string;
   currencyName: string;
   playerAvatarUrl: string | null;
-  /** Fan-fic preset id (vd 'muc-than-ky'). null = custom mode. */
-  fanFicPresetId?: string | null;
+  // ─── Fan-fiction mode (theo pattern prototype) ───
+  /** Có phải fan-fic mode không */
+  isFanFictionMode?: boolean;
+  /** Tên tác phẩm gốc, vd "Mục Thần Ký" */
+  fanFicOriginalWork?: string;
+  /** Kiểu: hóa thân (nhân vật có sẵn) hoặc khởi sinh (nhân vật mới) */
+  fanFicCharacterType?: 'incarnate' | 'newborn';
+  /** Mô tả thêm theme/setting đã AI analyze populate */
+  theme?: string;
+  setting?: string;
+  /** Hệ thống cảnh giới (override realmList default) */
+  realmListOverride?: string[];
 }
 
 export interface KnowledgeSlice {
@@ -153,6 +163,17 @@ interface GameState {
 
   // ───── Setup actions
   updateSettings: (patch: Partial<GameSettings>) => void;
+  /**
+   * Fan-fic wizard: gọi AI phân tích tác phẩm gốc, hydrate settings +
+   * knowledge.locations/characters từ initialWorldElements.
+   * Throw nếu AI fail — caller cần try/catch.
+   */
+  analyzeFanFic: (form: {
+    originalWork: string;
+    characterType: 'incarnate' | 'newborn';
+    characterName: string;
+    characterDescription?: string;
+  }) => Promise<void>;
   startNewGame: (init: {
     characterName: string;
     gender: string;
@@ -332,6 +353,86 @@ export const useGameStore = create<GameState>()(
       set((s) => {
         Object.assign(s.settings, patch);
       }),
+
+    analyzeFanFic: async (form) => {
+      // Lazy import — chỉ load khi user thực sự click "Phân Tích"
+      const [{ buildFanFicAnalyzePrompt, FanFicAnalyzeSchema }, { callGemini }] = await Promise.all([
+        import('@ai/prompts/fan-fic-analyze'),
+        import('@ai/client'),
+      ]);
+
+      set((s) => {
+        s.isAiThinking = true;
+        s.lastError = null;
+      });
+
+      try {
+        const prompt = buildFanFicAnalyzePrompt(form);
+        const result = await callGemini(prompt, {
+          temperature: 0.7,           // thấp hơn narrative để bám nguyên tác
+          maxOutputTokens: 2000,
+          responseMimeType: 'application/json',
+          schema: FanFicAnalyzeSchema,
+        });
+
+        // Hydrate settings
+        set((s) => {
+          s.settings.isFanFictionMode = true;
+          s.settings.fanFicOriginalWork = form.originalWork;
+          s.settings.fanFicCharacterType = form.characterType;
+          s.settings.storyTitle = result.storyTitle;
+          s.settings.theme = result.theme;
+          s.settings.setting = result.setting;
+          s.settings.currencyName = result.currencyName;
+          s.settings.realmListOverride = result.realmList;
+
+          // Knowledge realmList
+          s.knowledge.realmProgressionList = result.realmList;
+
+          // Seed initialWorldElements vào knowledge
+          for (const elem of result.initialWorldElements) {
+            const id = elem.name.toLowerCase().replace(/\s+/g, '_').replace(/[^\w]/g, '');
+            if (elem.type === 'LOCATION') {
+              s.knowledge.locations[id] = {
+                id,
+                name: elem.name,
+                type: 'wilderness',
+                description: elem.description,
+                neighbors: [],
+                discoveredByPlayer: true,
+                visitedByPlayer: false,
+              } as Location;
+            } else if (elem.type === 'NPC') {
+              s.knowledge.characters[id] = {
+                id,
+                name: elem.name,
+                description: elem.description,
+                role: 'npc',
+              };
+            }
+          }
+
+          // Lưu lại tên + giới tính + personality + backstory để Setup screen tự fill
+          // (Setup form sẽ đọc từ settings, KHÔNG override player nếu chưa tạo)
+          // Stash vào pendingFanFicChar — Setup sẽ pick up
+          (s.settings as Record<string, unknown>)._pendingChar = {
+            name: result.characterName,
+            gender: result.characterGender,
+            personality: result.characterPersonality,
+            description: result.characterBackstory,
+          };
+
+          s.isAiThinking = false;
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        set((s) => {
+          s.isAiThinking = false;
+          s.lastError = `[fan-fic] Phân tích thất bại: ${msg}`;
+        });
+        throw err;
+      }
+    },
 
     startNewGame: async (init) => {
       const player = makePlayer(init);
