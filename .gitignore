@@ -5,8 +5,13 @@ node_modules
 
 # Build output
 dist
-dist-ssr
+dist-*
+build-v*
 *.local
+vite.config.*.timestamp-*.mjs
+
+# Claude Code local cache
+.claude/
 
 # Test coverage
 coverage
