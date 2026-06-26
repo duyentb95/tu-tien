@@ -1,0 +1,3 @@
+# SPA fallback — mọi route không match file → index.html
+# Backup nếu netlify.toml không apply (vd drag-drop deploy)
+/*    /index.html   200

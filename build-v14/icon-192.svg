@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" fill="#0a0f0a"/>
+  <circle cx="96" cy="80" r="44" fill="none" stroke="#cda45e" stroke-width="3" opacity="0.9"/>
+  <rect x="80" y="64" width="32" height="32" fill="#cda45e" transform="rotate(45 96 80)"/>
+  <text x="96" y="155" font-family="'Noto Serif',Georgia,serif" font-size="32" fill="#e8d3a1" text-anchor="middle" font-weight="600">Mặc Đồ</text>
+</svg>
