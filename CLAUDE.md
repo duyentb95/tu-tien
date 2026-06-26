@@ -8,7 +8,7 @@
 
 **Game:** Mặc Hội Tiên Đồ — RPG tu tiên nhập vai thế giới mở, AI-driven (Gemini).
 
-**Trạng thái:** **v1.0 production-ready** tại https://tien-do.netlify.app. Hoàn thành Phase 1-7 + 5 refactor prototype patterns. Sẵn sàng public release.
+**Trạng thái:** **v1.2.0 production** tại https://tien-do.netlify.app. Hoàn thành Phase 1-12 + 6/8 pattern port từ Google Canvas RPG (Item Pipeline, Entity Injection, EP Scoring 4-criteria, 2-tier Summary, Trade Negotiation, Visual Combat VFX). Xem `CHANGELOG.md`.
 
 **Stack:** Vite + React 18 + TypeScript strict + Tailwind + Zustand+Immer + Zod + Firebase (optional cloud sync) + Gemini 2.5 Flash via Cloudflare Worker proxy + lottie-react.
 
@@ -17,8 +17,13 @@
 **Architecture key patterns** (đọc file liên quan trước khi sửa):
 - **2-step Hybrid Logic** (`src/ai/narrative-service.ts`): Logic Engine sinh 6 scenarios → dice roll → Narrative Engine viết prose. Toggle `settings.useHybridLogic`.
 - **2-tier lore** (`src/types/lore.ts` + `src/ai/tag-parser.ts`): `LORE_*` (rumor chưa gặp) → `WORLD_*` (materialized với `loreId`).
-- **30+ tag taxonomy** (`src/ai/tag-parser.ts`): từ `[EXP+]` tới `[ENCOUNTER_REWARD]`, `[TIME_PASSED]`, `[APPLY_LONG_TERM_STATUS]`, `[CHARACTER_UPDATE]`.
-- **Memory expand** (`src/types/memory.ts`): `eventHistory` rolling 30 + `customRules` user-defined + `recentMeaningfulActions`.
+- **35+ tag taxonomy** (`src/ai/tag-parser.ts`): từ `[EXP+]` tới `[ENCOUNTER_REWARD]`, `[TIME_PASSED]`, `[APPLY_LONG_TERM_STATUS]`, `[CHARACTER_UPDATE]`, `[ENTER_TRADE_MODE]`, `[SELL_VALUATION]`, `[BUY_NEGOTIATION]`, `[OFFER_ITEM_IDEA]`.
+- **Memory expand** (`src/types/memory.ts`): `eventHistory` rolling 30 + `customRules` + `recentMeaningfulActions` + **`storySummaries` 2-tier (Phase 11.1)** — auto-summarize 20 turn cũ → block; 10 block → meta.
+- **EP Scoring** (`src/core/scoring/ep-scoring.ts`): 4 tiêu chí (QT&TL 0-55 + Rủi Ro 0-15 + Sáng Tạo 0-10 + Phù Hợp 0-15) + anti-farm multiplier (1.0/0.7/0.4/0.1) khi reason lặp.
+- **3-step Item Pipeline** (`src/core/items/item-budget.ts`): rarity × category × difficulty → budget → weighted random stat (vũ khí ATK 60%, thân DEF/HP, phương tiện SPD).
+- **Entity Injection** (`src/ai/entity-lookup.ts`): Logic Engine → `relevant_entities[]` → lookup → inject chi tiết cho Narrative Engine (giảm AI bịa).
+- **Trade System** (`src/types/trade.ts` + `src/features/trader/TraderModal.tsx`): `traderSession` state với wares + multipliers, modal 2-pane auto-open khi `[ENTER_TRADE_MODE]`.
+- **Visual Combat VFX** (`src/features/combat/VisualCombatFX.tsx`): floating damage numbers + screen shake + impact flash. CSS keyframes `fx-float-up`/`fx-shake`/`fx-fade-out`.
 - **Fan-fic wizard** (`src/ai/prompts/fan-fic-analyze.ts`): 3 fields → AI analyze hydrate full settings + initialWorldElements. KHÔNG còn preset cứng.
 - **Multi-key rotation** (`src/ai/client.ts`): N keys round-robin + per-key block 60s khi 429. Support `VITE_GEMINI_API_KEY_1..10`.
 - **AI Proxy** (`proxy/cloudflare-worker.js`): ẩn key server-side, rate limit per IP. Env `VITE_AI_PROXY_URL`.

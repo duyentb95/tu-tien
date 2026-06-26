@@ -1,0 +1,79 @@
+# Changelog — Mặc Hội Tiên Đồ
+
+Định dạng theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/).
+Versioning theo [SemVer](https://semver.org/lang/vi/).
+
+---
+
+## [1.2.0] — 2026-06-26
+
+### Added — Phase 12 (Visual Combat + Trader UI)
+
+- **Visual Combat VFX** (`src/features/combat/VisualCombatFX.tsx`): floating damage numbers (crit vàng to, dodge xanh, normal đỏ), screen shake khi heavy hit (≥15% maxHP) hoặc crit, full-screen impact flash overlay (vàng=crit / đỏ=heavy / xanh=heal).
+- **Trader Modal** (`src/features/trader/TraderModal.tsx`): 2-pane UI Bán | Mua, auto-open khi `traderSession` non-null, hỗ trợ giá theo `sellMultiplier × itemSpecificBonus`, button Mặc cả/Hỏi giá/Mua/Rời quầy gửi natural-language action → AI follow-up.
+- 3 CSS keyframes mới: `fx-float-up`, `fx-fade-out`, `fx-shake` (`src/styles/global.css`).
+
+### Changed
+
+- Đổi tiêu đề và loading hint từ "Đấng Sáng Thế" → "Thiên Đạo" (`WelcomeOverlay.tsx`, `StoryView.tsx`).
+
+---
+
+## [1.1.0] — 2026-06-26
+
+### Added — Phase 11 (Long-play + Trade backbone, từ Pattern #3-#5 Google Canvas RPG)
+
+- **2-tier Summary System** (`src/ai/summary-service.ts`): background summarization khi `storyLog > 40 turn` → tóm tắt 20 turn cũ thành 1 block ~5-8 câu (level 1). Khi tích đủ 10 block level-1 → 1 meta-summary (level 2). Triple-lock chống re-entrant.
+- **EP Scoring 4-criteria + Anti-farm** (`src/core/scoring/ep-scoring.ts`): AI chấm hành động theo 4 tiêu chí (Quan Trọng & Tu Luyện 0-55, Rủi Ro 0-15, Sáng Tạo 0-10, Phù Hợp 0-15). Anti-farm: cùng `reason` lặp lại trong 10 hành động gần nhất → multiplier 1.0 → 0.7 → 0.4 → 0.1. EP ≥ 20 converted thành EXP qua công thức `basic + growth + breakthrough`.
+- **Trade Negotiation Tags** (`src/types/trade.ts` + tag-parser): 5 tag mới — `[ENTER_TRADE_MODE]`, `[EXIT_TRADE_MODE]`, `[SELL_VALUATION]`, `[BUY_NEGOTIATION]`, `[OFFER_ITEM_IDEA]`. State `traderSession` lưu wares + multipliers per item.
+- 10 unit tests mới cho `ep-scoring` (93/93 pass).
+
+### Changed
+
+- Logic Engine prompt mở rộng: 4-criteria scoring docs cho ENCOUNTER_REWARD, full trade tag taxonomy, biên niên sử block inject trước eventsBlock.
+
+---
+
+## [1.0.2] — 2026-06-26
+
+### Added — Phase 10 (Pattern #1 + #2 từ Google Canvas RPG)
+
+- **3-step Item Generation Pipeline** (`src/core/items/item-budget.ts`): rarity base budget × category multiplier × difficulty variance → weighted random stat distribution. Vũ khí ưu tiên ATK 60% / CR 20% / CDMG 15% / DMG_AMP 5%; Thân giáp DEF/HP; Phương tiện SPD; v.v. Stat pricing chuẩn: 10đ/ATK, 50đ/1% CR, 80đ/1% DMG_AMP.
+- **Entity Injection (Smart Context Filter)** (`src/ai/entity-lookup.ts`): Logic Engine trả `relevant_entities[]` → lookup chi tiết từ knowledge/inventory/skills → inject block info cho Narrative Engine viết prose chính xác (giảm AI bịa).
+- 11 unit tests mới cho `item-budget`.
+
+---
+
+## [1.0.1] — 2026-06-26
+
+### Added — Phase 9 (UX polish + new modals)
+
+- **Tra Cứu Nhanh** (`features/quick-lookup/QuickLookupModal.tsx`): 4 tab (NPCs · Kỹ Năng · Vật Phẩm · Địa Điểm) + search, "+ Chat" insert tên vào ô action qua CustomEvent.
+- **Entity Click-to-Inspect** trong narrative: `EntityHighlighter` quét tên + wrap span clickable (gold = world, spirit = lore). Click → `EntityInspectModal` chi tiết.
+- **Skill Management 3-column** (`features/skill-management/SkillManagementModal.tsx`): Kho Tiềm Thức | Đang Dùng (6 slot) | Thông Tin. Store actions `equipSkill`/`unequipSkill` với validate kind ↔ slot.
+- **Welcome modal** rewrite: "Lời Chào Từ Thiên Đạo" lore-driven, thay 4-step tutorial.
+- **Action preview** % thành công + reward, **Loading 2-phase** (🎲 Gieo Xúc Xắc → ✦ Thiên Đạo diễn hóa).
+- **Universe-faithful naming**: kinh mạch, huyệt vị, thuật ngữ giữ đúng nguyên tác qua `fanFicTerms`.
+
+---
+
+## [1.0.0] — Trước 2026-06-26
+
+Phase 1-8 base game (Vite + React 18 + TS + Tailwind + Zustand + Gemini/DeepSeek), 5 refactor prototype patterns, deploy https://tien-do.netlify.app.
+
+Xem `BUILD_PLAN.md` cho roadmap chi tiết.
+
+---
+
+## Pattern porting từ Google Canvas RPG reference
+
+| # | Pattern | Status | Phase |
+|---|---------|--------|-------|
+| 1 | 3-step Item Pipeline | ✓ | 10.1 |
+| 2 | Relevant Entities Injection | ✓ | 10.2 |
+| 3 | EP Scoring 4-criteria + Anti-farm | ✓ | 11.2 |
+| 4 | 2-tier Summary System | ✓ | 11.1 |
+| 5 | Trade Negotiation Tags + UI | ✓ | 11.3 + 12.2 |
+| 6 | Visual Combat VFX (giản lược, không sprite) | ✓ | 12.1 |
+| 7 | Quest 3-stage với deadline | (đã có từ trước) | — |
+| 8 | Length Tags với word count cụ thể | (defer — chưa cần) | — |

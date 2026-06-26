@@ -458,6 +458,32 @@ tu-tien/
 ## PHỤ LỤC
 
 - `ARCHITECTURE.md` — chi tiết folder structure, mỗi module làm gì.
+- `CHANGELOG.md` — lịch sử ship version + SemVer.
 - `roadmap.html` — timeline visual có thể click từng phase xem deliverable.
 - `architecture-diagram.svg` — sơ đồ data flow Player → UI → Store → AI/Firebase.
 - `PREVIEW.md` — source code prototype (giữ nguyên làm tài liệu tham chiếu).
+- `docs/reference/` — Google Canvas RPG 9000-LOC reference (port 6/8 patterns).
+
+---
+
+## VIII. POST-LAUNCH ROADMAP (đã ship — xem `CHANGELOG.md` chi tiết)
+
+### Phase 7 — Content expansion + late game
+Sects 5→15, beasts 8→25, locations 10→30. Tournament bracket, achievements, late-game realm + tribulation tiers.
+
+### Phase 8 — Multi-provider AI
+Provider abstraction Gemini + DeepSeek. Image gen multi-provider qua Cloudflare Worker /image binding.
+
+### Phase 9 — UX polish (9.1-9.7)
+Action preview %, universe-faithful naming, 2-phase loading, Tra Cứu Nhanh, entity click-to-inspect, skill 3-column, welcome lore-driven.
+
+### Phase 10 — Pattern port (Item Pipeline + Entity Injection)
+10.1 3-step Item Generation Pipeline · 10.2 Relevant Entities Injection.
+
+### Phase 11 — Pattern port (Summary + EP Scoring + Trade backbone)
+11.1 2-tier Summary System · 11.2 EP Scoring 4-criteria + Anti-farm · 11.3 Trade Negotiation Tags.
+
+### Phase 12 — Visual Combat + Trader UI
+12.1 Visual Combat VFX overlay · 12.2 Trader Modal 2-pane.
+
+**Hiện trạng:** v1.2.0 production, deploy https://tien-do.netlify.app.
