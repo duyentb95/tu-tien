@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@shared/components/Button';
 import { TextInput } from '@shared/components/FormField';
 import { useKeyboard } from '@shared/hooks/useKeyboard';
@@ -88,6 +88,18 @@ const ActionPreviewModal = ({
 export const ActionPanel = ({ actions, choices, disabled, onSelect }: Props) => {
   const [customInput, setCustomInput] = useState('');
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
+
+  // Phase 9.4: Listen event từ QuickLookupModal để insert entity name vào input
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ name: string }>).detail;
+      if (detail?.name) {
+        setCustomInput((prev) => (prev ? `${prev} ${detail.name}` : detail.name));
+      }
+    };
+    window.addEventListener('quick-lookup:insert', handler);
+    return () => window.removeEventListener('quick-lookup:insert', handler);
+  }, []);
 
   // Dùng choices nếu có (parsed structured), fallback strings
   const items: ActionChoice[] =
