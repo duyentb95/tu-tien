@@ -25,6 +25,9 @@ import { autoBackup } from '@services/save-manager';
 const HandbookModal = lazy(() =>
   import('@features/tutorial').then((m) => ({ default: m.HandbookModal })),
 );
+const QuickLookupModal = lazy(() =>
+  import('@features/quick-lookup/QuickLookupModal').then((m) => ({ default: m.QuickLookupModal })),
+);
 const SaveManagerModal = lazy(() =>
   import('@features/save-manager').then((m) => ({ default: m.SaveManagerModal })),
 );
@@ -39,6 +42,12 @@ const TournamentModal = lazy(() =>
 );
 const AchievementsModal = lazy(() =>
   import('@features/achievements').then((m) => ({ default: m.AchievementsModal })),
+);
+const SkillManagementModal = lazy(() =>
+  import('@features/skill-management/SkillManagementModal').then((m) => ({ default: m.SkillManagementModal })),
+);
+const TraderModal = lazy(() =>
+  import('@features/trader/TraderModal').then((m) => ({ default: m.TraderModal })),
 );
 
 export const GameplayScreen = () => {
@@ -60,11 +69,21 @@ export const GameplayScreen = () => {
   const reset = useGameStore((s) => s.reset);
   const getCurrentPayload = useGameStore((s) => s.getCurrentPayload);
   const [handbookOpen, setHandbookOpen] = useState(false);
+  const [quickLookupOpen, setQuickLookupOpen] = useState(false);
   const [saveManagerOpen, setSaveManagerOpen] = useState(false);
   const [loreBookOpen, setLoreBookOpen] = useState(false);
   const [customRulesOpen, setCustomRulesOpen] = useState(false);
   const [tournamentOpen, setTournamentOpen] = useState(false);
   const [achievementsOpen, setAchievementsOpen] = useState(false);
+  const [skillMgmtOpen, setSkillMgmtOpen] = useState(false);
+  // Phase 12.2: Trader modal — auto-open theo traderSession state
+  const traderSession = useGameStore((s) => s.traderSession);
+  const [traderManuallyClosed, setTraderManuallyClosed] = useState(false);
+  const traderOpen = !!traderSession && !traderManuallyClosed;
+  // Reset manual-close flag khi session đổi (new trader)
+  useEffect(() => {
+    if (!traderSession) setTraderManuallyClosed(false);
+  }, [traderSession?.traderName]);
 
   // Global keyboard shortcuts
   useKeyboard(
@@ -142,6 +161,7 @@ export const GameplayScreen = () => {
           <NavButton label="Câu Chuyện" icon="◆" active onClick={() => {}} />
           <NavButton label="Bản Đồ" icon="◉" onClick={() => setStage('world_map')} />
           <NavButton label="Nhân Vật" icon="✦" onClick={() => setStage('character')} />
+          <NavButton label="Pháp Thuật" icon="✧" onClick={() => setSkillMgmtOpen(true)} />
           <NavButton label="Hành Trang" icon="☷" onClick={() => setStage('inventory')} />
           <NavButton label="Nhiệm Vụ" icon="◇" onClick={() => setStage('quests')} />
           <NavButton label="Tông Môn" icon="◈" onClick={() => setStage('sect_hall')} />
@@ -163,6 +183,7 @@ export const GameplayScreen = () => {
           <NavButton label="Thành Tựu" icon="★" onClick={() => setAchievementsOpen(true)} />
           <NavButton label="Đạo Tâm" icon="◍" onClick={() => setCustomRulesOpen(true)} />
           <NavButton label="Lưu Trữ" icon="◭" onClick={() => setSaveManagerOpen(true)} />
+          <NavButton label="Tra Cứu" icon="📜" onClick={() => setQuickLookupOpen(true)} />
           <NavButton label="Cẩm Nang" icon="?" onClick={() => setHandbookOpen(true)} />
           <NavButton
             label="Thoát"
@@ -222,11 +243,26 @@ export const GameplayScreen = () => {
       <WelcomeOverlay />
       <Suspense fallback={null}>
         {handbookOpen && <HandbookModal open onClose={() => setHandbookOpen(false)} />}
+        {quickLookupOpen && (
+          <QuickLookupModal
+            open
+            onClose={() => setQuickLookupOpen(false)}
+            onInsertToChat={(name) => {
+              // Append name vào current action input (state ở ActionPanel)
+              // Đơn giản: dispatch custom event để ActionPanel listen
+              window.dispatchEvent(new CustomEvent('quick-lookup:insert', { detail: { name } }));
+            }}
+          />
+        )}
         {saveManagerOpen && <SaveManagerModal open onClose={() => setSaveManagerOpen(false)} />}
         {loreBookOpen && <LoreBookModal open onClose={() => setLoreBookOpen(false)} />}
         {customRulesOpen && <CustomRulesModal open onClose={() => setCustomRulesOpen(false)} />}
         {tournamentOpen && <TournamentModal open onClose={() => setTournamentOpen(false)} />}
         {achievementsOpen && <AchievementsModal open onClose={() => setAchievementsOpen(false)} />}
+        {skillMgmtOpen && <SkillManagementModal open onClose={() => setSkillMgmtOpen(false)} />}
+        {traderOpen && (
+          <TraderModal open onClose={() => setTraderManuallyClosed(true)} />
+        )}
       </Suspense>
     </div>
   );
