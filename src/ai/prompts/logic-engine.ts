@@ -54,6 +54,9 @@ export interface LogicEngineContext {
   // ─── Memory expand (Refactor 5) ───
   meaningfulEvents?: Array<{ turn: number; kind: string; summary: string }>;
   customRules?: string[];
+  // ─── Phase 8.3: Fan-fic items + skills hints ───
+  fanFicItems?: Array<{ name: string; category: string; rarity: string; description: string }>;
+  fanFicSkills?: Array<{ name: string; kind: string; rarity: string; description: string }>;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -299,11 +302,26 @@ KHÔNG viết gì ngoài JSON. KHÔNG dùng markdown wrapper.
         .join('\n')}`
     : '';
 
+  // Phase 8.3: Fan-fic items + skills hints — AI dùng đúng tên nguyên tác khi gen [ITEM]/[SKILL]
+  const itemsHintBlock = ctx.fanFicItems && ctx.fanFicItems.length > 0
+    ? `[VẬT PHẨM NỔI TIẾNG UNIVERSE — KHI GEN TAG [ITEM ...] HÃY DÙNG TÊN NÀY THAY VÌ BỊA]\n${ctx.fanFicItems
+        .map((it) => `  · ${it.name} (${it.category}, ${it.rarity}) — ${it.description.slice(0, 80)}`)
+        .join('\n')}`
+    : '';
+
+  const skillsHintBlock = ctx.fanFicSkills && ctx.fanFicSkills.length > 0
+    ? `[CÔNG PHÁP SIGNATURE UNIVERSE — KHI GEN TAG [SKILL ...] HÃY DÙNG TÊN NÀY]\n${ctx.fanFicSkills
+        .map((sk) => `  · ${sk.name} (${sk.kind}, ${sk.rarity}) — ${sk.description.slice(0, 80)}`)
+        .join('\n')}`
+    : '';
+
   return [
     SYSTEM_PERSONA,
     personaBlock,
     worldBlock,
     loreContextBlock,
+    itemsHintBlock,
+    skillsHintBlock,
     eventsBlock,
     rulesBlock,           // Đặt rules cuối cùng = AI sẽ "nhớ" gần nhất
     historyBlock,

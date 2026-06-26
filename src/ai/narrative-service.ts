@@ -93,6 +93,9 @@ const generateNarrativeHybrid = async (ctx: NarrativeContext): Promise<ParsedNar
     // Memory expand (Refactor 5)
     ...(ctx.meaningfulEvents ? { meaningfulEvents: ctx.meaningfulEvents } : {}),
     ...(ctx.customRules ? { customRules: ctx.customRules } : {}),
+    // Phase 8.3: Fan-fic items + skills hints
+    ...(ctx.fanFicItems ? { fanFicItems: ctx.fanFicItems } : {}),
+    ...(ctx.fanFicSkills ? { fanFicSkills: ctx.fanFicSkills } : {}),
   };
   const logicPrompt = buildLogicEnginePrompt(logicCtx);
   // Phase 8.1: Logic Engine — default Gemini (rẻ + JSON structured tốt)

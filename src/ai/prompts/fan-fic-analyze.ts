@@ -76,6 +76,24 @@ export const FanFicAnalyzeSchema = z.object({
       basePower: z.number().min(10).max(2000).default(100),
     }),
   ).min(0).max(6),
+  /** 3-6 vật phẩm/pháp bảo nổi tiếng universe — AI inject context khi gen [ITEM] tag */
+  initialItems: z.array(
+    z.object({
+      name: z.string(),
+      category: z.string(),       // "Vũ khí", "Đan dược", "Pháp bảo", "Tín vật", "Nguyên liệu"...
+      rarity: z.enum(['Thường', 'Tốt', 'Hiếm', 'Cực Phẩm', 'Siêu Phẩm', 'Huyền Thoại']),
+      description: z.string(),
+    }),
+  ).min(0).max(8),
+  /** 3-6 công pháp/kỹ năng signature universe — AI inject context khi gen [SKILL] tag */
+  initialSkills: z.array(
+    z.object({
+      name: z.string(),
+      kind: z.enum(['combat_basic', 'combat_ultimate', 'adventure']),
+      rarity: z.enum(['Thường', 'Tốt', 'Hiếm', 'Cực Phẩm', 'Siêu Phẩm', 'Huyền Thoại']),
+      description: z.string(),
+    }),
+  ).min(0).max(8),
 });
 
 export type FanFicAnalyzeResult = z.infer<typeof FanFicAnalyzeSchema>;
@@ -139,6 +157,20 @@ Ngươi là **AI phân tích văn học** chuyên về tiểu thuyết tu tiên 
    - rarity: 'Thường' | 'Tốt' | 'Hiếm' | 'Cực Phẩm' | 'Siêu Phẩm' | 'Huyền Thoại'
    - basePower: 50-200 (Thường/Tốt), 300-600 (Hiếm), 800-1500 (Cực+), 1500-2000 (Huyền Thoại)
 
+7. **initialItems**: 3-6 vật phẩm/pháp bảo nổi tiếng universe (AI sẽ dùng làm tham chiếu khi gen item runtime):
+   - VD Mục Thần Ký: "Thiên Tinh Long Trảm Đao" (Vũ khí Huyền Thoại), "Phục Hồn Đan" (Đan dược Hiếm), "Linh Thú Đan" (Đan dược Tốt)
+   - VD Đấu Phá: "Huyền Trọng Xích" (Vũ khí Cực Phẩm), "Tịnh Liên Yêu Hỏa" (Pháp bảo Siêu Phẩm), "Bồ Đề Tử" (Đan dược Huyền Thoại)
+   - VD Phàm Nhân: "Thanh Nguyên Kiếm" (Vũ khí Tốt), "Trúc Cơ Đan" (Đan dược Hiếm), "Lục Diệp Liên" (Nguyên liệu Hiếm)
+   - VD Đế Bá: "Tiên Hoàng Cung" (Vũ khí Tiên Khí), "Cửu Sắc Lộc Quả" (Đan dược Siêu Phẩm)
+   - category: "Vũ khí" | "Đan dược" | "Pháp bảo" | "Tín vật" | "Nguyên liệu" | "Sách kỹ năng"
+
+8. **initialSkills**: 3-6 công pháp/kỹ năng signature universe:
+   - VD Mục Thần Ký: "Cửu Long Hô Hấp Pháp" (combat_basic Hiếm), "Pháp Tướng Thiên Địa" (combat_ultimate Siêu Phẩm)
+   - VD Đấu Phá: "Phật Nộ Hỏa Liên" (combat_ultimate Huyền Thoại), "Tam Thiên Lôi Động" (combat_basic Cực Phẩm)
+   - VD Phàm Nhân: "Trường Xuân Công" (combat_basic Tốt), "Đại Diễn Quyết" (adventure Huyền Thoại)
+   - VD Đế Bá: "Đế Bá Pháp" (combat_ultimate Tiên Khí), "Lục Đạo Luân Hồi Quyết"
+   - kind: 'combat_basic' (đánh thường) | 'combat_ultimate' (tuyệt học) | 'adventure' (di chuyển/buff)
+
 [QUY TẮC CẤM]
 - KHÔNG dùng cảnh giới Luyện Khí/Trúc Cơ/Kim Đan nếu nguyên tác có hệ thống riêng (vd Đế Bá = Sinh Mệnh Cung)
 - KHÔNG bịa tên NPC không có trong nguyên tác (trừ khi Khởi Sinh + không biết universe)
@@ -166,6 +198,12 @@ TRẢ VỀ DUY NHẤT 1 JSON OBJECT theo schema:
   ],
   "initialBeasts": [
     { "name": "...", "rarity": "Hiếm", "kind": "dragon", "description": "...", "basePower": 300 }
+  ],
+  "initialItems": [
+    { "name": "...", "category": "Vũ khí|Đan dược|Pháp bảo|Tín vật|Nguyên liệu|Sách kỹ năng", "rarity": "Hiếm", "description": "..." }
+  ],
+  "initialSkills": [
+    { "name": "...", "kind": "combat_basic|combat_ultimate|adventure", "rarity": "Cực Phẩm", "description": "..." }
   ]
 }
 

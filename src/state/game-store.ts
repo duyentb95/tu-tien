@@ -556,6 +556,30 @@ export const useGameStore = create<GameState>()(
               };
             });
           }
+          // Stash items + skills cho AI runtime reference
+          if (result.initialItems && result.initialItems.length > 0) {
+            (s.settings as Record<string, unknown>)._fanFicItems = result.initialItems;
+            // Seed vào loreItems (Tier 1) — player biết về items này, AI có thể gen [ITEM]
+            // với tên + rarity đúng khi cơ hội tới
+            for (const it of result.initialItems) {
+              const id = `lore_item_${it.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/\s+/g, '_').replace(/[^\w]/g, '').slice(0, 40)}`;
+              if (!s.knowledge.loreItems[id]) {
+                s.knowledge.loreItems[id] = {
+                  id,
+                  name: it.name,
+                  description: it.description,
+                  rarity: it.rarity,
+                  introducedAtTurn: 0,
+                  materialized: false,
+                  source: form.originalWork,
+                };
+              }
+            }
+          }
+          if (result.initialSkills && result.initialSkills.length > 0) {
+            (s.settings as Record<string, unknown>)._fanFicSkills = result.initialSkills;
+          }
+
           if (result.initialBeasts && result.initialBeasts.length > 0) {
             (s.settings as Record<string, unknown>)._fanFicBeasts = result.initialBeasts.map((bst) => {
               const id = bst.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -767,6 +791,10 @@ export const useGameStore = create<GameState>()(
           summary: e.summary,
         }));
 
+        // Phase 8.3: Fan-fic items + skills hint context
+        const ffItems = (settings as { _fanFicItems?: Array<{ name: string; category: string; rarity: string; description: string }> })._fanFicItems;
+        const ffSkills = (settings as { _fanFicSkills?: Array<{ name: string; kind: string; rarity: string; description: string }> })._fanFicSkills;
+
         const parsed = await generateNarrative({
           settings,
           player,
@@ -779,6 +807,8 @@ export const useGameStore = create<GameState>()(
           worldLocations: worldLocsArr,
           meaningfulEvents,
           customRules: enabledRules,
+          ...(ffItems ? { fanFicItems: ffItems } : {}),
+          ...(ffSkills ? { fanFicSkills: ffSkills } : {}),
         });
 
         set((s) => {

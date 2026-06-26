@@ -21,6 +21,9 @@ export interface NarrativeContext {
   meaningfulEvents?: Array<{ turn: number; kind: string; summary: string }>;
   /** Custom rules user yêu cầu AI tuân thủ */
   customRules?: string[];
+  // ─── Phase 8.3: Fan-fic items + skills hints ───
+  fanFicItems?: Array<{ name: string; category: string; rarity: string; description: string }>;
+  fanFicSkills?: Array<{ name: string; kind: string; rarity: string; description: string }>;
 }
 
 /**
