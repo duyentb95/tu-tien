@@ -46,30 +46,30 @@ export const CombatScreen = () => {
   const isPlayerTurn = currentActor.isPlayer && combat.status === 'ongoing';
 
   return (
-    <main className="min-h-screen px-6 py-8 lg:px-10">
-      <header className="mb-6 flex items-end justify-between border-b border-gold-700/15 pb-4">
+    <main className="min-h-screen px-4 py-4 sm:px-6 sm:py-6 lg:px-10 lg:py-8">
+      <header className="mb-4 flex items-end justify-between border-b border-gold-700/15 pb-3 sm:mb-6 sm:pb-4">
         <div>
-          <div className="label-section mb-2">Chiến Đấu · Round {combat.round}</div>
-          <h1 className="font-serif text-[28px] font-semibold text-gold-200">COMBAT</h1>
+          <div className="label-section mb-1 sm:mb-2">Chiến Đấu · Round {combat.round}</div>
+          <h1 className="font-serif text-[22px] font-semibold text-gold-200 sm:text-[28px]">COMBAT</h1>
         </div>
         <div className="text-right">
-          <div className="text-[11px] uppercase tracking-wider text-jade-500">Lượt</div>
-          <div className="font-mono text-2xl text-gold-500">{combat.turn}</div>
+          <div className="text-[10px] uppercase tracking-wider text-jade-500 sm:text-[11px]">Lượt</div>
+          <div className="font-mono text-xl text-gold-500 sm:text-2xl">{combat.turn}</div>
         </div>
       </header>
 
-      {/* Arena */}
-      <div className="relative grid gap-5 lg:grid-cols-2">
-        {/* Qi-circle flash overlay khi cast / chịu đòn */}
+      {/* Arena — mobile: stack player-trên, enemy-dưới. Desktop: 2 cột */}
+      <div className="relative grid gap-3 sm:gap-5 lg:grid-cols-2">
+        {/* Qi-circle flash overlay — responsive size */}
         {castFlash && (
           <div
             key={castFlash.key}
             aria-hidden
-            className="pointer-events-none absolute top-1/2 z-20 -translate-y-1/2"
+            className="pointer-events-none absolute top-1/2 z-20 hidden -translate-y-1/2 sm:block"
             style={{
               [castFlash.side === 'player' ? 'left' : 'right']: '15%',
-              width: 256,
-              height: 256,
+              width: 'clamp(160px, 30vw, 256px)',
+              height: 'clamp(160px, 30vw, 256px)',
             }}
           >
             <LottiePlayer animationData={qiCircle} loop={false} speed={1.6} />
@@ -78,14 +78,14 @@ export const CombatScreen = () => {
         {/* Player side */}
         <Bracketed
           tone="gold"
-          className={`relative rounded-md border bg-ink-700 p-5 ${isPlayerTurn ? 'anim-glow' : ''}`}
+          className={`relative rounded-md border bg-ink-700 p-4 sm:p-5 ${isPlayerTurn ? 'anim-glow' : ''}`}
         >
           <div className="label-section mb-2">Ngươi · Cấp {player.level}</div>
-          <h2 className="font-serif text-2xl text-gold-200">{player.name}</h2>
-          <div className="mt-4 space-y-3">
+          <h2 className="font-serif text-xl text-gold-200 sm:text-2xl">{player.name}</h2>
+          <div className="mt-3 space-y-3 sm:mt-4">
             <Bar label="Sinh Lực" value={player.finalStats.hp} max={player.finalStats.maxhp} color="linear-gradient(90deg, #8a2f2f, #d97757)" />
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2 text-[12px]">
+          <div className="mt-3 grid grid-cols-2 gap-2 text-[12px] sm:mt-4">
             <Stat label="ATK" value={player.finalStats.atk} />
             <Stat label="DEF" value={player.finalStats.def} />
             <Stat label="SPD" value={player.finalStats.spd} />
@@ -94,7 +94,7 @@ export const CombatScreen = () => {
         </Bracketed>
 
         {/* Enemies */}
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2 sm:gap-3">
           {enemies.map((e) => {
             const isCurrentEnemy = combat.combatants[combat.initiative[combat.currentTurnIdx]!]!.id === e.id;
             const isAlive = e.finalStats.hp > 0;
@@ -102,13 +102,13 @@ export const CombatScreen = () => {
               <Bracketed
                 key={e.id}
                 tone="ember"
-                className={`relative rounded-md border bg-ink-700 p-5 ${isCurrentEnemy ? 'anim-glow' : ''} ${!isAlive ? 'opacity-40' : ''}`}
+                className={`relative rounded-md border bg-ink-700 p-4 sm:p-5 ${isCurrentEnemy ? 'anim-glow' : ''} ${!isAlive ? 'opacity-40' : ''}`}
               >
                 <div className="label-section mb-2">
                   Yêu Thú · Cấp {e.level}
                   {!isAlive && <span className="ml-2 text-blood-500">[Tử]</span>}
                 </div>
-                <h2 className="font-serif text-xl text-ember-200">{e.name}</h2>
+                <h2 className="font-serif text-lg text-ember-200 sm:text-xl">{e.name}</h2>
                 <div className="mt-3">
                   <Bar label="Sinh Lực" value={e.finalStats.hp} max={e.finalStats.maxhp} color="linear-gradient(90deg, #8a2f2f, #d97757)" />
                 </div>
@@ -154,41 +154,41 @@ export const CombatScreen = () => {
         </div>
       </Bracketed>
 
-      {/* Action buttons */}
+      {/* Action buttons — mobile: 2 cột, sm: 2 cột, md+: 4 cột */}
       {combat.status === 'ongoing' && (
-        <Bracketed className="mt-4 rounded-md border bg-ink-700 p-4">
+        <Bracketed className="mt-4 rounded-md border bg-ink-700 p-3 sm:p-4">
           <div className="mb-3 flex items-center justify-between">
-            <div className="label-gold">{isPlayerTurn ? 'Lượt của Ngươi' : `Đối thủ đang ra chiêu...`}</div>
-            <div className="text-[12px] text-jade-500">Chọn hành động</div>
+            <div className="label-gold text-[12px] sm:text-[13px]">{isPlayerTurn ? 'Lượt của Ngươi' : 'Đối thủ đang ra chiêu...'}</div>
+            <div className="hidden text-[12px] text-jade-500 sm:block">Chọn hành động</div>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
             <button
               onClick={() => handleAction({ kind: 'attack', skillName: 'Đánh Thường' })}
               disabled={!isPlayerTurn}
-              className="btn-secondary text-[13px]"
+              className="btn-secondary text-[13px] sm:text-[14px]"
             >
-              ⚔ Đánh Thường
+              ⚔ <span className="ml-1">Đánh Thường</span>
             </button>
             <button
               onClick={() => handleAction({ kind: 'skill_basic', skillName: 'Lôi Thiểm', skillMultiplier: 1.6 })}
               disabled={!isPlayerTurn}
-              className="btn-secondary text-[13px]"
+              className="btn-secondary text-[13px] sm:text-[14px]"
             >
-              ⚡ Lôi Thiểm
+              ⚡ <span className="ml-1">Lôi Thiểm</span>
             </button>
             <button
               onClick={() => handleAction({ kind: 'skill_ultimate', skillName: 'Cửu Tiêu Lôi Trảm', skillMultiplier: 3.2 })}
               disabled={!isPlayerTurn}
-              className="btn-primary text-[13px]"
+              className="btn-primary text-[13px] sm:text-[14px]"
             >
-              ✦ Tuyệt Học
+              ✦ <span className="ml-1">Tuyệt Học</span>
             </button>
             <button
               onClick={() => handleAction({ kind: 'flee' })}
               disabled={!isPlayerTurn}
-              className="btn-jade text-[13px]"
+              className="btn-jade text-[13px] sm:text-[14px]"
             >
-              ↩ Bỏ Chạy
+              ↩ <span className="ml-1">Bỏ Chạy</span>
             </button>
           </div>
 

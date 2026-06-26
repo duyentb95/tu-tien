@@ -8,6 +8,11 @@
    BASE LAYER
    ────────────────────────────────────────────────────────────── */
 @layer base {
+  html {
+    /* iOS Safari: ngăn zoom khi tap input + auto-grow font khi rotate landscape */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
   html, body, #root {
     height: 100%;
     background-color: var(--ink-900);
@@ -23,6 +28,16 @@
       linear-gradient(176deg, #0a0f0a 0%, #0d140d 55%, #0a0f0a 100%);
     background-attachment: fixed;
     min-height: 100vh;
+    /* iPhone notch / Android nav bar — pad safe area */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Input font ≥ 16px → ngăn iOS Safari auto-zoom khi focus */
+  input, textarea, select {
+    font-size: max(16px, 1em);
   }
 
   ::selection {
@@ -117,22 +132,30 @@
     background: linear-gradient(180deg, rgba(167, 139, 250, 0.07), transparent);
   }
 
-  /* CTA chính — gold gradient, kim chữ in đậm */
+  /* CTA chính — gold gradient, kim chữ in đậm
+     Min-height 44px = Apple HIG touch target standard */
   .btn-primary {
     font-family: var(--font-serif);
     font-weight: 600;
     color: var(--ink-900);
     background: linear-gradient(180deg, var(--gold-200), var(--gold-500));
     border: none;
-    padding: 13px 18px;
+    padding: 12px 18px;
+    min-height: 44px;
     border-radius: var(--radius-sm);
     cursor: pointer;
     letter-spacing: 0.04em;
     transition: filter 0.2s ease, transform 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
   .btn-primary:hover:not(:disabled) {
     filter: brightness(1.08);
     transform: translateY(-1px);
+  }
+  .btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+    filter: brightness(0.95);
   }
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -142,15 +165,22 @@
     color: var(--gold-500);
     background: transparent;
     border: 1px solid rgba(205, 164, 94, 0.2);
-    padding: 11px 18px;
+    padding: 10px 18px;
+    min-height: 44px;
     border-radius: var(--radius-sm);
     cursor: pointer;
     transition: all 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
   .btn-secondary:hover:not(:disabled) {
     border-color: var(--gold-500);
     background: rgba(205, 164, 94, 0.06);
   }
+  .btn-secondary:active:not(:disabled) {
+    background: rgba(205, 164, 94, 0.12);
+  }
+  .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
 
   /* Jade button — cho action thứ yếu (back, info) */
   .btn-jade {
@@ -158,15 +188,22 @@
     color: var(--jade-300);
     background: transparent;
     border: 1px solid rgba(205, 164, 94, 0.2);
-    padding: 11px 18px;
+    padding: 10px 18px;
+    min-height: 44px;
     border-radius: var(--radius-sm);
     cursor: pointer;
     transition: all 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
   .btn-jade:hover:not(:disabled) {
     color: var(--jade-200);
     border-color: rgba(139, 168, 136, 0.5);
   }
+  .btn-jade:active:not(:disabled) {
+    background: rgba(139, 168, 136, 0.08);
+  }
+  .btn-jade:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .btn-ghost {
     color: var(--gold-300);
