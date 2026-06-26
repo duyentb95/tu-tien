@@ -221,6 +221,12 @@ interface GameState {
   syncToCloud: () => Promise<boolean>;
   /** Load save từ Firestore. Override local. Return success */
   loadFromCloud: () => Promise<boolean>;
+  /** Save vào slot cụ thể (multi-slot manager) */
+  saveToSlot: (slotId: string) => boolean;
+  /** Load từ slot cụ thể */
+  loadFromSlot: (slotId: string) => boolean;
+  /** Get payload hiện tại để export/backup */
+  getCurrentPayload: () => Record<string, unknown>;
 }
 
 const DEFAULT_SETTINGS: GameSettings = {
@@ -1543,6 +1549,68 @@ export const useGameStore = create<GameState>()(
         return true;
       } catch (e) {
         console.warn('[loadFromLocalStorage]', e);
+        return false;
+      }
+    },
+
+    // ─── Multi-slot save manager ───
+    getCurrentPayload: () => {
+      const { player, settings, storyLog, currentActions, turn, knowledge, inventory, skills, quests, sectMembership, claimedMissions, secretRealm, spiritBeasts, activeBeastId, caveAbode, daoLu } = get();
+      return {
+        version: 8,
+        savedAt: Date.now(),
+        player, settings, storyLog, currentActions, turn, knowledge, inventory, skills, quests,
+        sectMembership, claimedMissions, secretRealm, spiritBeasts, activeBeastId, caveAbode, daoLu,
+      };
+    },
+
+    saveToSlot: (slotId: string) => {
+      try {
+        const payload = get().getCurrentPayload();
+        // Key format: tu-tien:save:slot-N hoặc tu-tien:save:autobackup-N
+        const key = slotId.startsWith('autobackup-')
+          ? `tu-tien:save:autobackup-${slotId.slice('autobackup-'.length)}`
+          : `tu-tien:save:slot-${slotId.replace(/^slot-/, '')}`;
+        localStorage.setItem(key, JSON.stringify(payload));
+        return true;
+      } catch (e) {
+        console.warn('[saveToSlot]', e);
+        return false;
+      }
+    },
+
+    loadFromSlot: (slotId: string) => {
+      try {
+        const key = slotId.startsWith('autobackup-')
+          ? `tu-tien:save:autobackup-${slotId.slice('autobackup-'.length)}`
+          : `tu-tien:save:slot-${slotId.replace(/^slot-/, '')}`;
+        const raw = localStorage.getItem(key);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        if (!data?.player) return false;
+        set((s) => {
+          s.player = data.player;
+          s.settings = { ...DEFAULT_SETTINGS, ...data.settings };
+          s.storyLog = data.storyLog ?? [];
+          s.currentActions = data.currentActions ?? [];
+          s.turn = data.turn ?? 0;
+          s.knowledge = { ...DEFAULT_KNOWLEDGE, ...data.knowledge };
+          s.inventory = data.inventory ?? {};
+          s.skills = data.skills ?? {};
+          s.quests = data.quests ?? {};
+          s.sectMembership = data.sectMembership ?? null;
+          s.claimedMissions = data.claimedMissions ?? {};
+          s.secretRealm = data.secretRealm ?? null;
+          s.spiritBeasts = data.spiritBeasts ?? {};
+          s.activeBeastId = data.activeBeastId ?? null;
+          s.caveAbode = data.caveAbode ?? { ...DEFAULT_CAVE_ABODE, rooms: { ...DEFAULT_CAVE_ABODE.rooms }, plots: {} };
+          s.daoLu = data.daoLu ?? {};
+          s.prevStage = s.stage;
+          s.stage = 'playing';
+        });
+        return true;
+      } catch (e) {
+        console.warn('[loadFromSlot]', e);
         return false;
       }
     },
