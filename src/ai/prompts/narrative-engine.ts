@@ -16,6 +16,8 @@
 import type { PlayerCharacter } from '@gametypes/character';
 import type { GameSettings } from '@state/game-store';
 import type { Scenario } from './logic-engine';
+import type { EntityLookupContext } from '../entity-lookup';
+import { buildEntityContextBlock } from '../entity-lookup';
 
 export interface NarrativeEngineContext {
   scenario: Scenario;
@@ -25,6 +27,8 @@ export interface NarrativeEngineContext {
   recentHistory: string[];
   lastAction?: string;
   isOpening?: boolean;
+  /** Phase 10.2: Context để lookup `scenario.relevant_entities` thành block chi tiết */
+  entityLookupContext?: EntityLookupContext;
 }
 
 const SYSTEM_PERSONA = `Ngươi là **TIỂU THUYẾT GIA TU TIÊN** chuyên viết text-RPG cổ phong Đông Phương.
@@ -91,10 +95,16 @@ ${settings.isNsfwMode && tags.rating === 'nsfw' ? 'CHẾ ĐỘ 18+: BẬT — đ
 Logic Engine đã quyết định scenario này sẽ xảy ra. Nhiệm vụ ngươi là **viết văn phong** kể lại sự kiện này, không đổi nội dung.
 
 Summary: ${scenario.summary}
-${scenario.relevant_entities.length > 0 ? `NPCs/Items liên quan (PHẢI reference đúng tên): ${scenario.relevant_entities.join(', ')}` : ''}
 ${lastAction ? `Hành động trước đó của nhân vật: "${lastAction}"` : ''}
 ${isOpening ? '(Đây là CHƯƠNG MỞ ĐẦU — giới thiệu nhân vật, bối cảnh)' : ''}
 `.trim();
+
+  // Phase 10.2: Smart entity lookup — Logic Engine trả tên, ta inject chi tiết
+  const entityBlock = ctx.entityLookupContext
+    ? buildEntityContextBlock(scenario.relevant_entities, ctx.entityLookupContext)
+    : (scenario.relevant_entities.length > 0
+      ? `[NPCs/Items liên quan (PHẢI reference đúng tên)]: ${scenario.relevant_entities.join(', ')}`
+      : '');
 
   const styleBlock = `
 [CHỈ THỊ VĂN PHONG]
@@ -135,6 +145,7 @@ LƯU Ý KHÁC:
     worldBlock,
     historyBlock,
     scenarioBlock,
+    entityBlock,
     styleBlock,
     formatBlock,
   ]

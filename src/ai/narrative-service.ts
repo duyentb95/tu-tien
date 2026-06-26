@@ -128,6 +128,20 @@ const generateNarrativeHybrid = async (ctx: NarrativeContext): Promise<ParsedNar
   ctx.onPhase?.('narrative');
 
   // ─── Step 3: Narrative Engine ───
+  // Phase 10.2: Build entity lookup context để Narrative Engine có chi tiết
+  // thực thể mà Logic Engine đã nhắc đến (relevant_entities).
+  // Note: player.learnedSkills là string[] của IDs → không lookup được tên ở đây.
+  // Skill names sẽ được lookup qua fanFicSkills nếu universe có hint, hoặc
+  // AI tự dùng tên đã được mention trong scenario summary.
+  const entityLookupContext = {
+    ...(ctx.worldNpcs ? { worldNpcs: ctx.worldNpcs } : {}),
+    ...(ctx.loreNpcs ? { loreNpcs: ctx.loreNpcs } : {}),
+    ...(ctx.worldLocations ? { worldLocations: ctx.worldLocations } : {}),
+    ...(ctx.loreLocations ? { loreLocations: ctx.loreLocations } : {}),
+    ...(ctx.fanFicItems ? { fanFicItems: ctx.fanFicItems } : {}),
+    ...(ctx.fanFicSkills ? { fanFicSkills: ctx.fanFicSkills } : {}),
+  };
+
   const narrativePrompt = buildNarrativeEnginePrompt({
     scenario: pick.scenario,
     settings: ctx.settings,
@@ -136,6 +150,7 @@ const generateNarrativeHybrid = async (ctx: NarrativeContext): Promise<ParsedNar
     ...(ctx.realm !== undefined ? { realm: ctx.realm } : {}),
     ...(ctx.lastAction !== undefined ? { lastAction: ctx.lastAction } : {}),
     ...(ctx.isOpening !== undefined ? { isOpening: ctx.isOpening } : {}),
+    entityLookupContext,
   });
   // Phase 8.1: Narrative Engine — default 'auto' (DeepSeek nếu có, else Gemini)
   // DeepSeek viết văn tu tiên Trung-Việt đẹp hơn rõ rệt

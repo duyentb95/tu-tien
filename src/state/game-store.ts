@@ -23,6 +23,7 @@ import type { StorySegment } from '@ai/parser';
 import { calculateMaxExpForLevel, applyExpGain } from '@core/stats/leveling';
 import { getRealmInfoFromLevel } from '@core/stats/realms';
 import { recomputeFinalStats, generateItemBonuses } from '@core/stats/equipment';
+import { generateItemBonusesV2 } from '@core/items/item-budget';
 import { nourishArtifact, isArtifactEligible, ARTIFACT_GRADE_NAMES } from '@core/items/artifact';
 import { CATEGORY_TO_DEFAULT_SLOT, EQUIPPABLE_CATEGORIES } from '@gametypes/item';
 import type { EquipmentSlot } from '@gametypes/character';
@@ -2082,7 +2083,12 @@ function applyGameEvents(
           ? (e.rarity as Rarity) : 'Thường';
         const category = e.category as ItemCategory;
         const playerLevel = get().player?.level ?? 1;
-        const bonuses = generateItemBonuses(rarityNorm, category, playerLevel);
+        // Phase 10.1: Budget-based 3-step pipeline (category-aware, difficulty-scaled)
+        // Fallback xuống deterministic V1 nếu category không có build rule
+        const difficulty = (get().settings as { difficulty?: string }).difficulty;
+        const bonuses =
+          generateItemBonusesV2({ rarity: rarityNorm, category, playerLevel, difficulty }) ??
+          generateItemBonuses(rarityNorm, category, playerLevel);
         const item: Item = {
           id, name: e.name, rarity: rarityNorm,
           category, description: '', value: 100, quantity: 1,
