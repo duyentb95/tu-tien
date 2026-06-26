@@ -49,6 +49,12 @@ const SkillManagementModal = lazy(() =>
 const TraderModal = lazy(() =>
   import('@features/trader/TraderModal').then((m) => ({ default: m.TraderModal })),
 );
+const AIStatusModal = lazy(() =>
+  import('@features/ai-status/AIStatusModal').then((m) => ({ default: m.AIStatusModal })),
+);
+// AIStatusDot nhẹ → eager import (header luôn render)
+import { AIStatusDot } from '@features/ai-status/AIStatusDot';
+import { AIFallbackBanner } from '@features/ai-status/AIFallbackBanner';
 
 export const GameplayScreen = () => {
   const player = useGameStore(selectPlayer);
@@ -76,6 +82,8 @@ export const GameplayScreen = () => {
   const [tournamentOpen, setTournamentOpen] = useState(false);
   const [achievementsOpen, setAchievementsOpen] = useState(false);
   const [skillMgmtOpen, setSkillMgmtOpen] = useState(false);
+  // Phase 14.2B: AI Status modal
+  const [aiStatusOpen, setAiStatusOpen] = useState(false);
   // Phase 12.2: Trader modal — auto-open theo traderSession state
   const traderSession = useGameStore((s) => s.traderSession);
   const [traderManuallyClosed, setTraderManuallyClosed] = useState(false);
@@ -185,6 +193,8 @@ export const GameplayScreen = () => {
           <NavButton label="Lưu Trữ" icon="◭" onClick={() => setSaveManagerOpen(true)} />
           <NavButton label="Tra Cứu" icon="📜" onClick={() => setQuickLookupOpen(true)} />
           <NavButton label="Cẩm Nang" icon="?" onClick={() => setHandbookOpen(true)} />
+          {/* Phase 14.2B: AI status indicator (auto-update via subscribeHealth) */}
+          <AIStatusDot onClick={() => setAiStatusOpen(true)} />
           <NavButton
             label="Thoát"
             icon="⊗"
@@ -216,7 +226,8 @@ export const GameplayScreen = () => {
 
       {/* Main grid — mobile: sidebar trên trước, gameplay dưới. Desktop: 2 cột */}
       <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-[1fr_300px]">
-        <div className="order-2 flex flex-col lg:order-1">
+        <div className="order-2 flex flex-col gap-2 lg:order-1">
+          <AIFallbackBanner onOpenStatus={() => setAiStatusOpen(true)} />
           <StoryView entries={storyLog} isAiThinking={isAiThinking} aiPhase={aiPhase} playerName={player.Name} />
           <ActionPanel
             actions={actions}
@@ -263,6 +274,7 @@ export const GameplayScreen = () => {
         {traderOpen && (
           <TraderModal open onClose={() => setTraderManuallyClosed(true)} />
         )}
+        {aiStatusOpen && <AIStatusModal open onClose={() => setAiStatusOpen(false)} />}
       </Suspense>
     </div>
   );

@@ -19,6 +19,8 @@
 
 import type { z } from 'zod';
 import type { AIProvider, CallOptions } from './types';
+import { reportProviderSuccess, reportProviderError } from '../provider-health';
+import { getByokKey } from '../byok';
 
 const DEEPSEEK_BASE = 'https://api.deepseek.com/v1/chat/completions';
 const DEFAULT_MODEL = (import.meta.env.VITE_DEEPSEEK_MODEL as string | undefined) ?? 'deepseek-chat';
@@ -61,16 +63,24 @@ const blockKey = (key: string, ms = 60_000): void => {
   console.warn(`[deepseek] Key ${masked} bị block ${ms / 1000}s`);
 };
 
+/** Phase 14.2A: Active keys = BYOK key (nếu set) + env keys */
+const getActiveKeys = (): string[] => {
+  const byok = getByokKey('deepseek');
+  if (byok) return Array.from(new Set([byok, ...API_KEYS]));
+  return API_KEYS;
+};
+
 const nextKey = (): string => {
-  if (API_KEYS.length === 0) {
-    throw new Error('[deepseek] Không có API key. Set VITE_DEEPSEEK_API_KEY_1..N hoặc VITE_AI_PROXY_URL_DEEPSEEK');
+  const keys = getActiveKeys();
+  if (keys.length === 0) {
+    throw new Error('[deepseek] Không có API key. Set VITE_DEEPSEEK_API_KEY_1..N, BYOK trong settings, hoặc VITE_AI_PROXY_URL_DEEPSEEK');
   }
-  for (let i = 0; i < API_KEYS.length; i++) {
-    const k = API_KEYS[keyIdx % API_KEYS.length]!;
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[keyIdx % keys.length]!;
     keyIdx++;
     if (!isKeyBlocked(k)) return k;
   }
-  return API_KEYS[0]!;
+  return keys[0]!;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -118,13 +128,16 @@ async function callDirect(prompt: string, opts: CallOptions = {}): Promise<strin
     stream: false,
   };
 
-  if (USE_PROXY) {
+  // Phase 14.2A: BYOK key → force direct mode (bypass proxy)
+  const hasByok = !!getByokKey('deepseek');
+  if (USE_PROXY && !hasByok) {
     return await callViaProxy(prompt, opts);
   }
 
   // Direct call với key rotation
   let lastError: unknown;
-  const keyAttempts = Math.max(1, API_KEYS.length);
+  const activeKeys = getActiveKeys();
+  const keyAttempts = Math.max(1, activeKeys.length);
   for (let i = 0; i < keyAttempts; i++) {
     const key = nextKey();
     try {
@@ -149,12 +162,15 @@ async function callDirect(prompt: string, opts: CallOptions = {}): Promise<strin
       const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
       const text = data?.choices?.[0]?.message?.content ?? '';
       if (!text) throw new Error('[deepseek] Empty response');
+      reportProviderSuccess('deepseek');
       return text;
     } catch (e) {
       lastError = e;
       console.warn(`[deepseek] Key #${i + 1} failed:`, e);
     }
   }
+  const errMsg = lastError instanceof Error ? lastError.message : String(lastError);
+  reportProviderError('deepseek', 0, errMsg || 'All keys exhausted');
   throw lastError ?? new Error('[deepseek] All keys exhausted');
 }
 
@@ -167,7 +183,10 @@ async function callViaProxy(prompt: string, opts: CallOptions): Promise<string> 
     ? PROXY_URL!
     : `${PROXY_URL}/chat-deepseek`;
 
-  for (let i = 0; i < 2; i++) {
+  // Phase 14.1A: 4 attempts exponential backoff cho 503/429 (1.5s/3s/6s/12s)
+  const MAX_ATTEMPTS = 4;
+  let lastErr: unknown;
+  for (let i = 0; i < MAX_ATTEMPTS; i++) {
     try {
       const res = await fetch(url, {
         method: 'POST',
@@ -182,24 +201,38 @@ async function callViaProxy(prompt: string, opts: CallOptions): Promise<string> 
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-        if (res.status === 429 || res.status === 403) {
-          throw new Error(`[deepseek/proxy] ${err.error}`);
+        const errMsg = err.error ?? err.message ?? `HTTP ${res.status}`;
+        // Non-retryable: balance/auth/invalid → dừng ngay
+        if (res.status === 402 || res.status === 401 || res.status === 400 || res.status === 403) {
+          reportProviderError('deepseek', res.status, errMsg);
+          throw new Error(`[deepseek/proxy] ${errMsg}`);
         }
-        if (i < 1) { await new Promise((r) => setTimeout(r, 1500)); continue; }
-        throw new Error(`[deepseek/proxy] HTTP ${res.status}: ${err.error}`);
+        // Retryable
+        lastErr = new Error(`[deepseek/proxy] HTTP ${res.status}: ${errMsg}`);
+        if (i < MAX_ATTEMPTS - 1) {
+          const delay = 1500 * Math.pow(2, i) + Math.random() * 500;
+          console.warn(`[deepseek/proxy] HTTP ${res.status}, retry ${i + 1}/${MAX_ATTEMPTS} sau ${Math.round(delay)}ms`);
+          await new Promise((r) => setTimeout(r, delay));
+          continue;
+        }
+        reportProviderError('deepseek', res.status, errMsg);
+        throw lastErr;
       }
       const data = await res.json() as { text?: string };
       if (!data.text) throw new Error('[deepseek/proxy] Empty response');
+      reportProviderSuccess('deepseek');
       return data.text;
     } catch (e) {
-      if (i < 1) {
-        await new Promise((r) => setTimeout(r, 1500));
+      lastErr = e;
+      if (i < MAX_ATTEMPTS - 1) {
+        const delay = 1500 * Math.pow(2, i);
+        await new Promise((r) => setTimeout(r, delay));
         continue;
       }
       throw e;
     }
   }
-  throw new Error('[deepseek/proxy] Failed');
+  throw lastErr ?? new Error('[deepseek/proxy] Failed');
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -208,7 +241,7 @@ async function callViaProxy(prompt: string, opts: CallOptions): Promise<string> 
 
 export const deepseekProvider: AIProvider = {
   name: 'deepseek',
-  isAvailable: () => USE_PROXY || API_KEYS.length > 0,
+  isAvailable: () => USE_PROXY || API_KEYS.length > 0 || !!getByokKey('deepseek'),
   async call(prompt: string, opts: CallOptions = {}) {
     return await callDirect(prompt, opts);
   },

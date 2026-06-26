@@ -181,6 +181,14 @@ export const shouldUseMockAi = (): boolean => {
     Array.from({ length: 10 }, (_, i) => env[`VITE_DEEPSEEK_API_KEY_${i + 1}`]).some((k) => k && k !== '');
   if (hasDeepseekKey) return false;
 
+  // Phase 14.2A: BYOK — check localStorage (chỉ browser, không SSR)
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      if (localStorage.getItem('tu-tien:byok-gemini')?.trim()) return false;
+      if (localStorage.getItem('tu-tien:byok-deepseek')?.trim()) return false;
+    } catch { /* ignore */ }
+  }
+
   // Không có gì → mock
   return true;
 };

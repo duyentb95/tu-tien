@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { reportProviderSuccess, reportProviderError } from './provider-health';
+import { getByokKey } from './byok';
 
 /**
  * AI CLIENT — chỗ DUY NHẤT trong codebase gọi Gemini API.
@@ -66,8 +68,21 @@ const collectApiKeys = (): string[] => {
   return Array.from(new Set(keys));
 };
 
-const API_KEYS = collectApiKeys();
+const ENV_API_KEYS = collectApiKeys();
 let keyRoundRobinIdx = 0;
+
+/**
+ * Phase 14.2A: Effective keys = BYOK key (nếu set, ưu tiên đầu) + env keys.
+ * Eval mỗi call để pick up BYOK key user vừa paste mà không cần reload.
+ */
+const getActiveKeys = (): string[] => {
+  const byok = getByokKey('gemini');
+  if (byok) return Array.from(new Set([byok, ...ENV_API_KEYS]));
+  return ENV_API_KEYS;
+};
+
+// Backward compat alias
+const API_KEYS = ENV_API_KEYS;
 /** Set keys đang bị rate-limit/quota — skip trong vòng 60s rồi unblock */
 const blockedKeys = new Map<string, number>(); // key → unblock timestamp ms
 
@@ -87,24 +102,26 @@ const blockKey = (key: string, durationMs = 60_000) => {
   console.warn(`[ai/client] Key ${masked} bị block ${durationMs / 1000}s (quota/rate limit)`);
 };
 
-/** Lấy key tiếp theo theo round-robin, skip blocked keys */
+/** Lấy key tiếp theo theo round-robin, skip blocked keys.
+ * Phase 14.2A: dùng getActiveKeys() để include BYOK key nếu user đã set. */
 const nextApiKey = (): string => {
-  if (API_KEYS.length === 0) {
+  const keys = getActiveKeys();
+  if (keys.length === 0) {
     throw new Error(
       USE_PROXY
         ? '[ai/client] Proxy mode bật nhưng nextApiKey() vẫn bị gọi (bug)'
-        : '[ai/client] Không có API key nào. Set VITE_GEMINI_API_KEY hoặc VITE_GEMINI_API_KEY_1..N trong env, hoặc set VITE_AI_PROXY_URL.',
+        : '[ai/client] Không có API key nào. Set VITE_GEMINI_API_KEY hoặc VITE_GEMINI_API_KEY_1..N trong env, dùng BYOK trong settings, hoặc set VITE_AI_PROXY_URL.',
     );
   }
   // Thử tối đa N lần (N = số key), skip blocked
-  for (let i = 0; i < API_KEYS.length; i++) {
-    const key = API_KEYS[keyRoundRobinIdx % API_KEYS.length]!;
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[keyRoundRobinIdx % keys.length]!;
     keyRoundRobinIdx++;
     if (!isKeyBlocked(key)) return key;
   }
   // Tất cả blocked → fallback đại 1 key (sẽ tự fail nếu vẫn block)
   console.warn('[ai/client] Tất cả keys đang blocked, dùng tạm key[0]');
-  return API_KEYS[0]!;
+  return keys[0]!;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -262,16 +279,20 @@ export async function callGemini<T>(
     opts = { ...opts, responseMimeType: 'application/json' };
   }
 
+  // Phase 14.2A: Nếu user set BYOK key → force direct mode (bypass proxy quota chung)
+  const hasByok = !!getByokKey('gemini');
+
   // ─── Proxy mode: gọi worker/function, server xử lý tất cả ───
-  if (USE_PROXY) {
+  if (USE_PROXY && !hasByok) {
     return callViaProxy(prompt, opts);
   }
 
   let lastError: unknown;
 
   for (const model of GEMINI_MODELS) {
-    // Mỗi model thử max N key (N = số key có)
-    const keyAttempts = Math.max(1, API_KEYS.length);
+    // Mỗi model thử max N key (N = số key active — env + BYOK)
+    const activeKeys = getActiveKeys();
+    const keyAttempts = Math.max(1, activeKeys.length);
     for (let i = 0; i < keyAttempts; i++) {
       const key = nextApiKey();
       try {
@@ -315,8 +336,10 @@ export async function callGemini<T>(
             } catch {
               throw new Error(`[ai/client] Gemini returned invalid JSON: ${text.slice(0, 200)}`);
             }
+            reportProviderSuccess('gemini');
             return opts.schema.parse(parsed);
           }
+          reportProviderSuccess('gemini');
           return text;
         }
 
@@ -350,6 +373,8 @@ export async function callGemini<T>(
   }
 
   // All models × all keys exhausted
+  const errMsg = lastError instanceof Error ? lastError.message : String(lastError);
+  reportProviderError('gemini', 0, errMsg || 'Tất cả model + key đều fail');
   throw lastError ?? new Error('[ai/client] Tất cả model + key đều fail. Thử lại sau vài phút.');
 }
 
@@ -367,9 +392,12 @@ async function callViaProxy<T>(
 ): Promise<string | T> {
   const url = AI_PROXY_URL!.endsWith('/chat') ? AI_PROXY_URL! : `${AI_PROXY_URL}/chat`;
 
-  // Proxy có retry built-in (server-side), client chỉ retry 2 lần cho network error
+  // Phase 14.1A: Exponential backoff cho 503/429 (high demand thường self-resolve 5-15s).
+  // 4 attempts: 1.5s → 3s → 6s → 12s = total ~22s wait.
+  // Non-retryable 4xx: dừng ngay (401/402/invalid_request).
   let lastError: unknown;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  const MAX_ATTEMPTS = 4;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     try {
       const res = await fetch(url, {
         method: 'POST',
@@ -386,15 +414,20 @@ async function callViaProxy<T>(
 
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-        // 429 từ proxy = rate limit, không retry
-        if (res.status === 429 || res.status === 403) {
-          throw new Error(`[ai/proxy] ${errBody.error ?? 'Forbidden'}`);
+        // Non-retryable: auth/balance/invalid request → dừng ngay
+        if (res.status === 401 || res.status === 402 || res.status === 400 || res.status === 403) {
+          reportProviderError('gemini', res.status, errBody.error ?? `HTTP ${res.status}`);
+          throw new Error(`[ai/proxy] ${errBody.error ?? `HTTP ${res.status}`}`);
         }
+        // Retryable: 429 (rate limit), 5xx (server error / high demand)
         lastError = new Error(`[ai/proxy] HTTP ${res.status}: ${errBody.error ?? ''}`);
-        if (attempt < 1) {
-          await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+        if (attempt < MAX_ATTEMPTS - 1) {
+          const delay = 1500 * Math.pow(2, attempt) + Math.random() * 500;
+          console.warn(`[ai/proxy] HTTP ${res.status}, retry ${attempt + 1}/${MAX_ATTEMPTS} sau ${Math.round(delay)}ms`);
+          await new Promise((r) => setTimeout(r, delay));
           continue;
         }
+        reportProviderError('gemini', res.status, errBody.error ?? `HTTP ${res.status}`);
         throw lastError;
       }
 
@@ -409,20 +442,23 @@ async function callViaProxy<T>(
         } catch {
           throw new Error(`[ai/proxy] Invalid JSON: ${text.slice(0, 200)}`);
         }
+        reportProviderSuccess('gemini');
         return opts.schema.parse(parsed);
       }
+      reportProviderSuccess('gemini');
       return text;
     } catch (e) {
       lastError = e;
       // Network error → retry
-      if (attempt < 1) {
-        console.warn(`[ai/proxy] Network error, retry 1/2:`, e);
-        await new Promise((r) => setTimeout(r, 1500));
+      if (attempt < MAX_ATTEMPTS - 1) {
+        const delay = 1500 * Math.pow(2, attempt);
+        console.warn(`[ai/proxy] Network error, retry ${attempt + 1}/${MAX_ATTEMPTS}:`, e);
+        await new Promise((r) => setTimeout(r, delay));
         continue;
       }
     }
   }
-  throw lastError ?? new Error('[ai/proxy] Failed after 2 attempts');
+  throw lastError ?? new Error(`[ai/proxy] Failed after ${MAX_ATTEMPTS} attempts`);
 }
 
 /** Tiện ích cho UI/debug — biết đang dùng bao nhiêu keys (0 khi proxy mode) */
