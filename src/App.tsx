@@ -6,6 +6,7 @@ import { GameSetupScreen } from '@features/game-setup';
 import { GameplayScreen } from '@features/gameplay';
 import { ToastStack } from '@shared/components/ToastStack';
 import { ScreenLoader } from '@shared/components/ScreenLoader';
+import { AppFooter } from '@shared/components/AppFooter';
 
 // Lazy: 10 screen ít dùng — chỉ tải JS chunk khi user nhấn vào
 const CharacterSheetScreen = lazy(() =>
@@ -49,36 +50,42 @@ export const App = () => {
     </a>
   );
 
+  // Footer hiển thị ở các screen tĩnh — không show trong combat/tribulation để không phân tâm
+  const showFooter = stage !== 'combat' && stage !== 'tribulation';
+
   // Eager render — không cần Suspense
   if (stage === 'initial') {
     return (
-      <div className="min-h-screen w-full">
+      <div className="flex min-h-screen w-full flex-col">
         {skipLink}
-        <div id="main-content">
+        <div id="main-content" className="flex-1">
           <InitialScreen />
         </div>
+        {showFooter && <AppFooter />}
         <ToastStack />
       </div>
     );
   }
   if (stage === 'setup') {
     return (
-      <div className="min-h-screen w-full">
+      <div className="flex min-h-screen w-full flex-col">
         {skipLink}
-        <div id="main-content">
+        <div id="main-content" className="flex-1">
           <GameSetupScreen />
         </div>
+        {showFooter && <AppFooter />}
         <ToastStack />
       </div>
     );
   }
   if (stage === 'playing') {
     return (
-      <div className="min-h-screen w-full">
+      <div className="flex min-h-screen w-full flex-col">
         {skipLink}
-        <div id="main-content">
+        <div id="main-content" className="flex-1">
           <GameplayScreen />
         </div>
+        {showFooter && <AppFooter />}
         <ToastStack />
       </div>
     );
@@ -86,9 +93,9 @@ export const App = () => {
 
   // Lazy screens — chia chung 1 Suspense boundary, fallback hiển thị loader cổ phong
   return (
-    <div className="min-h-screen w-full">
+    <div className="flex min-h-screen w-full flex-col">
       {skipLink}
-      <div id="main-content">
+      <div id="main-content" className="flex-1">
         <Suspense fallback={<ScreenLoader />}>
           {stage === 'character' && <CharacterSheetScreen />}
           {stage === 'inventory' && <InventoryScreen />}
@@ -102,6 +109,7 @@ export const App = () => {
           {stage === 'tribulation' && <TribulationScreen />}
         </Suspense>
       </div>
+      {showFooter && <AppFooter />}
       <ToastStack />
     </div>
   );
