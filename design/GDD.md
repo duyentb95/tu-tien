@@ -5,10 +5,24 @@
 
 | | |
 |---|---|
-| **Version** | 0.4 |
-| **Last updated** | 2026-06-25 |
-| **Status** | Phase 1.5 (vertical slice playable) |
-| **Stakeholder** | DuyenTB |
+| **Version** | 1.0 |
+| **Last updated** | 2026-06-26 |
+| **Status** | **Production-ready v1.0** — đã deploy tại tien-do.netlify.app |
+| **Stakeholder** | DuyenTB
+
+## 0. Recent v1.0 features (Phase 6-7)
+
+- **Hybrid AI Pipeline:** 2-step Logic Engine + Dice + Narrative Engine → văn phong tốt hơn 1-call ×3
+- **Fan-fic wizard:** Player nhập tác phẩm gốc (vd "Mục Thần Ký") + tên nhân vật → AI tự phân tích nguyên tác, populate full settings + cảnh giới + NPCs
+- **2-tier lore:** AI có thể foreshadow NPC/location qua `LORE_*` rumor, sau đó materialize qua `WORLD_*` với link `loreId` — mạch truyện liên kết tự nhiên
+- **Memory + custom rules:** AI nhớ 30 sự kiện trọng đại + user define rule (vd "không bao giờ giết NPC chính")
+- **Tournament:** Nội Môn Đại Hội 8-người bracket single-elim, reward theo rank
+- **Achievements:** 20 thành tựu (4 tier bronze/silver/gold/legendary) + 5 daily missions
+- **Tagged events:** ENCOUNTER_REWARD AI tự score 0-100 sáng tạo/nhập vai, TIME_PASSED + weather, APPLY_LONG_TERM_STATUS (8 status: TRỌNG_THƯƠNG, XUẤT_HUYẾT, TRÚNG_ĐỘC, ÂM_HÀN, TẨU_HỎA, NGẤT, BỆNH_DỊ_ẤN, KHAI_QUANG buff)
+- **Late game:** 9 tribulation tier (Trúc Cơ 3 đạo → Tiên Nhân 36 đạo + cửu trùng lôi hải), 4 end-game boss
+- **Content baseline:** 15 sects · 25 beasts · 30 locations
+- **AI Proxy Security:** Cloudflare Worker ẩn API key + rate limit per IP
+- **A11y:** WCAG AA, keyboard nav full (1-4 actions, ?/M/I/C shortcuts), focus-visible ring, skip link |
 
 ---
 

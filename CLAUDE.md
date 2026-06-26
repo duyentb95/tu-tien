@@ -8,11 +8,20 @@
 
 **Game:** Mặc Hội Tiên Đồ — RPG tu tiên nhập vai thế giới mở, AI-driven (Gemini).
 
-**Trạng thái:** Phase 1.5–2. Vertical slice playable end-to-end (Initial → Setup → Story → Combat → Tribulation → CharSheet → Inventory → World Map → Quests). Đang mở rộng dần.
+**Trạng thái:** **v1.0 production-ready** tại https://tien-do.netlify.app. Hoàn thành Phase 1-7 + 5 refactor prototype patterns. Sẵn sàng public release.
 
-**Stack:** Vite + React 18 + TypeScript + Tailwind + Zustand+Immer + Zod + Firebase + Gemini 3 Flash + lottie-react.
+**Stack:** Vite + React 18 + TypeScript strict + Tailwind + Zustand+Immer + Zod + Firebase (optional cloud sync) + Gemini 2.5 Flash via Cloudflare Worker proxy + lottie-react.
 
 **Brand:** "Mặc Đồ" — design system Noto Serif headings + Be Vietnam Pro body + JetBrains Mono numbers; palette ink/gold/jade/ember/spirit; motif 4-corner brackets ┏ ┓ ┗ ┛.
+
+**Architecture key patterns** (đọc file liên quan trước khi sửa):
+- **2-step Hybrid Logic** (`src/ai/narrative-service.ts`): Logic Engine sinh 6 scenarios → dice roll → Narrative Engine viết prose. Toggle `settings.useHybridLogic`.
+- **2-tier lore** (`src/types/lore.ts` + `src/ai/tag-parser.ts`): `LORE_*` (rumor chưa gặp) → `WORLD_*` (materialized với `loreId`).
+- **30+ tag taxonomy** (`src/ai/tag-parser.ts`): từ `[EXP+]` tới `[ENCOUNTER_REWARD]`, `[TIME_PASSED]`, `[APPLY_LONG_TERM_STATUS]`, `[CHARACTER_UPDATE]`.
+- **Memory expand** (`src/types/memory.ts`): `eventHistory` rolling 30 + `customRules` user-defined + `recentMeaningfulActions`.
+- **Fan-fic wizard** (`src/ai/prompts/fan-fic-analyze.ts`): 3 fields → AI analyze hydrate full settings + initialWorldElements. KHÔNG còn preset cứng.
+- **Multi-key rotation** (`src/ai/client.ts`): N keys round-robin + per-key block 60s khi 429. Support `VITE_GEMINI_API_KEY_1..10`.
+- **AI Proxy** (`proxy/cloudflare-worker.js`): ẩn key server-side, rate limit per IP. Env `VITE_AI_PROXY_URL`.
 
 ---
 

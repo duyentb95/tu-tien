@@ -1,10 +1,48 @@
 # BUILD PLAN — Game Tu Tiên Nhập Vai Thế Giới Mở
 
-> **Tình trạng hiện tại:** Prototype hoàn chỉnh trong 1 file `PREVIEW.md` (~1.3MB, ~33k tokens), React + Firebase Firestore + IndexedDB + Google Gemini 3 Flash Preview + Imagen 4.
+> **🏆 Tình trạng v1.0 (2026-06-26):** Game đã hoàn thành Phase 1-7 + 5 refactor patterns từ prototype. Sẵn sàng public release tại https://tien-do.netlify.app.
 >
-> **Mục tiêu:** (1) Refactor codebase monolithic thành kiến trúc modular bền vững. (2) Mở rộng gameplay tu tiên đặc trưng (cảnh giới, world map, combat sâu, hệ thống xã hội).
+> **Stack hiện tại:** Vite + React 18 + TypeScript strict + Tailwind + Zustand+Immer + Zod + Firebase (optional) + Gemini 2.5 Flash (via Cloudflare Worker proxy) + lottie-react.
 >
-> **Tổng thời gian ước tính:** 16–22 tuần (1 dev full-time) hoặc 8–12 tuần (team 2–3 người).
+> **Architecture highlights:** Hybrid 2-step Logic Engine pipeline · 2-tier lore foreshadowing · 30+ tag taxonomy · Multi-key API rotation · Multi-slot save manager · WCAG AA accessibility · Lazy 20+ chunks.
+
+---
+
+## 0. STATUS PANEL (cập nhật 2026-06-26)
+
+### Phases ✅ hoàn thành
+- **Phase 1:** Refactor extraction (single-file → 145 modular files)
+- **Phase 2:** Cultivation depth (linh căn, độ kiếp, breakthrough)
+- **Phase 3:** World map + secret realms
+- **Phase 4:** Combat depth (artifacts, beasts, formations)
+- **Phase 5:** Society (sects, dao lu, cave abode)
+- **Phase 6:** Polish & launch (tutorial, save mgmt, performance, mobile, a11y, legal)
+- **Phase 7.1:** AI proxy security (Cloudflare Worker)
+- **Phase 7.2:** Sect tournament — nội môn đại hội bracket 8-người
+- **Phase 7.3:** Achievement (20) + Daily missions (5)
+- **Phase 7.4:** Audio expand (11 SFX events + BGM stub)
+- **Phase 7.5:** Content expansion (sects 5→15, beasts 8→25, locations 10→30)
+- **Phase 7.6:** Late game (9 tribulation tiers, 4 end-game enemies, realm Tiên Nhân)
+
+### Refactors theo prototype patterns
+- **Refactor 1:** Fan-fic wizard + AI analyzer (bỏ preset cứng)
+- **Refactor 2:** Hybrid Xúc Xắc 2-step (Logic Engine + Dice + Narrative Engine)
+- **Refactor 3:** 2-tier lore (LORE_* rumor → WORLD_* materialized với loreId)
+- **Refactor 4:** Tag taxonomy expand (30+ tags)
+- **Refactor 5:** Memory expand (eventHistory + customRules + recentActions)
+
+### Phases ⏳ skipped / future
+- **Phase 7.7:** Multiplayer (cross-realm raid via Firestore) — advanced architecture, để v1.5+
+
+### Metrics
+| | |
+|---|---|
+| Source files | ~145 |
+| Bundle initial | 501 KB / 142 KB gzip |
+| Lazy chunks | 20+ |
+| Default content | 15 sects · 25 beasts · 30 locations · 9 tribulation tiers · 20 achievements |
+| Stack | Vite + React 18 + TypeScript strict + Tailwind + Zustand+Immer + Zod |
+| AI backend | Gemini 2.5 Flash via Cloudflare Worker proxy (free 100K req/day) |
 
 ---
 
