@@ -1,14 +1,19 @@
-import { useEffect, useState, useMemo } from 'react';
-import { generateImage, generateProceduralAvatar, buildAvatarPrompt, isImagenEnabled } from '@services/image-gen';
+import { useState, useMemo, useEffect } from 'react';
+import {
+  buildPollinationsUrl,
+  buildAvatarPrompt,
+  generateProceduralAvatar,
+  isAiImageEnabled,
+} from '@services/image-gen';
 
 /**
- * Avatar cho nhân vật.
+ * AvatarPortrait — Phase 8.2.
  *
  * Strategy:
- *   1. Default: SVG procedural avatar (free, không cần API) — đẹp cổ phong với
- *      initial + element symbol + 4-corner bracket
- *   2. Nếu VITE_ENABLE_IMAGEN=true (user có paid plan) → call Imagen 4
- *   3. Nếu Imagen fail → fallback procedural
+ *   1. SVG procedural render NGAY (initial paint, no network) — placeholder
+ *   2. Background load Pollinations URL → khi load OK → fade-in image
+ *   3. Nếu Pollinations fail → giữ SVG (no glitch)
+ *   4. Nếu settings aiImageEnabled=false → chỉ dùng SVG procedural
  */
 
 interface AvatarPortraitProps {
@@ -18,7 +23,7 @@ interface AvatarPortraitProps {
   description?: string;
   realm?: string;
   element?: string;
-  /** Force regenerate (cho button "Tạo lại" trong UI) */
+  /** Force regenerate */
   refreshKey?: number;
   /** Default 200px square */
   size?: number;
@@ -36,10 +41,10 @@ export const AvatarPortrait = ({
   size = 200,
   className = '',
 }: AvatarPortraitProps) => {
-  const [imgSrc, setImgSrc] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
 
-  // Procedural SVG luôn có sẵn — dùng làm default + fallback
+  // Procedural SVG luôn có ngay — placeholder
   const proceduralAvatar = useMemo(
     () => generateProceduralAvatar({
       name,
@@ -49,96 +54,92 @@ export const AvatarPortrait = ({
     [name, element, realm],
   );
 
+  // AI image URL từ Pollinations
+  const aiImageUrl = useMemo(() => {
+    if (!isAiImageEnabled()) return null;
+    const prompt = buildAvatarPrompt({
+      name,
+      ...(gender ? { gender } : {}),
+      ...(personality ? { personality } : {}),
+      ...(description ? { description } : {}),
+      ...(realm ? { realm } : {}),
+      ...(element ? { element } : {}),
+    });
+    return buildPollinationsUrl({
+      prompt,
+      width: 512,
+      height: 512,
+      seed: hashName(name + (refreshKey || 0)),
+      model: 'flux-realism',
+    });
+  }, [name, gender, personality, description, realm, element, refreshKey]);
+
+  // Reset loaded state khi refresh
   useEffect(() => {
-    if (!isImagenEnabled()) {
-      // Imagen disabled → dùng procedural luôn, không call API
-      setImgSrc(proceduralAvatar);
-      return;
-    }
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      const prompt = buildAvatarPrompt({
-        name,
-        ...(gender !== undefined ? { gender } : {}),
-        ...(personality !== undefined ? { personality } : {}),
-        ...(description !== undefined ? { description } : {}),
-        ...(realm !== undefined ? { realm } : {}),
-      });
-      const result = await generateImage({ prompt, aspectRatio: '1:1', forceRefresh: refreshKey > 0 });
-      if (!cancelled) {
-        // Imagen fail → fallback procedural
-        setImgSrc(result ?? proceduralAvatar);
-        setLoading(false);
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [name, gender, personality, description, realm, element, refreshKey, proceduralAvatar]);
+    setLoaded(false);
+    setFailed(false);
+  }, [aiImageUrl]);
 
-  if (imgSrc) {
-    return (
-      <img
-        src={imgSrc}
-        alt={name}
-        width={size}
-        height={size}
-        className={`rounded-md object-cover ${className}`}
-        style={{ width: size, height: size }}
-      />
-    );
-  }
-
-  // Fallback: SVG placeholder với initial
-  const initial = name.charAt(0).toUpperCase();
-  const hue = Math.abs(name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)) % 360;
   return (
     <div
       className={`relative overflow-hidden rounded-md ${className}`}
-      style={{
-        width: size,
-        height: size,
-        background: `repeating-linear-gradient(45deg, #0d140d, #0d140d 12px, #121b12 12px, #121b12 24px)`,
-      }}
+      style={{ width: size, height: size }}
     >
-      <svg
-        viewBox="0 0 100 100"
+      {/* Layer 1: SVG procedural — luôn render */}
+      <img
+        src={proceduralAvatar}
+        alt={name}
+        width={size}
+        height={size}
+        className="absolute inset-0"
         style={{ width: size, height: size }}
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <defs>
-          <radialGradient id={`g-${name}`} cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor={`hsl(${hue}, 40%, 35%)`} stopOpacity="0.7" />
-            <stop offset="100%" stopColor="#0a0f0a" stopOpacity="1" />
-          </radialGradient>
-        </defs>
-        <rect width="100" height="100" fill={`url(#g-${name})`} />
-        <text
-          x="50"
-          y="62"
-          textAnchor="middle"
-          fontFamily="'Noto Serif', serif"
-          fontSize="38"
-          fill="#cda45e"
-          opacity="0.9"
-        >
-          {initial}
-        </text>
-      </svg>
-      {loading && (
+      />
+
+      {/* Layer 2: AI image — fade-in khi load xong */}
+      {aiImageUrl && !failed && (
+        <img
+          src={aiImageUrl}
+          alt=""
+          width={size}
+          height={size}
+          loading="lazy"
+          decoding="async"
+          onLoad={() => setLoaded(true)}
+          onError={() => setFailed(true)}
+          className="absolute inset-0 rounded-md object-cover transition-opacity duration-700"
+          style={{
+            width: size,
+            height: size,
+            opacity: loaded ? 1 : 0,
+          }}
+        />
+      )}
+
+      {/* Loading shimmer */}
+      {aiImageUrl && !loaded && !failed && (
         <div
-          className="absolute inset-0 flex items-center justify-center bg-ink-900/40 backdrop-blur-sm"
+          aria-hidden
+          className="absolute bottom-1 left-1 right-1 rounded-sm bg-ink-900/70 px-1.5 py-0.5 text-center text-[9px] uppercase tracking-wider text-gold-300 backdrop-blur-sm"
         >
-          <span className="font-mono text-[10px] text-jade-400 anim-pulse">Đang vẽ...</span>
+          <span className="anim-pulse">Đang vẽ...</span>
         </div>
       )}
+
+      {/* Frame shadow inner */}
       <div
         aria-hidden
-        className="absolute inset-0 pointer-events-none"
+        className="pointer-events-none absolute inset-0"
         style={{ boxShadow: '0 -40px 60px -20px rgba(10,15,10,.9) inset' }}
       />
     </div>
   );
+};
+
+const hashName = (s: string): number => {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = (h << 5) - h + s.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h) % 999_999;
 };

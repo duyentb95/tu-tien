@@ -15,6 +15,8 @@ import { StoryView } from './StoryView';
 import { ActionPanel } from './ActionPanel';
 // WelcomeOverlay nhẹ — eager (luôn cần check first-time)
 import { WelcomeOverlay } from '@features/tutorial/WelcomeOverlay';
+import { SceneBackground } from '@shared/components/SceneBackground';
+import { getLocation } from '@data/default-world';
 import { autoBackup } from '@services/save-manager';
 
 // Lazy: 3 modal nặng — chỉ load khi user mở
@@ -108,8 +110,19 @@ export const GameplayScreen = () => {
     );
   }
 
+  // Scene background — Phase 8.2 (AI image cho location hiện tại)
+  const currentLocId = player.current_location_id;
+  const currentLoc = currentLocId ? getLocation(currentLocId) : undefined;
+
   return (
-    <div className="min-h-screen px-4 py-4 sm:px-6 sm:py-6">
+    <div className="relative min-h-screen px-4 py-4 sm:px-6 sm:py-6">
+      {/* Phase 8.2: AI scene background — fixed position blur layer */}
+      {currentLoc && (
+        <div className="pointer-events-none fixed inset-0 -z-10">
+          <SceneBackground locationName={currentLoc.name} description={currentLoc.description} overlayOpacity={0.85} />
+        </div>
+      )}
+
       {/* ░░░ TOP NAV BAR ░░░ */}
       <header className="mx-auto mb-4 flex max-w-7xl flex-col gap-3 border-b border-gold-700/15 pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div>

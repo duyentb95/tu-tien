@@ -69,9 +69,11 @@ export default {
     // ─── Route ───
     // /chat          → Gemini
     // /chat-deepseek → DeepSeek (Phase 8.1)
+    // /image         → Cloudflare Workers AI image gen (Phase 8.2)
     const isDeepseek = url.pathname === '/chat-deepseek';
     const isGemini = url.pathname === '/chat';
-    if ((!isGemini && !isDeepseek) || request.method !== 'POST') {
+    const isImage = url.pathname === '/image';
+    if ((!isGemini && !isDeepseek && !isImage) || request.method !== 'POST') {
       return jsonError(404, 'Endpoint không tồn tại', origin);
     }
 
@@ -104,6 +106,9 @@ export default {
     // ─── Route theo provider ───
     if (isDeepseek) {
       return await handleDeepseek(body, env, origin);
+    }
+    if (isImage) {
+      return await handleImage(body, env, origin);
     }
 
     // ─── Gemini path (default) ───
@@ -247,6 +252,52 @@ function collectDeepseekKeys(env) {
   }
   if (env.DEEPSEEK_API_KEY) keys.push(env.DEEPSEEK_API_KEY);
   return [...new Set(keys)];
+}
+
+// ─────────────────────────────────────────────────────────────
+// Image gen handler (Phase 8.2 — Cloudflare Workers AI free 10K/day)
+// ─────────────────────────────────────────────────────────────
+//
+// Models có thể dùng (đều free trên Workers AI):
+//   @cf/stabilityai/stable-diffusion-xl-base-1.0   — full SDXL, ~10s
+//   @cf/bytedance/stable-diffusion-xl-lightning    — Lightning 4-steps, ~3s ⭐
+//   @cf/lykon/dreamshaper-8-lcm                    — DreamShaper LCM, ~2s, anime-leaning
+//   @cf/black-forest-labs/flux-1-schnell           — FLUX Schnell, beta, top quality
+async function handleImage(body, env, origin) {
+  const prompt = body?.prompt;
+  if (typeof prompt !== 'string' || prompt.length === 0) {
+    return jsonError(400, 'Thiếu field "prompt"', origin);
+  }
+  if (prompt.length > 2000) {
+    return jsonError(400, 'Prompt quá dài (max 2000 chars)', origin);
+  }
+  if (!env.AI) {
+    return jsonError(500, 'Server thiếu [ai] binding trong wrangler.toml', origin);
+  }
+
+  const model = env.IMAGE_MODEL || '@cf/bytedance/stable-diffusion-xl-lightning';
+  try {
+    const response = await env.AI.run(model, {
+      prompt,
+      width: Math.min(1024, body.width ?? 512),
+      height: Math.min(1024, body.height ?? 512),
+      num_steps: 4,  // Lightning chỉ cần 4 steps
+    });
+
+    // response là ReadableStream hoặc Uint8Array của PNG
+    const corsHdr = corsHeaders(origin);
+    return new Response(response, {
+      status: 200,
+      headers: {
+        'content-type': 'image/png',
+        'cache-control': 'public, max-age=86400',  // browser cache 24h
+        ...corsHdr,
+      },
+    });
+  } catch (e) {
+    console.error('[image] AI error:', e);
+    return jsonError(503, `[image] AI gen failed: ${e.message || e}`, origin);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────

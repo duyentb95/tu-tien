@@ -26,6 +26,10 @@ id = "ea1b26951d6942da80a3810cd99d265a"
 # Có thể set ở đây hoặc qua dashboard
 # GEMINI_MODEL = "gemini-2.5-flash"
 
+# ─── Workers AI binding (Phase 8.2 — free 10K req/day image gen) ───
+[ai]
+binding = "AI"
+
 # ─── Observability ───
 [observability]
 enabled = true
