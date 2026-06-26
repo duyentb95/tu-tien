@@ -5,6 +5,24 @@ Versioning theo [SemVer](https://semver.org/lang/vi/).
 
 ---
 
+## [1.4.0] — 2026-06-26
+
+### Added — Phase 14 (AI resilience + BYOK + Health monitoring)
+
+- **Retry exponential backoff cho 503/429** (`src/ai/client.ts` + `providers/deepseek.ts`): proxy mode mở rộng từ 2 → 4 attempts với delay 1.5s/3s/6s/12s. Non-retryable (401/402/400/403) dừng ngay. Total wait ~22s trước khi fallback provider khác.
+- **Provider Health Tracker** (`src/ai/provider-health.ts`): module pub-sub track per-provider `lastSuccess`/`lastError`/`status` (ok/degraded/down/unknown) + tự classify error → hint user-actionable (top up balance, đổi BYOK, đợi reset). Subscribers React qua `useSyncExternalStore`.
+- **BYOK (Bring Your Own Key)** (`src/ai/byok.ts`): user paste Gemini/DeepSeek key của riêng họ vào `AIStatusModal`. Lưu localStorage, validate format, mask display. Khi BYOK set → force direct mode bypass proxy. `nextApiKey()` rotate BYOK + env keys.
+- **AI Status Modal** (`src/features/ai-status/AIStatusModal.tsx`): 2 card per-provider hiển thị status dot + last success/fail timestamp + error message + hint + BYOK input + link tài liệu lấy key + top-up.
+- **AI Status Dot** (`src/features/ai-status/AIStatusDot.tsx`): indicator nhỏ trong nav header (green/gold/red dot, anim-pulse khi không ok). Click → mở AIStatusModal.
+- **AI Fallback Banner** (`src/features/ai-status/AIFallbackBanner.tsx`): sticky banner bên trên StoryView khi overall status != ok. Hiển thị provider lỗi + hint cụ thể. Click → mở AIStatusModal.
+
+### Fixed
+
+- Fix proxy mode chỉ retry 2 lần với network error — giờ retry 4 lần exponential backoff cho 5xx/429.
+- `shouldUseMockAi()` mở rộng check BYOK key trong localStorage trước khi quyết định fallback mock.
+
+---
+
 ## [1.3.0] — 2026-06-26
 
 ### Added — Phase 13 (Creative Engine — vượt mặt Google Canvas reference)
