@@ -2,12 +2,17 @@ name = "mac-do-ai-proxy"
 main = "cloudflare-worker.js"
 compatibility_date = "2026-06-01"
 
-# ─── KV namespace cho rate limit ───
-# Tạo qua: wrangler kv:namespace create RATELIMIT
-# Sau đó paste id vào dưới
+# ─── KV namespace cho rate limit (OPTIONAL — uncomment sau khi tạo) ───
+#
+# Bước 1: wrangler kv namespace create RATELIMIT
+# Bước 2: Copy id từ output, paste vào dưới, rồi uncomment block:
+#
 [[kv_namespaces]]
 binding = "RATELIMIT"
-id = "REPLACE_WITH_KV_ID_AFTER_CREATE"
+id = "ea1b26951d6942da80a3810cd99d265a"
+#
+# Khi KV chưa setup → worker fail-open (cho qua, không rate limit).
+# Khi KV setup → rate limit 50 req/giờ/IP enforce.
 
 # ─── Env vars cấu hình ở dashboard sau ───
 # Secrets (qua: wrangler secret put NAME):

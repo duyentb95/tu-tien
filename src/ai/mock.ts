@@ -1,24 +1,53 @@
 /**
  * MOCK AI — fixture chunks có inject TAGS thực sự để demo full game loop.
- * Khi `import.meta.env.VITE_GEMINI_API_KEY` rỗng → fallback hàm này.
+ * 2 chế độ sử dụng:
+ *   1. `import.meta.env.VITE_GEMINI_API_KEY` rỗng → mock chunks toàn bộ session.
+ *   2. AI fail (503 sau hết retry+fallback) → narrative-service catch + fallback mock.
+ *
+ * Mock OPENING tự personalize theo background user nhập (player.description,
+ * settings.storyTitle). Các chunk sau dùng template generic.
  */
 
-export const MOCK_NARRATIVE_CHUNKS: string[] = [
-  // CHUNK 0 — opening + quest chính + item khởi đầu
-  `<narrative>
-Sương sớm phủ kín đỉnh Thanh Vân Phong, từng tia nắng đầu ngày xuyên qua tầng mây tựa thiên kiếm. Ngươi đứng giữa sân đá xanh, hô hấp đều đặn, cảm nhận linh khí mong manh len lỏi vào kinh mạch. Bên hông, thanh trường kiếm gỉ sét rung nhẹ như muốn ứng theo nhịp tim ngươi.
-<dialogue speaker="Sư huynh Mặc Uyên">Tiểu sư đệ, hôm nay tới phiên ngươi xuống Trấn Lạc Vân mua dược liệu rồi đó. Lấy đi 50 viên linh thạch này làm lộ phí. Nhớ trở về trước khi mặt trời lặn.</dialogue>
+import type { NarrativeContext } from './prompts/narrative';
+
+/**
+ * Generate opening cá nhân hóa theo background user.
+ * Nếu user nhập "đệ tử Vạn Cổ Tối Cường Tông" → opening dùng tên tông đó,
+ * không hardcoded "Thanh Vân Phong" nữa.
+ */
+const buildPersonalizedOpening = (ctx?: NarrativeContext): string => {
+  const name = ctx?.player?.Name || 'Đạo Hữu';
+  const desc = ctx?.player?.description?.trim();
+  const storyTitle = ctx?.settings?.storyTitle?.trim();
+
+  // Đoạn mô tả bối cảnh — ưu tiên description user nhập
+  const sceneIntro = desc
+    ? `Theo gió tu tiên đưa ngươi đến hôm nay — ${desc}. ${name} đứng giữa thiên địa bao la, hô hấp đều đặn, cảm nhận linh khí mong manh len lỏi vào kinh mạch.`
+    : `Sương sớm phủ kín núi non, từng tia nắng đầu ngày xuyên qua tầng mây tựa thiên kiếm. ${name} đứng giữa sân đá xanh, hô hấp đều đặn, cảm nhận linh khí mong manh len lỏi vào kinh mạch.`;
+
+  const titleHint = storyTitle && storyTitle !== 'Mặc Hội Tiên Đồ'
+    ? `Bên tai vẳng nghe tiếng vọng "${storyTitle}" — như một lời tiên tri cổ xưa đang dần ứng nghiệm.`
+    : `Bên hông, thanh trường kiếm gỉ sét rung nhẹ như muốn ứng theo nhịp tim ngươi.`;
+
+  return `<narrative>
+${sceneIntro} ${titleHint}
+<dialogue speaker="Một lão giả thần bí">Tiểu hữu... có vẻ ngươi là người mà ta đã chờ rất lâu. Hãy nhận lấy 50 viên linh thạch này, coi như duyên khởi đầu. Đường tu tiên hung hiểm — hãy tự lượng sức.</dialogue>
 </narrative>
 
 [ITEM Trường Kiếm Gỉ|Thường|Vũ khí]
 [CURRENCY+ 50]
-[QUEST_GIVEN Hạ Sơn Mua Dược|main|Xuống Trấn Lạc Vân mua đủ Linh Tâm Thảo cho tông môn rồi quay về Thanh Vân Phong trước khi mặt trời lặn.|Sư huynh Mặc Uyên]
-[NOTE Bắt đầu hành trình tu tiên]
+[QUEST_GIVEN Khởi Đầu Tu Tiên|main|Khám phá thế giới tu tiên, tìm cơ duyên đột phá cảnh giới.|Lão giả thần bí]
+[NOTE ⚠ Đang chạy chế độ offline (AI tạm thời không phản hồi). Cốt truyện sẽ phong phú hơn khi AI khả dụng.]
 
-[ACTION:1] Cảm tạ sư huynh rồi lập tức khởi hành xuống núi
-[ACTION:2] Hỏi sư huynh về lộ trình an toàn nhất
+[ACTION:1] Cảm tạ lão giả rồi rời đi tìm cơ duyên
+[ACTION:2] Hỏi lão giả về lai lịch + thế giới này
 [ACTION:3] Mở Bản Đồ xem đường đi
-[ACTION:4] Vận khí tu luyện thêm một canh giờ trước khi đi`,
+[ACTION:4] Vận khí tu luyện thêm một canh giờ`;
+};
+
+export const MOCK_NARRATIVE_CHUNKS: string[] = [
+  // CHUNK 0 — placeholder (không dùng — getMockNarrative override với personalized)
+  '',
 
   // CHUNK 1 — tu luyện
   `<narrative>
@@ -103,12 +132,19 @@ Ngươi tìm một hang đá kín đáo, ngồi xuống điều hòa hơi thở.
 
 let mockCursor = 0;
 
-export const getMockNarrative = (isOpening: boolean): string => {
+/**
+ * Lấy mock narrative chunk.
+ * @param isOpening - true cho opening chunk (personalize theo user nhập)
+ * @param ctx - optional context (player + settings) để personalize opening
+ */
+export const getMockNarrative = (isOpening: boolean, ctx?: NarrativeContext): string => {
   if (isOpening) {
     mockCursor = 0;
-    return MOCK_NARRATIVE_CHUNKS[0]!;
+    return buildPersonalizedOpening(ctx);
   }
-  mockCursor = (mockCursor + 1) % MOCK_NARRATIVE_CHUNKS.length;
+  // Skip CHUNK 0 (placeholder) — bắt đầu từ CHUNK 1
+  mockCursor = (mockCursor + 1);
+  if (mockCursor >= MOCK_NARRATIVE_CHUNKS.length) mockCursor = 1;
   return MOCK_NARRATIVE_CHUNKS[mockCursor]!;
 };
 
