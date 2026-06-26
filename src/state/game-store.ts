@@ -5,7 +5,9 @@ import type { Item, ItemCategory, Rarity } from '@gametypes/item';
 import type { Skill, SkillKind } from '@gametypes/skill';
 import type { Location, LocationType, GameTime, Faction } from '@gametypes/world';
 import type { LoreNPC, LoreLocation, LoreItem, LoreQuest } from '@gametypes/lore';
-import type { MeaningfulEvent, RecentAction, CustomRule } from '@gametypes/memory';
+import type { MeaningfulEvent, RecentAction, CustomRule, StorySummary } from '@gametypes/memory';
+import { SUMMARY_TRIGGER_TURNS, SUMMARY_BATCH_SIZE } from '@gametypes/memory';
+import { summarizeTurns, metaSummarize, shouldMetaSummarize } from '@ai/summary-service';
 import { pushEvent, pushAction } from '@gametypes/memory';
 import { getLongTermStatus } from '@data/long-term-statuses';
 import type { Difficulty } from '@data/difficulty';
@@ -24,6 +26,8 @@ import { calculateMaxExpForLevel, applyExpGain } from '@core/stats/leveling';
 import { getRealmInfoFromLevel } from '@core/stats/realms';
 import { recomputeFinalStats, generateItemBonuses } from '@core/stats/equipment';
 import { generateItemBonusesV2 } from '@core/items/item-budget';
+import { calculateEpReward } from '@core/scoring/ep-scoring';
+import { EMPTY_TRADER_SESSION } from '@gametypes/trade';
 import { nourishArtifact, isArtifactEligible, ARTIFACT_GRADE_NAMES } from '@core/items/artifact';
 import { CATEGORY_TO_DEFAULT_SLOT, EQUIPPABLE_CATEGORIES } from '@gametypes/item';
 import type { EquipmentSlot } from '@gametypes/character';
@@ -143,6 +147,8 @@ export interface KnowledgeSlice {
   eventHistory: MeaningfulEvent[];
   /** Hành động + outcome gần đây (rolling 10 entries) */
   recentMeaningfulActions: RecentAction[];
+  /** Phase 11.1: 2-tier story summaries (Pattern #4 Google Canvas RPG) */
+  storySummaries: StorySummary[];
 }
 
 export interface StoryEntry {
@@ -198,6 +204,10 @@ interface GameState {
   /** Encounter Points — AI score độ sáng tạo/khó/nhập vai. Đổi pháp khí/đan dược ở Tàng Kinh */
   ep: number;
 
+  /** Phase 11.3: Active trader session (Pattern #5 từ Google Canvas RPG).
+   * null = không trong giao dịch. Set qua [ENTER_TRADE_MODE], clear qua [EXIT_TRADE_MODE]. */
+  traderSession: import('@gametypes/trade').TraderSession | null;
+
   isAiThinking: boolean;
   /** Phase 9.3: phase chi tiết khi đang call AI (cho UI hiển thị state phù hợp) */
   aiPhase: 'idle' | 'logic' | 'narrative';
@@ -244,6 +254,10 @@ interface GameState {
   discardItem: (itemId: string) => void;
   equipItem: (itemId: string, slot?: EquipmentSlot) => void;
   unequipItem: (slot: EquipmentSlot) => void;
+  /** Phase 9.6: Trang bị skill vào slot cụ thể. combat_basic_1/2/ultimate cho combat skill,
+   * adventure_1/2/3 cho adventure skill. Tự validate kind/slot. */
+  equipSkill: (skillId: string, slot: import('@gametypes/character').SkillSlot) => void;
+  unequipSkill: (slot: import('@gametypes/character').SkillSlot) => void;
   /** Dưỡng pháp bảo: tiêu linh thạch → tăng artifactSoul → có thể level up */
   nourishArtifactAction: (itemId: string, currencyAmount: number) => void;
 
@@ -328,6 +342,7 @@ const DEFAULT_KNOWLEDGE: KnowledgeSlice = {
   loreQuests: {},
   eventHistory: [],
   recentMeaningfulActions: [],
+  storySummaries: [],
 };
 
 const SAVE_KEY = 'tu-tien:save:slot-0';
@@ -402,6 +417,7 @@ export const useGameStore = create<GameState>()(
     gameTime: { year: 1, month: 1, day: 1, hour: 6, phase: 'dawn', weather: 'clear' },
     weather: 'Trời quang',
     ep: 0,
+    traderSession: null,
     isAiThinking: false,
     aiPhase: 'idle' as const,
     lastError: null,
@@ -807,6 +823,13 @@ export const useGameStore = create<GameState>()(
           kind: e.kind,
           summary: e.summary,
         }));
+        // Phase 11.1: 2-tier story summaries (long-play context)
+        const storySummariesCtx = knowledge.storySummaries.map((s) => ({
+          content: s.content,
+          level: s.level,
+          ...(s.turnStart !== undefined ? { turnStart: s.turnStart } : {}),
+          ...(s.turnEnd !== undefined ? { turnEnd: s.turnEnd } : {}),
+        }));
 
         // Phase 8.3: Fan-fic items + skills hint context
         const ffItems = (settings as { _fanFicItems?: Array<{ name: string; category: string; rarity: string; description: string }> })._fanFicItems;
@@ -826,6 +849,7 @@ export const useGameStore = create<GameState>()(
           worldLocations: worldLocsArr,
           meaningfulEvents,
           customRules: enabledRules,
+          storySummaries: storySummariesCtx,
           ...(ffItems ? { fanFicItems: ffItems } : {}),
           ...(ffSkills ? { fanFicSkills: ffSkills } : {}),
           ...(ffTerms ? { fanFicTerms: ffTerms } : {}),
@@ -851,6 +875,10 @@ export const useGameStore = create<GameState>()(
         applyGameEvents(parseGameTags(parsed.raw), get, set);
 
         get().saveToLocalStorage();
+
+        // Phase 11.1: Background summarization — không await, không block UI.
+        // Triple-lock: chỉ chạy nếu storyLog > trigger và không có summarization khác đang chạy.
+        triggerSummarizationIfNeeded(get, set);
       } catch (err) {
         set((s) => {
           s.isAiThinking = false;
@@ -1026,6 +1054,58 @@ export const useGameStore = create<GameState>()(
         s.player.equippedItems[slot] = null;
         s.player = recomputeStats(s.player, s.inventory);
         if (item) notify.info(`Tháo: ${item.name}`, '');
+      });
+    },
+
+    equipSkill: (skillId, slot) => {
+      set((s) => {
+        if (!s.player) return;
+        const skill = s.skills[skillId];
+        if (!skill) return;
+        // Player phải đã học kỹ năng
+        if (!s.player.learnedSkills.includes(skillId)) {
+          notify.warn('Chưa học kỹ năng', skill.name);
+          return;
+        }
+        // Validate slot vs kind
+        const isCombatSlot = slot.startsWith('combat_');
+        const isAdventureSlot = slot.startsWith('adventure_');
+        const isCombatSkill = skill.kind === 'combat_basic' || skill.kind === 'combat_ultimate';
+        if (isCombatSlot && !isCombatSkill) {
+          notify.warn('Sai loại kỹ năng', 'Slot combat chỉ chứa kỹ năng chiến đấu.');
+          return;
+        }
+        if (slot === 'combat_ultimate' && skill.kind !== 'combat_ultimate') {
+          notify.warn('Sai loại kỹ năng', 'Slot tuyệt kỹ chỉ chứa kỹ năng tuyệt kỹ.');
+          return;
+        }
+        if ((slot === 'combat_basic_1' || slot === 'combat_basic_2') && skill.kind !== 'combat_basic') {
+          notify.warn('Sai loại kỹ năng', 'Slot cơ bản chỉ chứa kỹ năng cơ bản.');
+          return;
+        }
+        if (isAdventureSlot && skill.kind !== 'adventure') {
+          notify.warn('Sai loại kỹ năng', 'Slot phiêu lưu chỉ chứa kỹ năng phiêu lưu.');
+          return;
+        }
+        // Nếu skill đã được trang bị ở slot khác → bỏ slot cũ
+        for (const k of Object.keys(s.player.equippedSkills) as Array<keyof typeof s.player.equippedSkills>) {
+          if (s.player.equippedSkills[k] === skillId) {
+            s.player.equippedSkills[k] = null;
+          }
+        }
+        s.player.equippedSkills[slot] = skillId;
+        notify.success(`Trang bị: ${skill.name}`, `→ ${slot}`);
+      });
+    },
+
+    unequipSkill: (slot) => {
+      set((s) => {
+        if (!s.player) return;
+        const id = s.player.equippedSkills[slot];
+        if (!id) return;
+        const skill = s.skills[id];
+        s.player.equippedSkills[slot] = null;
+        if (skill) notify.info(`Gỡ kỹ năng: ${skill.name}`, '');
       });
     },
 
@@ -2015,6 +2095,65 @@ export const useGameStore = create<GameState>()(
 );
 
 // ─────────────────────────────────────────────────────────────────────
+// PHASE 11.1 — 2-TIER SUMMARY BACKGROUND TRIGGER
+// ─────────────────────────────────────────────────────────────────────
+
+/** Module-level lock — đảm bảo summarization không re-entrant */
+let _isSummarizing = false;
+
+/**
+ * Check storyLog > trigger threshold → fire-and-forget summarization.
+ * Sau khi thành công: thay 20 turn cũ bằng 1 summary block, retain SUMMARY_RETAIN_TURNS turn cuối.
+ * Nếu storySummaries.level1 ≥ SUMMARY_META_BATCH → tiếp tục meta-summarize.
+ */
+function triggerSummarizationIfNeeded(
+  get: () => GameState,
+  set: (fn: (s: GameState) => void) => void,
+): void {
+  if (_isSummarizing) return;
+  const log = get().storyLog;
+  if (log.length <= SUMMARY_TRIGGER_TURNS) return;
+
+  _isSummarizing = true;
+  // Lấy SUMMARY_BATCH_SIZE entry đầu tiên để tóm tắt
+  const turnsToSummarize = log.slice(0, SUMMARY_BATCH_SIZE);
+  const turnStart = turnsToSummarize[0]?.turn;
+  const turnEnd = turnsToSummarize[turnsToSummarize.length - 1]?.turn;
+
+  // Fire async — không await
+  void (async () => {
+    try {
+      const summary = await summarizeTurns(turnsToSummarize, turnStart, turnEnd);
+      if (!summary) return;
+
+      set((s) => {
+        // Push summary mới vào knowledge.storySummaries
+        s.knowledge.storySummaries = [...s.knowledge.storySummaries, summary];
+        // Cắt bớt log: giữ lại N entry cuối (= log.length - BATCH_SIZE)
+        s.storyLog = s.storyLog.slice(SUMMARY_BATCH_SIZE);
+      });
+
+      // Kiểm tra meta-summarize: nếu level-1 ≥ SUMMARY_META_BATCH
+      const result = shouldMetaSummarize(get().knowledge.storySummaries);
+      if (result) {
+        const meta = await metaSummarize(result.toMeta);
+        if (meta) {
+          set((s) => {
+            // Thay batch level-1 bằng 1 meta block, giữ rest
+            s.knowledge.storySummaries = [meta, ...result.rest];
+          });
+        }
+      }
+      get().saveToLocalStorage();
+    } catch (err) {
+      console.warn('[summary] Background summarization fail:', err);
+    } finally {
+      _isSummarizing = false;
+    }
+  })();
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // TAG EVENT DISPATCHER — mutate state dựa trên events từ AI response
 // ─────────────────────────────────────────────────────────────────────
 function applyGameEvents(
@@ -2484,22 +2623,53 @@ function applyGameEvents(
         break;
       }
       case 'ENCOUNTER_REWARD': {
-        const target = e.target?.toLowerCase();
+        // Phase 11.2: Anti-farm + 4-criteria EP scoring
+        const player = get().player;
+        if (!player) break;
+        const recentReasons = get().knowledge.recentMeaningfulActions.map((a) => a.action);
+        const maxExp = calculateMaxExpForLevel(player.level);
+        const result = calculateEpReward(
+          e.epScore,
+          e.reason,
+          recentReasons,
+          player.level,
+          maxExp,
+        );
+
         set((s) => {
-          s.ep += e.epScore;
-          // Auto-record meaningful event nếu score cao
+          s.ep += result.finalEp;
+          // Auto-record meaningful event nếu raw score cao (≥70 trước khi penalty)
           if (e.epScore >= 70) {
             s.knowledge.eventHistory = pushEvent(s.knowledge.eventHistory, {
               timestamp: Date.now(),
               turn: s.turn,
               kind: 'encounter_high',
-              summary: `+${e.epScore} EP: ${e.reason}`,
+              summary: `+${result.finalEp} EP: ${e.reason}`,
             });
           }
         });
-        const emoji = e.epScore >= 80 ? '🌟🌟🌟' : e.epScore >= 50 ? '🌟🌟' : '🌟';
-        notify.epic(`${emoji} +${e.epScore} EP`, e.reason);
-        void target;
+
+        // Convert sang EXP nếu finalEp ≥ threshold
+        if (result.expGain > 0) {
+          applyGameEvents([{ type: 'EXP_GAIN', amount: result.expGain }], get, set);
+        }
+
+        const emoji = result.finalEp >= 80 ? '🌟🌟🌟' : result.finalEp >= 50 ? '🌟🌟' : '🌟';
+        const farmHint = result.isFarmed
+          ? ` (lặp lại — ×${result.multiplier})`
+          : '';
+        notify.epic(
+          `${emoji} +${result.finalEp} EP${farmHint}`,
+          result.expGain > 0
+            ? `${e.reason} · +${result.expGain} EXP lĩnh ngộ`
+            : e.reason,
+        );
+        if (result.isFarmed) {
+          notify.info(
+            'Hành động lặp lại',
+            `Hiệu quả "${e.reason.slice(0, 30)}..." giảm còn ${Math.round(result.multiplier * 100)}%.`,
+          );
+        }
         break;
       }
       case 'TIME_PASSED': {
@@ -2544,6 +2714,79 @@ function applyGameEvents(
           };
         });
         notify.info(`Phát hiện công thức · ${e.name}`, e.description.slice(0, 80));
+        break;
+      }
+      // ─── Phase 11.3: Trade negotiation dispatchers ───
+      case 'ENTER_TRADE_MODE': {
+        set((s) => {
+          s.traderSession = EMPTY_TRADER_SESSION(e.traderName);
+          if (e.attitude) s.traderSession.attitude = e.attitude;
+          // Base sell multiplier theo attitude
+          if (e.attitude === 'friendly') s.traderSession.sellMultiplier = 1.1;
+          else if (e.attitude === 'hostile') s.traderSession.sellMultiplier = 0.7;
+        });
+        notify.info(`Mở giao dịch · ${e.traderName}`, e.attitude ? `Thái độ: ${e.attitude}` : '');
+        break;
+      }
+      case 'EXIT_TRADE_MODE': {
+        const session = get().traderSession;
+        if (session) {
+          notify.info(`Đóng giao dịch · ${session.traderName}`, '');
+        }
+        set((s) => { s.traderSession = null; });
+        break;
+      }
+      case 'SELL_VALUATION': {
+        set((s) => {
+          if (!s.traderSession) return;
+          if (e.itemName) {
+            s.traderSession.itemSpecificSellBonuses[e.itemName] = e.multiplier;
+          } else {
+            s.traderSession.sellMultiplier = e.multiplier;
+          }
+        });
+        const target = e.itemName ?? '(toàn bộ)';
+        notify.info(`Định giá: ×${e.multiplier.toFixed(2)}`, target);
+        break;
+      }
+      case 'BUY_NEGOTIATION': {
+        set((s) => {
+          if (!s.traderSession) return;
+          // Tìm ware match và update negotiatedMultiplier
+          const ware = s.traderSession.wares.find(
+            (w) => w.name.toLowerCase() === e.itemName.toLowerCase(),
+          );
+          if (ware) {
+            ware.negotiatedMultiplier = e.multiplier;
+          }
+          s.traderSession.lastNegotiation = {
+            itemName: e.itemName,
+            multiplier: e.multiplier,
+            turn: s.turn,
+          };
+        });
+        const delta = e.multiplier < 1 ? 'giảm' : e.multiplier > 1 ? 'hét' : 'giữ';
+        notify.info(`Mặc cả ${delta} giá · ${e.itemName}`, `×${e.multiplier.toFixed(2)}`);
+        break;
+      }
+      case 'OFFER_ITEM_IDEA': {
+        // Push idea vào traderSession.wares — chưa pipeline gen full Item,
+        // chỉ tạo placeholder để UI hiển thị. Khi player confirm buy → engine
+        // sẽ trigger pipeline gen v2 (sau).
+        set((s) => {
+          if (!s.traderSession) return;
+          const id = `ware_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+          s.traderSession.wares.push({
+            id,
+            name: e.name,
+            description: e.description,
+            ...(e.rarity ? { rarity: e.rarity } : {}),
+            ...(e.category ? { category: e.category } : {}),
+            ...(e.price !== undefined ? { price: e.price } : {}),
+            materialized: false,
+          });
+        });
+        notify.info(`Trader chào hàng · ${e.name}`, e.description.slice(0, 80));
         break;
       }
     }

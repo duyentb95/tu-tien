@@ -54,6 +54,8 @@ export interface LogicEngineContext {
   // ─── Memory expand (Refactor 5) ───
   meaningfulEvents?: Array<{ turn: number; kind: string; summary: string }>;
   customRules?: string[];
+  /** Phase 11.1: 2-tier story summaries để giữ context khi chơi dài */
+  storySummaries?: Array<{ content: string; level: number; turnStart?: number; turnEnd?: number }>;
   // ─── Phase 8.3: Fan-fic items + skills hints ───
   fanFicItems?: Array<{ name: string; category: string; rarity: string; description: string }>;
   fanFicSkills?: Array<{ name: string; kind: string; rarity: string; description: string }>;
@@ -227,19 +229,67 @@ Mỗi tag 1 dòng. Chỉ dùng các tag dưới (không bịa tag mới):
   [CURE_LONG_TERM_STATUS target="player" statusId="..."]  — giải status
   [RELATIONSHIP_CHANGED npc="..." standing="thân thiết|tri kỷ|lạnh nhạt|thù địch|sinh tử thù" reason="..."]
 
-━━ Reward system (Refactor 4) ━━
+━━ Reward system (Phase 11.2 — 4-criteria scoring) ━━
   [ENCOUNTER_REWARD score=N reason="..." target="player"]
-                                          — AI tự đánh giá hành động player. score 0-100:
-                                          - 90-100: Sáng tạo + nhập vai + giải quyết khó khăn xuất sắc
-                                          - 70-89: Hành động hợp lý, có suy nghĩ
-                                          - 40-69: Hành động chấp nhận được
-                                          - 10-39: Lười biếng, không nỗ lực
-                                          - 0-9: Phá game / metagaming
-                                          → EP đổi pháp khí ở Tàng Kinh tông môn
+                                          — AI chấm hành động player theo 4 tiêu chí (tổng tối đa 100):
+
+      ┌─ 1. QUAN TRỌNG & TU LUYỆN (0-55) ─┐
+      │  - 35-55: Đột phá, đánh trùm, lĩnh ngộ tuyệt kỹ, bế quan thành công
+      │  - 10-30: Hoàn thành phụ, đánh quái yếu, luyện tập cơ bản
+      │  - 0-5: Tương tác xã hội, đi lại, quan sát không quan trọng
+      └────────────────────────────────────┘
+
+      ┌─ 2. RỦI RO (0-15) ─┐
+      │  - 12-15: Cực mạo hiểm, đặt cược lớn
+      │  - 1-11: Có rủi ro vừa
+      │  - 0: An toàn
+      └────────────────────┘
+
+      ┌─ 3. SÁNG TẠO (0-10) ─┐
+      │  - 8-10: Giải pháp phá lối mòn, cực thông minh
+      │  - 3-7: Tự nhập action hợp lý
+      │  - 0-2: Chọn ABCD có sẵn
+      └──────────────────────┘
+
+      ┌─ 4. PHÙ HỢP NHẬP VAI (0-15) ─┐
+      │  - 11-15: Hành động hiện thân hoàn hảo của tính cách
+      │  - 5-10: Trung lập
+      │  - 0-3: Trái ngược tính cách
+      └──────────────────────────────┘
+
+      → ep_score = Q&TL + Rủi Ro + Sáng Tạo + Phù Hợp
+      → Engine sẽ auto-anti-farm nếu reason lặp lại (1.0→0.7→0.4→0.1)
+      → Engine sẽ auto-convert EP ≥ 20 thành EXP lĩnh ngộ
+      → Reason phải MÔ TẢ cụ thể hành động (vd "Bế quan tu luyện Hỏa Cầu", KHÔNG "Tu luyện")
 
   [ITEM_IDEA_GAINED name="..." description="..." rarity="..."]
                                           — player BIẾT về món hiếm/công thức (chưa có item thực).
                                           Sau này tìm thấy → [ITEM ...] với cùng tên.
+
+━━ Trade negotiation (Phase 11.3 — Pattern #5) ━━
+  Khi player tương tác với thương nhân/dược phòng/bảo các:
+
+  [ENTER_TRADE_MODE traderName="Lý Quản Sự" attitude="friendly|neutral|hostile"]
+                                          — mở giao dịch. attitude điều chỉnh base sell multiplier
+                                          (friendly=1.1, neutral=1.0, hostile=0.7).
+
+  [SELL_VALUATION itemName="Tên" multiplier=X]    — định giá item player muốn bán.
+                                                    X ∈ [0.0, 2.0]. Bỏ itemName = áp toàn shop.
+                                                    Vd hứng thú: 1.5. Thờ ơ: 0.5. Không cần: 0.0.
+
+  [BUY_NEGOTIATION itemName="Tên" multiplier=Y]   — phản hồi player mặc cả giá MUA.
+                                                    Y < 1 = giảm giá; Y > 1 = hét giá thêm.
+                                                    Vd giảm 5%: 0.95. Khinh thường: 1.3.
+
+  [OFFER_ITEM_IDEA name="..." description="..." rarity="..." category="..." price=N]
+                                          — sáng tạo MỘT vật phẩm trader có và muốn bán.
+                                          Engine sẽ pipeline gen full Item khi player mua.
+                                          ĐỪNG OFFER nếu player chưa hỏi mua / NPC không có hứng.
+
+  [EXIT_TRADE_MODE]                       — đóng giao dịch khi player rời, hoặc giao dịch kết thúc.
+
+  QUY TẮC: Luôn dùng [ENTER_TRADE_MODE] đầu tiên khi player approach trader.
+  Luôn dùng [EXIT_TRADE_MODE] khi player rời hoặc cảnh chuyển sang nội dung khác.
 
 ━━ 2-tier Lore (QUAN TRỌNG — pattern "foreshadowing") ━━
 
@@ -298,6 +348,19 @@ KHÔNG viết gì ngoài JSON. KHÔNG dùng markdown wrapper.
         .join('\n')}`
     : '';
 
+  // Phase 11.1: 2-tier story summaries — context khi chơi dài (>40 turn)
+  const summariesBlock = ctx.storySummaries && ctx.storySummaries.length > 0
+    ? `[BIÊN NIÊN SỬ — TÓM TẮT CÁC GIAI ĐOẠN ĐÃ TRẢI QUA]\n${ctx.storySummaries
+        .map((s, i) => {
+          const lvl = s.level >= 2 ? `Siêu Tóm Tắt Lvl${s.level}` : 'Tóm Tắt';
+          const range = s.turnStart !== undefined && s.turnEnd !== undefined
+            ? ` (T${s.turnStart}-T${s.turnEnd})`
+            : '';
+          return `[${lvl} giai đoạn ${i + 1}${range}]\n${s.content}`;
+        })
+        .join('\n\n')}`
+    : '';
+
   const rulesBlock = ctx.customRules && ctx.customRules.length > 0
     ? `[QUY TẮC TÙY CHỈNH NGƯỜI CHƠI ĐẶT RA — TUÂN THỦ TUYỆT ĐỐI]\n${ctx.customRules
         .map((r, i) => `  ${i + 1}. ${r}`)
@@ -332,6 +395,7 @@ KHÔNG viết gì ngoài JSON. KHÔNG dùng markdown wrapper.
     itemsHintBlock,
     skillsHintBlock,
     termsHintBlock,
+    summariesBlock,       // Phase 11.1: biên niên sử (đặt trước eventsBlock để AI đọc trước context xa)
     eventsBlock,
     rulesBlock,           // Đặt rules cuối cùng = AI sẽ "nhớ" gần nhất
     historyBlock,

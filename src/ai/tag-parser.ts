@@ -76,7 +76,13 @@ export type GameEvent =
       hours?: number;
       weather?: string;
     }
-  | { type: 'ITEM_IDEA_GAINED'; name: string; description: string; rarity?: string };
+  | { type: 'ITEM_IDEA_GAINED'; name: string; description: string; rarity?: string }
+  // ─── Phase 11.3: Trade negotiation tags (Pattern #5) ───
+  | { type: 'ENTER_TRADE_MODE'; traderName: string; attitude?: 'friendly' | 'neutral' | 'hostile' }
+  | { type: 'EXIT_TRADE_MODE' }
+  | { type: 'SELL_VALUATION'; itemName?: string; multiplier: number }
+  | { type: 'BUY_NEGOTIATION'; itemName: string; multiplier: number }
+  | { type: 'OFFER_ITEM_IDEA'; name: string; description: string; rarity?: string; category?: string; price?: number };
 
 const TAG_REGEX = /\[([A-Z_]+)([+\-]?)\s*([^\]]*)\]/g;
 
@@ -459,6 +465,59 @@ export const parseGameTags = (raw: string): GameEvent[] => {
           name: attrs.name,
           description: attrs.description,
           ...(attrs.rarity ? { rarity: attrs.rarity } : {}),
+        });
+        break;
+      }
+      // ─── Phase 11.3: Trade tags ───
+      case 'ENTER_TRADE_MODE': {
+        const attrs = parseKVAttrs(body);
+        if (!attrs.traderName && !attrs.npc && !attrs.trader) break;
+        const traderName = attrs.traderName ?? attrs.npc ?? attrs.trader!;
+        const att = attrs.attitude as 'friendly' | 'neutral' | 'hostile' | undefined;
+        events.push({
+          type: 'ENTER_TRADE_MODE',
+          traderName,
+          ...(att === 'friendly' || att === 'neutral' || att === 'hostile' ? { attitude: att } : {}),
+        });
+        break;
+      }
+      case 'EXIT_TRADE_MODE': {
+        events.push({ type: 'EXIT_TRADE_MODE' });
+        break;
+      }
+      case 'SELL_VALUATION': {
+        const attrs = parseKVAttrs(body);
+        const m = parseFloat(attrs.multiplier ?? '');
+        if (Number.isNaN(m)) break;
+        events.push({
+          type: 'SELL_VALUATION',
+          multiplier: Math.max(0, Math.min(2, m)),
+          ...(attrs.itemName ? { itemName: attrs.itemName } : {}),
+        });
+        break;
+      }
+      case 'BUY_NEGOTIATION': {
+        const attrs = parseKVAttrs(body);
+        const m = parseFloat(attrs.multiplier ?? '');
+        if (Number.isNaN(m) || !attrs.itemName) break;
+        events.push({
+          type: 'BUY_NEGOTIATION',
+          itemName: attrs.itemName,
+          multiplier: Math.max(0, Math.min(2, m)),
+        });
+        break;
+      }
+      case 'OFFER_ITEM_IDEA': {
+        const attrs = parseKVAttrs(body);
+        if (!attrs.name || !attrs.description) break;
+        const price = attrs.price ? parseInt(attrs.price, 10) : undefined;
+        events.push({
+          type: 'OFFER_ITEM_IDEA',
+          name: attrs.name,
+          description: attrs.description,
+          ...(attrs.rarity ? { rarity: attrs.rarity } : {}),
+          ...(attrs.category ? { category: attrs.category } : {}),
+          ...(price !== undefined && !Number.isNaN(price) ? { price } : {}),
         });
         break;
       }

@@ -95,6 +95,8 @@ const generateNarrativeHybrid = async (ctx: NarrativeContext): Promise<ParsedNar
     // Memory expand (Refactor 5)
     ...(ctx.meaningfulEvents ? { meaningfulEvents: ctx.meaningfulEvents } : {}),
     ...(ctx.customRules ? { customRules: ctx.customRules } : {}),
+    // Phase 11.1: 2-tier summaries cho long-play
+    ...(ctx.storySummaries ? { storySummaries: ctx.storySummaries } : {}),
     // Phase 8.3: Fan-fic items + skills hints
     ...(ctx.fanFicItems ? { fanFicItems: ctx.fanFicItems } : {}),
     ...(ctx.fanFicSkills ? { fanFicSkills: ctx.fanFicSkills } : {}),
