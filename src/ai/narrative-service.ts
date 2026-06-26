@@ -2,6 +2,8 @@ import { callGemini } from './client';
 import { buildNarrativePrompt, type NarrativeContext } from './prompts/narrative';
 import { parseNarrativeResponse, type ParsedNarrative } from './parser';
 import { getMockNarrative, shouldUseMockAi } from './mock';
+// Phase 8.1: multi-provider router (Gemini + DeepSeek hybrid)
+import { callAI, callAIJson } from './providers/router';
 // Hybrid Logic Engine pipeline lazy-loaded — chỉ tải khi user thực sự chơi
 // (initial screen + setup không cần) → tiết kiệm ~60KB initial bundle.
 
@@ -93,11 +95,12 @@ const generateNarrativeHybrid = async (ctx: NarrativeContext): Promise<ParsedNar
     ...(ctx.customRules ? { customRules: ctx.customRules } : {}),
   };
   const logicPrompt = buildLogicEnginePrompt(logicCtx);
-  const logicResp = await callGemini(logicPrompt, {
-    temperature: 0.85,            // medium — vừa creative vừa logic
+  // Phase 8.1: Logic Engine — default Gemini (rẻ + JSON structured tốt)
+  const logicProvider = (ctx.settings as { aiProviderLogic?: 'gemini' | 'deepseek' | 'auto' }).aiProviderLogic ?? 'gemini';
+  const logicResp = await callAIJson(logicProvider, logicPrompt, LogicResponseSchema, {
+    temperature: 0.85,
     maxOutputTokens: 2500,
-    responseMimeType: 'application/json',
-    schema: LogicResponseSchema,
+    purpose: 'logic',
   });
   const t1 = Date.now();
 
@@ -125,13 +128,17 @@ const generateNarrativeHybrid = async (ctx: NarrativeContext): Promise<ParsedNar
     ...(ctx.lastAction !== undefined ? { lastAction: ctx.lastAction } : {}),
     ...(ctx.isOpening !== undefined ? { isOpening: ctx.isOpening } : {}),
   });
-  const narrativeText = await callGemini(narrativePrompt, {
-    temperature: 1.0,             // high — văn phong sáng tạo
+  // Phase 8.1: Narrative Engine — default 'auto' (DeepSeek nếu có, else Gemini)
+  // DeepSeek viết văn tu tiên Trung-Việt đẹp hơn rõ rệt
+  const narrativeProvider = (ctx.settings as { aiProviderNarrative?: 'gemini' | 'deepseek' | 'auto' }).aiProviderNarrative ?? 'auto';
+  const narrativeText = await callAI(narrativeProvider, narrativePrompt, {
+    temperature: 1.0,
     maxOutputTokens: 2500,
+    purpose: 'narrative',
   });
   const t2 = Date.now();
 
-  console.info(`[hybrid] Narrative OK ${t2 - t1}ms (total ${t2 - t0}ms)`);
+  console.info(`[hybrid] Narrative OK ${t2 - t1}ms (total ${t2 - t0}ms) — provider: ${narrativeProvider}`);
 
   // ─── Step 4: Combine raw text ───
   // Narrative engine trả <narrative>...</narrative> + [ACTION:1]...[ACTION:4]

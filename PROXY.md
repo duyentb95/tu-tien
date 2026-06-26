@@ -1,6 +1,8 @@
 # PROXY — Ẩn API Key Phía Server
 
-Tài liệu setup AI proxy để API key Gemini KHÔNG xuất hiện trong client bundle. Khi bật proxy, browser chỉ thấy URL proxy của bạn — key thực giấu ở server.
+Tài liệu setup AI proxy để API key (Gemini + DeepSeek) KHÔNG xuất hiện trong client bundle. Khi bật proxy, browser chỉ thấy URL proxy của bạn — key thực giấu ở server.
+
+**Phase 8.1 update**: Proxy hiện hỗ trợ cả Gemini (`/chat`) và DeepSeek (`/chat-deepseek`).
 
 ## Tại sao cần?
 
@@ -37,17 +39,7 @@ npm install -g wrangler
 wrangler login   # mở browser auth
 ```
 
-### 2. Setup KV namespace (cho rate limit)
-
-```bash
-cd proxy
-wrangler kv:namespace create RATELIMIT
-# Output: { binding = "RATELIMIT", id = "abc123..." }
-```
-
-Copy `id` vào `proxy/wrangler.toml` thay `REPLACE_WITH_KV_ID_AFTER_CREATE`.
-
-### 3. Set API keys secrets
+### 2. Set API keys secrets (deploy ngay được, KV setup sau)
 
 ```bash
 cd proxy
@@ -59,7 +51,7 @@ wrangler secret put GEMINI_API_KEY_2
 wrangler secret put GEMINI_API_KEY_3
 ```
 
-### 4. Deploy
+### 3. Deploy
 
 ```bash
 wrangler deploy
@@ -68,6 +60,25 @@ wrangler deploy
 ```
 
 Copy URL trên.
+
+### 4. (Optional, sau khi worker live) Setup KV để bật rate limit
+
+```bash
+wrangler kv namespace create RATELIMIT
+# Output có dạng:
+#   [[kv_namespaces]]
+#   binding = "RATELIMIT"
+#   id = "abc123..."
+```
+
+Mở `proxy/wrangler.toml`, uncomment block KV và paste `id`:
+```toml
+[[kv_namespaces]]
+binding = "RATELIMIT"
+id = "abc123..."
+```
+
+Deploy lại: `wrangler deploy`. Worker giờ enforce 50 req/giờ/IP.
 
 ### 5. Update Netlify env
 
@@ -88,6 +99,68 @@ Test bằng curl:
 curl https://mac-do-ai-proxy.YOUR-NAME.workers.dev/health
 # Expected: { "ok": true, "service": "mac-do-ai-proxy", "version": "1.0" }
 ```
+
+---
+
+## Add DeepSeek support (Phase 8.1 — văn phong tu tiên tốt hơn)
+
+### Tại sao thêm DeepSeek?
+
+| Aspect | Gemini Flash | **DeepSeek-V3** |
+|---|---|---|
+| Văn phong Trung-Việt cổ phong | Khá | **Xuất sắc** (train Chinese literature nhiều) |
+| Giá | $0.075/$0.30 per 1M | $0.27/$1.10 per 1M (3-4x đắt hơn) |
+| NSFW filter | Khá gay gắt | Lỏng hơn |
+| JSON output | ✅ Native | ✅ `response_format` |
+
+→ Strategy B Hybrid: Logic Engine (JSON) dùng Gemini Flash (rẻ), Narrative Engine (prose) dùng DeepSeek (đẹp hơn).
+
+### Setup DeepSeek qua Worker
+
+```bash
+# 1. Tạo DeepSeek API key tại https://platform.deepseek.com/api_keys
+#    ($5 trial credit, không cần thẻ tín dụng — chỉ verify SĐT)
+
+# 2. Thêm secret vào Worker
+cd proxy
+wrangler secret put DEEPSEEK_API_KEY_1
+# Paste key vừa tạo
+
+# (Optional) Rotation thêm keys
+wrangler secret put DEEPSEEK_API_KEY_2
+wrangler secret put DEEPSEEK_API_KEY_3
+
+# 3. Re-deploy
+wrangler deploy
+```
+
+### Verify
+
+```bash
+curl -X POST https://YOUR-WORKER.workers.dev/chat-deepseek \
+  -H "Origin: https://tien-do.netlify.app" \
+  -H "content-type: application/json" \
+  -d '{"prompt":"Viết 1 câu cổ phong về tu tiên"}'
+# → { "text": "...", "model": "deepseek-chat", "provider": "deepseek" }
+```
+
+### Set Netlify env
+
+```
+VITE_AI_PROXY_URL          = https://YOUR-WORKER.workers.dev/chat
+VITE_AI_PROXY_URL_DEEPSEEK = https://YOUR-WORKER.workers.dev/chat-deepseek
+```
+
+(Hai URL khác nhau cùng worker — chỉ khác endpoint path)
+
+### Setup KHÔNG dùng proxy (dev local)
+
+Trong `.env.local`:
+```
+VITE_DEEPSEEK_API_KEY_1=sk-xxx
+```
+
+Game sẽ tự fetch trực tiếp `api.deepseek.com`. **Không dùng cho production** vì key lộ trong bundle.
 
 ---
 

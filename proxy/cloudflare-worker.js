@@ -66,8 +66,12 @@ export default {
       return jsonError(403, `Origin ${origin} không được phép`, origin);
     }
 
-    // Only POST /chat
-    if (url.pathname !== '/chat' || request.method !== 'POST') {
+    // ─── Route ───
+    // /chat          → Gemini
+    // /chat-deepseek → DeepSeek (Phase 8.1)
+    const isDeepseek = url.pathname === '/chat-deepseek';
+    const isGemini = url.pathname === '/chat';
+    if ((!isGemini && !isDeepseek) || request.method !== 'POST') {
       return jsonError(404, 'Endpoint không tồn tại', origin);
     }
 
@@ -97,6 +101,12 @@ export default {
       return jsonError(400, 'Prompt quá dài (max 100K chars)', origin);
     }
 
+    // ─── Route theo provider ───
+    if (isDeepseek) {
+      return await handleDeepseek(body, env, origin);
+    }
+
+    // ─── Gemini path (default) ───
     // Collect keys + models
     const keys = collectKeys(env);
     if (keys.length === 0) {
@@ -161,6 +171,82 @@ async function callGemini(model, key, body) {
     return { ok: false, status: 500, error: 'Empty response' };
   }
   return { ok: true, status: 200, data: { text, model } };
+}
+
+// ─────────────────────────────────────────────────────────────
+// DeepSeek handler (Phase 8.1)
+// ─────────────────────────────────────────────────────────────
+
+const DEEPSEEK_BASE = 'https://api.deepseek.com/v1/chat/completions';
+const DEEPSEEK_DEFAULT_MODEL = 'deepseek-chat';
+
+async function handleDeepseek(body, env, origin) {
+  const prompt = body?.prompt;
+  if (typeof prompt !== 'string' || prompt.length === 0) {
+    return jsonError(400, 'Thiếu field "prompt"', origin);
+  }
+  if (prompt.length > 100_000) {
+    return jsonError(400, 'Prompt quá dài (max 100K chars)', origin);
+  }
+
+  const keys = collectDeepseekKeys(env);
+  if (keys.length === 0) {
+    return jsonError(500, 'Server thiếu DEEPSEEK_API_KEY_*', origin);
+  }
+
+  const model = env.DEEPSEEK_MODEL || DEEPSEEK_DEFAULT_MODEL;
+  const reqBody = {
+    model,
+    messages: [{ role: 'user', content: prompt }],
+    temperature: body.temperature ?? 0.9,
+    max_tokens: body.maxOutputTokens ?? 2500,
+    stream: false,
+    ...(body.responseMimeType === 'application/json' ? { response_format: { type: 'json_object' } } : {}),
+  };
+
+  let lastError = null;
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    try {
+      const res = await fetch(DEEPSEEK_BASE, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${key}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(reqBody),
+      });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        lastError = `HTTP ${res.status}: ${errText.slice(0, 150)}`;
+        // Auth/rate limit → thử key khác
+        if (res.status === 429 || res.status === 401 || res.status === 403) continue;
+        // Non-retryable
+        if (res.status >= 400 && res.status < 500) break;
+        continue;
+      }
+      const data = await res.json();
+      const text = data?.choices?.[0]?.message?.content ?? '';
+      if (!text) {
+        lastError = 'Empty response';
+        continue;
+      }
+      return jsonOk({ text, model, provider: 'deepseek' }, origin);
+    } catch (e) {
+      lastError = e.message || String(e);
+    }
+  }
+  return jsonError(503, `[deepseek] Tất cả keys fail: ${lastError ?? 'unknown'}`, origin);
+}
+
+function collectDeepseekKeys(env) {
+  const keys = [];
+  for (let i = 1; i <= 10; i++) {
+    const k = env[`DEEPSEEK_API_KEY_${i}`];
+    if (k) keys.push(k);
+  }
+  if (env.DEEPSEEK_API_KEY) keys.push(env.DEEPSEEK_API_KEY);
+  return [...new Set(keys)];
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -118,6 +118,11 @@ export interface GameSettings {
    * Vd: "Không bao giờ giết NPC chính trong nguyên tác", "Luôn xưng 'ngươi'".
    */
   customRules?: CustomRule[];
+  // ─── Phase 8.1: Multi-provider AI ───
+  /** Provider cho Logic Engine (sinh 6 scenarios). Default 'gemini' — rẻ + JSON structured tốt */
+  aiProviderLogic?: 'gemini' | 'deepseek' | 'auto';
+  /** Provider cho Narrative Engine (viết prose). Default 'auto' — DeepSeek nếu có, else Gemini */
+  aiProviderNarrative?: 'gemini' | 'deepseek' | 'auto';
 }
 
 export interface KnowledgeSlice {
@@ -302,6 +307,8 @@ const DEFAULT_SETTINGS: GameSettings = {
   currencyName: 'Linh Thạch',
   playerAvatarUrl: null,
   useHybridLogic: true,         // default ON — văn phong tốt hơn nhiều
+  aiProviderLogic: 'gemini',    // default Gemini cho Logic (rẻ + JSON tốt)
+  aiProviderNarrative: 'auto',  // default auto = DeepSeek if available, else Gemini
 };
 
 const DEFAULT_KNOWLEDGE: KnowledgeSlice = {
