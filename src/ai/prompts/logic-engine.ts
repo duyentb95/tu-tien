@@ -199,6 +199,39 @@ Mỗi tag 1 dòng. Chỉ dùng các tag dưới (không bịa tag mới):
   [QUEST_GIVEN Tiêu đề|kind|Mô tả|Tên giao]  — nhận nhiệm vụ mới (kind: main/side/sect/cultivation/hidden)
   [QUEST_COMPLETE Tiêu đề chính xác]    — hoàn thành nhiệm vụ
   [QUEST_FAILED Tiêu đề chính xác]      — thất bại nhiệm vụ
+  [QUEST_OBJECTIVE_COMPLETED quest="..." objective="..." quantity=N]  — hoàn thành 1 sub-task
+  [QUEST_OBJECTIVE_UPDATED quest="..." objective="..." newText="..."]  — cập nhật mô tả objective
+
+━━ World state ━━ (Refactor 4)
+  [TIME_PASSED hours=N days=N weather="Trời quang|Mưa nhẹ|Sương mù|Tuyết rơi|Lôi vũ"]
+                                          — thời gian trôi (advance gameTime)
+                                          - Thường: 1-3 hours/turn
+                                          - Tu luyện: 2-12 hours
+                                          - Hành trình xa: 1-7 days
+                                          - Bế quan: tháng/năm
+  [CHARACTER_UPDATE target="player" currency=+50 hp=-10 stance="..." affinity=+5]
+                                          — update player hoặc NPC. Multi-attr 1 tag.
+                                          target = "player" hoặc tên NPC
+  [APPLY_LONG_TERM_STATUS target="player" statusId="TRONG_THUONG" hours=168]
+                                          — áp status dài hạn. statusId hợp lệ:
+                                          TRONG_THUONG, XUAT_HUYET, NGAT, TRUNG_DOC,
+                                          AM_HAN, TAU_HOA_NHAP_MA, BENH_DI_AN, KHAI_QUANG
+  [CURE_LONG_TERM_STATUS target="player" statusId="..."]  — giải status
+  [RELATIONSHIP_CHANGED npc="..." standing="thân thiết|tri kỷ|lạnh nhạt|thù địch|sinh tử thù" reason="..."]
+
+━━ Reward system (Refactor 4) ━━
+  [ENCOUNTER_REWARD score=N reason="..." target="player"]
+                                          — AI tự đánh giá hành động player. score 0-100:
+                                          - 90-100: Sáng tạo + nhập vai + giải quyết khó khăn xuất sắc
+                                          - 70-89: Hành động hợp lý, có suy nghĩ
+                                          - 40-69: Hành động chấp nhận được
+                                          - 10-39: Lười biếng, không nỗ lực
+                                          - 0-9: Phá game / metagaming
+                                          → EP đổi pháp khí ở Tàng Kinh tông môn
+
+  [ITEM_IDEA_GAINED name="..." description="..." rarity="..."]
+                                          — player BIẾT về món hiếm/công thức (chưa có item thực).
+                                          Sau này tìm thấy → [ITEM ...] với cùng tên.
 
 ━━ 2-tier Lore (QUAN TRỌNG — pattern "foreshadowing") ━━
 

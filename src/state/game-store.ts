@@ -5,6 +5,7 @@ import type { Item, ItemCategory, Rarity } from '@gametypes/item';
 import type { Skill, SkillKind } from '@gametypes/skill';
 import type { Location, LocationType, GameTime, Faction } from '@gametypes/world';
 import type { LoreNPC, LoreLocation, LoreItem, LoreQuest } from '@gametypes/lore';
+import { getLongTermStatus } from '@data/long-term-statuses';
 import type { Difficulty } from '@data/difficulty';
 import {
   INITIAL_AP,
@@ -168,6 +169,14 @@ interface GameState {
   caveAbode: CaveAbode;
   /** Đạo lữ — NPC name → DaoCompanion */
   daoLu: Record<string, DaoCompanion>;
+
+  // ─── Tag taxonomy expand (Refactor 4) ───
+  /** Thời gian game (advance qua [TIME_PASSED] tag) */
+  gameTime: GameTime;
+  /** Weather hiện tại — set qua [TIME_PASSED weather=...] */
+  weather: string;
+  /** Encounter Points — AI score độ sáng tạo/khó/nhập vai. Đổi pháp khí/đan dược ở Tàng Kinh */
+  ep: number;
 
   isAiThinking: boolean;
   lastError: string | null;
@@ -359,6 +368,9 @@ export const useGameStore = create<GameState>()(
     activeBeastId: null,
     caveAbode: { ...DEFAULT_CAVE_ABODE, rooms: { ...DEFAULT_CAVE_ABODE.rooms }, plots: {} },
     daoLu: {},
+    gameTime: { year: 1, month: 1, day: 1, hour: 6, phase: 'dawn', weather: 'clear' },
+    weather: 'Trời quang',
+    ep: 0,
     isAiThinking: false,
     lastError: null,
 
@@ -1708,12 +1720,13 @@ export const useGameStore = create<GameState>()(
 
     // ─── Multi-slot save manager ───
     getCurrentPayload: () => {
-      const { player, settings, storyLog, currentActions, turn, knowledge, inventory, skills, quests, sectMembership, claimedMissions, secretRealm, spiritBeasts, activeBeastId, caveAbode, daoLu } = get();
+      const { player, settings, storyLog, currentActions, turn, knowledge, inventory, skills, quests, sectMembership, claimedMissions, secretRealm, spiritBeasts, activeBeastId, caveAbode, daoLu, gameTime, weather, ep } = get();
       return {
-        version: 8,
+        version: 9,
         savedAt: Date.now(),
         player, settings, storyLog, currentActions, turn, knowledge, inventory, skills, quests,
         sectMembership, claimedMissions, secretRealm, spiritBeasts, activeBeastId, caveAbode, daoLu,
+        gameTime, weather, ep,
       };
     },
 
@@ -2123,6 +2136,149 @@ function applyGameEvents(
         if (e.loreId && get().knowledge.loreLocations[e.loreId]) {
           notify.epic(`Đến nơi · ${e.name}`, `Địa danh từng nghe đồn nay hiện ra trước mắt`);
         }
+        break;
+      }
+
+      // ─── Tag taxonomy expand (Refactor 4) ───
+      case 'CHARACTER_UPDATE': {
+        const isPlayer = e.target.toLowerCase() === 'player' || e.target === get().player?.Name;
+        if (isPlayer) {
+          set((s) => {
+            if (!s.player) return;
+            if (e.currency !== undefined) s.player.currency = Math.max(0, s.player.currency + e.currency);
+            if (e.hp !== undefined) {
+              s.player.finalStats.hp = Math.max(0, Math.min(s.player.finalStats.maxhp, s.player.finalStats.hp + e.hp));
+            }
+          });
+        } else {
+          // NPC update — affinity
+          if (e.affinity !== undefined) {
+            set((s) => {
+              const c = s.daoLu[e.target];
+              if (c) c.affinity = Math.max(0, Math.min(100, c.affinity + e.affinity!));
+            });
+          }
+        }
+        break;
+      }
+      case 'APPLY_LONG_TERM_STATUS': {
+        const tmpl = getLongTermStatus(e.statusId);
+        if (!tmpl) {
+          console.warn('[tag] Unknown status:', e.statusId);
+          break;
+        }
+        const isPlayer = e.target.toLowerCase() === 'player' || e.target === get().player?.Name;
+        if (!isPlayer) break;
+        const duration = e.hours ?? tmpl.defaultDurationHours;
+        set((s) => {
+          if (!s.player) return;
+          // Avoid duplicate
+          if (s.player.longTermStatuses.some((st) => st.id === tmpl.id)) return;
+          s.player.longTermStatuses.push({
+            id: tmpl.id,
+            name: tmpl.name,
+            type: tmpl.severity === 'critical' || tmpl.severity === 'severe' ? 'injury' : 'adventure_debuff',
+            description: tmpl.description,
+            ...(duration > 0 ? { duration_hours: duration } : {}),
+          });
+        });
+        if (tmpl.appliedNotice) {
+          notify.warn(`${tmpl.icon} ${tmpl.name}`, tmpl.appliedNotice);
+        } else {
+          notify.info(`${tmpl.icon} ${tmpl.name}`, tmpl.description.slice(0, 80));
+        }
+        break;
+      }
+      case 'CURE_LONG_TERM_STATUS': {
+        const isPlayer = e.target.toLowerCase() === 'player' || e.target === get().player?.Name;
+        if (!isPlayer) break;
+        const tmpl = getLongTermStatus(e.statusId);
+        set((s) => {
+          if (!s.player) return;
+          s.player.longTermStatuses = s.player.longTermStatuses.filter((st) => st.id.toUpperCase() !== e.statusId.toUpperCase());
+        });
+        if (tmpl) notify.epic(`Giải trừ · ${tmpl.name}`, 'Đã hồi phục');
+        break;
+      }
+      case 'RELATIONSHIP_CHANGED': {
+        // Map standing → affinity delta gợi ý (UI hiển thị notify)
+        const standingDelta: Record<string, number> = {
+          'thân thiết': +20, 'tri kỷ': +30, 'đạo lữ': +50,
+          'trung lập': 0, 'lạnh nhạt': -10,
+          'thù địch': -30, 'sinh tử thù': -50,
+        };
+        const delta = standingDelta[e.standing.toLowerCase()] ?? 0;
+        if (delta !== 0) {
+          set((s) => {
+            const c = s.daoLu[e.npcName];
+            if (c) c.affinity = Math.max(0, Math.min(100, c.affinity + delta));
+          });
+        }
+        notify.info(`${e.npcName} · ${e.standing}`, e.reason ?? '');
+        break;
+      }
+      case 'QUEST_OBJECTIVE_COMPLETED': {
+        const quest = Object.values(get().quests).find((q) => q.title === e.questTitle);
+        if (!quest) break;
+        notify.success(`Mục tiêu hoàn thành`, `${e.questTitle}: ${e.objective}${e.quantity ? ` (×${e.quantity})` : ''}`);
+        break;
+      }
+      case 'QUEST_OBJECTIVE_UPDATED': {
+        notify.info(`Mục tiêu cập nhật`, `${e.questTitle}: ${e.newText ?? e.objective}`);
+        break;
+      }
+      case 'ENCOUNTER_REWARD': {
+        const target = e.target?.toLowerCase();
+        set((s) => {
+          s.ep += e.epScore;
+        });
+        const emoji = e.epScore >= 80 ? '🌟🌟🌟' : e.epScore >= 50 ? '🌟🌟' : '🌟';
+        notify.epic(`${emoji} +${e.epScore} EP`, e.reason);
+        void target;
+        break;
+      }
+      case 'TIME_PASSED': {
+        set((s) => {
+          const t = s.gameTime;
+          let hour = t.hour + (e.hours ?? 0);
+          let day = t.day + (e.days ?? 0);
+          let month = t.month + (e.months ?? 0);
+          let year = t.year + (e.years ?? 0);
+          // Normalize: 24h/ngày, 30 ngày/tháng, 12 tháng/năm (đơn giản hóa cho game)
+          day += Math.floor(hour / 24);
+          hour = ((hour % 24) + 24) % 24;
+          month += Math.floor((day - 1) / 30);
+          day = ((day - 1) % 30 + 30) % 30 + 1;
+          year += Math.floor((month - 1) / 12);
+          month = ((month - 1) % 12 + 12) % 12 + 1;
+          const phase: GameTime['phase'] =
+            hour < 5 ? 'midnight' :
+            hour < 7 ? 'dawn' :
+            hour < 11 ? 'morning' :
+            hour < 13 ? 'noon' :
+            hour < 17 ? 'afternoon' :
+            hour < 19 ? 'dusk' :
+            'night';
+          s.gameTime = { year, month, day, hour, phase, weather: s.gameTime.weather };
+          if (e.weather) s.weather = e.weather;
+        });
+        break;
+      }
+      case 'ITEM_IDEA_GAINED': {
+        // Lưu thành "lore item" (player biết về món này, chưa có instance thực)
+        const id = `lore_item_${e.name.toLowerCase().replace(/\s+/g, '_').slice(0, 40)}`;
+        set((s) => {
+          if (s.knowledge.loreItems[id]) return;
+          s.knowledge.loreItems[id] = {
+            id,
+            name: e.name,
+            description: e.description,
+            introducedAtTurn: s.turn,
+            materialized: false,
+            ...(e.rarity ? { rarity: e.rarity } : {}),
+          };
+        });
+        notify.info(`Phát hiện công thức · ${e.name}`, e.description.slice(0, 80));
         break;
       }
     }

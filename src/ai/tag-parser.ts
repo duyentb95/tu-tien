@@ -47,7 +47,36 @@ export type GameEvent =
   | { type: 'LORE_ITEM'; id: string; name: string; description: string; rarity?: string; source?: string }
   | { type: 'LORE_QUEST'; id: string; title: string; description: string; source?: string }
   | { type: 'WORLD_NPC'; id: string; loreId?: string; name: string; description?: string; level?: number; stance?: string }
-  | { type: 'WORLD_LOCATION'; id: string; loreId?: string; name: string; description?: string; category?: string };
+  | { type: 'WORLD_LOCATION'; id: string; loreId?: string; name: string; description?: string; category?: string }
+  // ─── Tag taxonomy expand (Refactor 4) ───
+  | {
+      type: 'CHARACTER_UPDATE';
+      target: string;        // 'player' | NPC name
+      currency?: number;     // delta
+      hp?: number;           // delta
+      stance?: string;
+      affinity?: number;     // delta
+    }
+  | { type: 'APPLY_LONG_TERM_STATUS'; target: string; statusId: string; hours?: number }
+  | { type: 'CURE_LONG_TERM_STATUS'; target: string; statusId: string }
+  | { type: 'RELATIONSHIP_CHANGED'; npcName: string; standing: string; reason?: string }
+  | { type: 'QUEST_OBJECTIVE_COMPLETED'; questTitle: string; objective: string; quantity?: number }
+  | { type: 'QUEST_OBJECTIVE_UPDATED'; questTitle: string; objective: string; newText?: string }
+  | {
+      type: 'ENCOUNTER_REWARD';
+      epScore: number;       // 0-100
+      reason: string;
+      target?: string;       // 'player' | 'all'
+    }
+  | {
+      type: 'TIME_PASSED';
+      years?: number;
+      months?: number;
+      days?: number;
+      hours?: number;
+      weather?: string;
+    }
+  | { type: 'ITEM_IDEA_GAINED'; name: string; description: string; rarity?: string };
 
 const TAG_REGEX = /\[([A-Z_]+)([+\-]?)\s*([^\]]*)\]/g;
 
@@ -309,6 +338,128 @@ export const parseGameTags = (raw: string): GameEvent[] => {
             ...(attrs.category ? { category: attrs.category } : {}),
           });
         }
+        break;
+      }
+
+      // ─── Tag taxonomy expand (Refactor 4) ───
+      case 'CHARACTER_UPDATE': {
+        const attrs = parseKVAttrs(body);
+        if (!attrs.target) break;
+        const parseDelta = (s: string | undefined) => {
+          if (!s) return undefined;
+          const n = parseInt(s.replace(/^[+]/, ''), 10);
+          return Number.isNaN(n) ? undefined : n;
+        };
+        events.push({
+          type: 'CHARACTER_UPDATE',
+          target: attrs.target,
+          ...(parseDelta(attrs.currency) !== undefined ? { currency: parseDelta(attrs.currency)! } : {}),
+          ...(parseDelta(attrs.hp) !== undefined ? { hp: parseDelta(attrs.hp)! } : {}),
+          ...(attrs.stance ? { stance: attrs.stance } : {}),
+          ...(parseDelta(attrs.affinity) !== undefined ? { affinity: parseDelta(attrs.affinity)! } : {}),
+        });
+        break;
+      }
+      case 'APPLY_LONG_TERM_STATUS': {
+        const attrs = parseKVAttrs(body);
+        if (!attrs.target || !attrs.statusId) break;
+        const hr = attrs.hours ? parseInt(attrs.hours, 10) : undefined;
+        events.push({
+          type: 'APPLY_LONG_TERM_STATUS',
+          target: attrs.target,
+          statusId: attrs.statusId,
+          ...(hr !== undefined && !Number.isNaN(hr) ? { hours: hr } : {}),
+        });
+        break;
+      }
+      case 'CURE_LONG_TERM_STATUS': {
+        const attrs = parseKVAttrs(body);
+        if (!attrs.target || !attrs.statusId) break;
+        events.push({
+          type: 'CURE_LONG_TERM_STATUS',
+          target: attrs.target,
+          statusId: attrs.statusId,
+        });
+        break;
+      }
+      case 'RELATIONSHIP_CHANGED': {
+        const attrs = parseKVAttrs(body);
+        if (!attrs.npc || !attrs.standing) break;
+        events.push({
+          type: 'RELATIONSHIP_CHANGED',
+          npcName: attrs.npc,
+          standing: attrs.standing,
+          ...(attrs.reason ? { reason: attrs.reason } : {}),
+        });
+        break;
+      }
+      case 'QUEST_OBJECTIVE_COMPLETED': {
+        const attrs = parseKVAttrs(body);
+        if (!attrs.quest || !attrs.objective) break;
+        const qty = attrs.quantity ? parseInt(attrs.quantity, 10) : undefined;
+        events.push({
+          type: 'QUEST_OBJECTIVE_COMPLETED',
+          questTitle: attrs.quest,
+          objective: attrs.objective,
+          ...(qty !== undefined && !Number.isNaN(qty) ? { quantity: qty } : {}),
+        });
+        break;
+      }
+      case 'QUEST_OBJECTIVE_UPDATED': {
+        const attrs = parseKVAttrs(body);
+        if (!attrs.quest || !attrs.objective) break;
+        events.push({
+          type: 'QUEST_OBJECTIVE_UPDATED',
+          questTitle: attrs.quest,
+          objective: attrs.objective,
+          ...(attrs.newText ? { newText: attrs.newText } : {}),
+        });
+        break;
+      }
+      case 'ENCOUNTER_REWARD': {
+        const attrs = parseKVAttrs(body);
+        const score = attrs.score ? parseInt(attrs.score, 10) : NaN;
+        if (Number.isNaN(score) || !attrs.reason) break;
+        events.push({
+          type: 'ENCOUNTER_REWARD',
+          epScore: Math.max(0, Math.min(100, score)),
+          reason: attrs.reason,
+          ...(attrs.target ? { target: attrs.target } : {}),
+        });
+        break;
+      }
+      case 'TIME_PASSED': {
+        const attrs = parseKVAttrs(body);
+        const num = (s: string | undefined) => {
+          if (!s) return undefined;
+          const n = parseInt(s, 10);
+          return Number.isNaN(n) ? undefined : n;
+        };
+        const y = num(attrs.years);
+        const mo = num(attrs.months);
+        const d = num(attrs.days);
+        const h = num(attrs.hours);
+        // Skip nếu KHÔNG có time unit nào
+        if (y === undefined && mo === undefined && d === undefined && h === undefined && !attrs.weather) break;
+        events.push({
+          type: 'TIME_PASSED',
+          ...(y !== undefined ? { years: y } : {}),
+          ...(mo !== undefined ? { months: mo } : {}),
+          ...(d !== undefined ? { days: d } : {}),
+          ...(h !== undefined ? { hours: h } : {}),
+          ...(attrs.weather ? { weather: attrs.weather } : {}),
+        });
+        break;
+      }
+      case 'ITEM_IDEA_GAINED': {
+        const attrs = parseKVAttrs(body);
+        if (!attrs.name || !attrs.description) break;
+        events.push({
+          type: 'ITEM_IDEA_GAINED',
+          name: attrs.name,
+          description: attrs.description,
+          ...(attrs.rarity ? { rarity: attrs.rarity } : {}),
+        });
         break;
       }
     }

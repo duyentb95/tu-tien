@@ -1,11 +1,16 @@
 import type { PlayerCharacter } from '@gametypes/character';
+import type { GameTime } from '@gametypes/world';
 import { getRealmInfoFromLevel } from '@core/stats/realms';
+import { getLongTermStatus, SEVERITY_COLOR } from '@data/long-term-statuses';
 
 interface Props {
   player: PlayerCharacter;
   realmList: string[];
   turn: number;
   currencyName: string;
+  gameTime?: GameTime;
+  weather?: string;
+  ep?: number;
 }
 
 const StatRow = ({ label, value, color }: { label: string; value: string | number; color?: string }) => (
@@ -45,7 +50,7 @@ const ProgressBar = ({
   );
 };
 
-export const PlayerSidebar = ({ player, realmList, turn, currencyName }: Props) => {
+export const PlayerSidebar = ({ player, realmList, turn, currencyName, gameTime, weather, ep }: Props) => {
   const realmInfo = getRealmInfoFromLevel(player.level, realmList);
 
   // Mobile: dùng <details> collapsible (default closed) — tiết kiệm space cho StoryView
@@ -55,9 +60,11 @@ export const PlayerSidebar = ({ player, realmList, turn, currencyName }: Props) 
       {/* ─── Desktop sidebar ─── */}
       <aside className="hidden h-fit flex-col gap-3 p-4 lg:flex panel-gold">
         <SidebarHeader player={player} realmInfo={realmInfo} />
+        {gameTime && <TimeWeather gameTime={gameTime} weather={weather} />}
         <VitalBars player={player} />
+        <StatusBadges player={player} />
         <StatsBlock player={player} />
-        <CurrencyAp player={player} currencyName={currencyName} />
+        <CurrencyAp player={player} currencyName={currencyName} ep={ep} />
         <InventoryMini player={player} />
         <TurnFooter turn={turn} />
       </aside>
@@ -93,6 +100,11 @@ export const PlayerSidebar = ({ player, realmList, turn, currencyName }: Props) 
           color="linear-gradient(90deg, #a78bfa 0%, #cda45e 100%)"
         />
 
+        {/* Status badges (compact) */}
+        <StatusBadges player={player} compact />
+
+        {gameTime && <div className="mb-2 mt-1"><TimeWeather gameTime={gameTime} weather={weather} compact /></div>}
+
         {/* Collapsible details — full stats */}
         <details className="mt-2 border-t border-gold-700/15 pt-2">
           <summary
@@ -109,7 +121,7 @@ export const PlayerSidebar = ({ player, realmList, turn, currencyName }: Props) 
           </summary>
           <div className="mt-3 space-y-3">
             <StatsBlock player={player} />
-            <CurrencyAp player={player} currencyName={currencyName} />
+            <CurrencyAp player={player} currencyName={currencyName} ep={ep} />
             <InventoryMini player={player} />
           </div>
         </details>
@@ -165,12 +177,85 @@ const StatsBlock = ({ player }: { player: PlayerCharacter }) => (
   </div>
 );
 
-const CurrencyAp = ({ player, currencyName }: { player: PlayerCharacter; currencyName: string }) => (
+const CurrencyAp = ({ player, currencyName, ep }: { player: PlayerCharacter; currencyName: string; ep?: number }) => (
   <div className="border-t border-gold-700/15 pt-2">
     <StatRow label={currencyName} value={player.currency.toLocaleString()} color="text-gold-500" />
     <StatRow label="Điểm tiềm năng" value={player.ap} color="text-spirit-400" />
+    {ep !== undefined && ep > 0 && (
+      <StatRow label="Điểm Encounter (EP)" value={ep.toLocaleString()} color="text-leaf-500" />
+    )}
   </div>
 );
+
+// ─────────────────────────────────────────────────────────────
+// Refactor 4 components
+// ─────────────────────────────────────────────────────────────
+
+const PHASE_LABEL: Record<GameTime['phase'], string> = {
+  midnight: 'Giữa đêm', dawn: 'Bình minh', morning: 'Buổi sáng',
+  noon: 'Chính ngọ', afternoon: 'Buổi chiều', dusk: 'Hoàng hôn', night: 'Đêm',
+};
+const PHASE_ICON: Record<GameTime['phase'], string> = {
+  midnight: '🌙', dawn: '🌅', morning: '☀', noon: '☉', afternoon: '🌤', dusk: '🌇', night: '🌙',
+};
+
+const TimeWeather = ({ gameTime, weather, compact }: { gameTime: GameTime; weather?: string; compact?: boolean }) => {
+  if (compact) {
+    return (
+      <div className="flex items-center justify-between gap-2 text-[11px] text-jade-400">
+        <span className="flex items-center gap-1">
+          <span aria-hidden>{PHASE_ICON[gameTime.phase]}</span>
+          <span className="font-mono">N{gameTime.year}.{String(gameTime.month).padStart(2, '0')}.{String(gameTime.day).padStart(2, '0')} · {String(gameTime.hour).padStart(2, '0')}h</span>
+        </span>
+        {weather && <span className="text-jade-500">{weather}</span>}
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-sm border border-gold-700/15 bg-ink-800/40 p-2">
+      <div className="mb-1 flex items-center justify-between text-[11px] text-jade-400">
+        <span className="label-section text-[10px]">Thiên Cơ</span>
+        <span aria-hidden style={{ color: 'var(--gold-500)' }}>{PHASE_ICON[gameTime.phase]}</span>
+      </div>
+      <div className="font-mono text-[12px] text-gold-300">
+        Năm {gameTime.year} · Tháng {gameTime.month} · Ngày {gameTime.day}
+      </div>
+      <div className="mt-0.5 flex items-center justify-between text-[11px] text-jade-400">
+        <span>{PHASE_LABEL[gameTime.phase]} ({String(gameTime.hour).padStart(2, '0')}h)</span>
+        {weather && <span className="text-jade-300">· {weather}</span>}
+      </div>
+    </div>
+  );
+};
+
+const StatusBadges = ({ player, compact }: { player: PlayerCharacter; compact?: boolean }) => {
+  if (!player.longTermStatuses || player.longTermStatuses.length === 0) return null;
+  return (
+    <div className={compact ? 'flex flex-wrap gap-1' : 'border-t border-gold-700/15 pt-2'}>
+      {!compact && <div className="label-section mb-1.5">Trạng Thái Dài Hạn</div>}
+      <div className="flex flex-wrap gap-1.5">
+        {player.longTermStatuses.map((st) => {
+          const tmpl = getLongTermStatus(st.id);
+          const color = tmpl ? SEVERITY_COLOR[tmpl.severity] : 'var(--jade-500)';
+          return (
+            <span
+              key={st.id}
+              className="inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10.5px]"
+              style={{ borderColor: color, color, background: 'rgba(0,0,0,0.2)' }}
+              title={tmpl?.description ?? st.description}
+            >
+              <span aria-hidden>{tmpl?.icon ?? '⚠'}</span>
+              <span>{st.name}</span>
+              {st.duration_hours !== undefined && st.duration_hours > 0 && (
+                <span className="text-jade-500 font-mono">{st.duration_hours}h</span>
+              )}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 const InventoryMini = ({ player }: { player: PlayerCharacter }) => (
   <div className="border-t border-gold-700/15 pt-2">

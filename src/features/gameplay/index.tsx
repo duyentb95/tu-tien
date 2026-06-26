@@ -39,6 +39,9 @@ export const GameplayScreen = () => {
   const setStage = useGameStore((s) => s.setStage);
   const turn = useGameStore((s) => s.turn);
   const realmList = useGameStore((s) => s.knowledge.realmProgressionList);
+  const gameTime = useGameStore((s) => s.gameTime);
+  const weather = useGameStore((s) => s.weather);
+  const ep = useGameStore((s) => s.ep);
   const reset = useGameStore((s) => s.reset);
   const getCurrentPayload = useGameStore((s) => s.getCurrentPayload);
   const [handbookOpen, setHandbookOpen] = useState(false);
@@ -175,6 +178,9 @@ export const GameplayScreen = () => {
             realmList={realmList}
             turn={turn}
             currencyName={settings.currencyName}
+            gameTime={gameTime}
+            weather={weather}
+            ep={ep}
           />
         </div>
       </div>
