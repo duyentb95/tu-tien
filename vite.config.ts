@@ -26,13 +26,29 @@ export default defineConfig({
   build: {
     target: 'es2022',
     sourcemap: true,
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
-        manualChunks: {
-          react: ['react', 'react-dom'],
-          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-          konva: ['konva', 'react-konva'],
-          framer: ['framer-motion'],
+        manualChunks: (id) => {
+          // Vendor splits — cache lâu (lib ít đổi)
+          if (id.includes('node_modules/react')) return 'react';
+          if (id.includes('node_modules/firebase')) return 'firebase';
+          if (id.includes('node_modules/konva') || id.includes('node_modules/react-konva')) return 'konva';
+          if (id.includes('node_modules/framer-motion')) return 'framer';
+          if (id.includes('node_modules/lottie')) return 'lottie';
+          if (id.includes('node_modules/zod')) return 'zod';
+          if (id.includes('node_modules/zustand') || id.includes('node_modules/immer')) return 'state-lib';
+          // App splits — lazy() + manualChunks giúp gom share dependencies
+          if (id.includes('/src/features/tutorial/')) return 'feat-tutorial';
+          if (id.includes('/src/features/save-manager/')) return 'feat-save';
+          if (id.includes('/src/features/secret-realm/') || id.includes('/src/core/world/secret-realm-gen')) return 'feat-secret-realm';
+          if (id.includes('/src/features/cave-abode/')) return 'feat-cave-abode';
+          if (id.includes('/src/features/sect-hall/')) return 'feat-sect';
+          if (id.includes('/src/features/spirit-beasts/')) return 'feat-beasts';
+          if (id.includes('/src/features/world-map/')) return 'feat-map';
+          if (id.includes('/src/features/combat/') || id.includes('/src/core/combat/')) return 'feat-combat';
+          if (id.includes('/src/features/tribulation/')) return 'feat-tribulation';
+          return undefined;
         },
       },
     },

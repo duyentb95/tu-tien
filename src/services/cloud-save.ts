@@ -1,8 +1,9 @@
-import { doc, setDoc, getDoc, serverTimestamp, type Firestore } from 'firebase/firestore';
-import { getDb, ensureSignedIn } from './firebase';
-
 /**
  * Cloud save service — wrap Firestore để sync save game đa thiết bị.
+ *
+ * 🚀 Lazy Firebase: Module Firebase (~194KB) chỉ load khi user thực sự nhấn
+ * sync cloud, không bake vào main bundle. Cho user không dùng cloud →
+ * tiết kiệm bandwidth tải lần đầu.
  *
  * Schema:
  *   games/{userId}/saves/slot-0 → { version, savedAt, payload, ... }
@@ -32,15 +33,20 @@ export interface CloudSaveResult {
 
 /**
  * Save game state lên Firestore.
- * Tự sign-in anonymous nếu chưa.
+ * Tự sign-in anonymous nếu chưa. Firebase module load dynamic (lần đầu ~1-2s).
  */
 export const saveToCloud = async (payload: CloudSavePayload): Promise<CloudSaveResult> => {
   if (!hasFirebaseConfig()) {
     return { ok: false, cloudAvailable: false, error: 'Firebase chưa cấu hình' };
   }
   try {
+    // 🚀 Dynamic imports — chunk firebase chỉ tải khi vào branch này
+    const [{ doc, setDoc, serverTimestamp }, { getDb, ensureSignedIn }] = await Promise.all([
+      import('firebase/firestore'),
+      import('./firebase'),
+    ]);
     const user = await ensureSignedIn();
-    const db: Firestore = getDb();
+    const db = getDb();
     const ref = doc(db, 'games', user.uid, 'saves', SLOT_ID);
     await setDoc(ref, {
       ...payload,
@@ -59,8 +65,12 @@ export const saveToCloud = async (payload: CloudSavePayload): Promise<CloudSaveR
 export const loadFromCloud = async (): Promise<CloudSavePayload | null> => {
   if (!hasFirebaseConfig()) return null;
   try {
+    const [{ doc, getDoc }, { getDb, ensureSignedIn }] = await Promise.all([
+      import('firebase/firestore'),
+      import('./firebase'),
+    ]);
     const user = await ensureSignedIn();
-    const db: Firestore = getDb();
+    const db = getDb();
     const ref = doc(db, 'games', user.uid, 'saves', SLOT_ID);
     const snap = await getDoc(ref);
     if (!snap.exists()) return null;
@@ -76,10 +86,11 @@ export const loadFromCloud = async (): Promise<CloudSavePayload | null> => {
   }
 };
 
-/** Check Firebase có hoạt động không (test connection nhẹ) */
+/** Check Firebase có hoạt động không (test connection nhẹ). Lazy load firebase. */
 export const isCloudReady = async (): Promise<boolean> => {
   if (!hasFirebaseConfig()) return false;
   try {
+    const { ensureSignedIn } = await import('./firebase');
     await ensureSignedIn();
     return true;
   } catch {

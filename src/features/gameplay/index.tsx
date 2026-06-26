@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import {
   useGameStore,
   selectPlayer,
@@ -12,9 +12,17 @@ import { Bracketed } from '@shared/components/CornerBracket';
 import { PlayerSidebar } from './PlayerSidebar';
 import { StoryView } from './StoryView';
 import { ActionPanel } from './ActionPanel';
-import { HandbookModal, WelcomeOverlay } from '@features/tutorial';
-import { SaveManagerModal } from '@features/save-manager';
+// WelcomeOverlay nhẹ — eager (luôn cần check first-time)
+import { WelcomeOverlay } from '@features/tutorial/WelcomeOverlay';
 import { autoBackup } from '@services/save-manager';
+
+// Lazy: 2 modal nặng — chỉ load khi user mở
+const HandbookModal = lazy(() =>
+  import('@features/tutorial').then((m) => ({ default: m.HandbookModal })),
+);
+const SaveManagerModal = lazy(() =>
+  import('@features/save-manager').then((m) => ({ default: m.SaveManagerModal })),
+);
 
 export const GameplayScreen = () => {
   const player = useGameStore(selectPlayer);
@@ -134,10 +142,12 @@ export const GameplayScreen = () => {
         </div>
       </div>
 
-      {/* Tutorial overlays */}
+      {/* Tutorial + Save overlays — lazy mount khi open=true */}
       <WelcomeOverlay />
-      <HandbookModal open={handbookOpen} onClose={() => setHandbookOpen(false)} />
-      <SaveManagerModal open={saveManagerOpen} onClose={() => setSaveManagerOpen(false)} />
+      <Suspense fallback={null}>
+        {handbookOpen && <HandbookModal open onClose={() => setHandbookOpen(false)} />}
+        {saveManagerOpen && <SaveManagerModal open onClose={() => setSaveManagerOpen(false)} />}
+      </Suspense>
     </div>
   );
 };
