@@ -1,9 +1,14 @@
-import { useEffect, useState } from 'react';
-import { generateImage, buildAvatarPrompt } from '@services/image-gen';
+import { useEffect, useState, useMemo } from 'react';
+import { generateImage, generateProceduralAvatar, buildAvatarPrompt, isImagenEnabled } from '@services/image-gen';
 
 /**
- * Avatar cho nhân vật. Auto-generate qua Imagen nếu có key + chưa cache.
- * Fallback: SVG gradient placeholder.
+ * Avatar cho nhân vật.
+ *
+ * Strategy:
+ *   1. Default: SVG procedural avatar (free, không cần API) — đẹp cổ phong với
+ *      initial + element symbol + 4-corner bracket
+ *   2. Nếu VITE_ENABLE_IMAGEN=true (user có paid plan) → call Imagen 4
+ *   3. Nếu Imagen fail → fallback procedural
  */
 
 interface AvatarPortraitProps {
@@ -12,6 +17,7 @@ interface AvatarPortraitProps {
   personality?: string;
   description?: string;
   realm?: string;
+  element?: string;
   /** Force regenerate (cho button "Tạo lại" trong UI) */
   refreshKey?: number;
   /** Default 200px square */
@@ -25,6 +31,7 @@ export const AvatarPortrait = ({
   personality,
   description,
   realm,
+  element,
   refreshKey = 0,
   size = 200,
   className = '',
@@ -32,7 +39,22 @@ export const AvatarPortrait = ({
   const [imgSrc, setImgSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Procedural SVG luôn có sẵn — dùng làm default + fallback
+  const proceduralAvatar = useMemo(
+    () => generateProceduralAvatar({
+      name,
+      ...(element !== undefined ? { element } : {}),
+      ...(realm !== undefined ? { realm } : {}),
+    }),
+    [name, element, realm],
+  );
+
   useEffect(() => {
+    if (!isImagenEnabled()) {
+      // Imagen disabled → dùng procedural luôn, không call API
+      setImgSrc(proceduralAvatar);
+      return;
+    }
     let cancelled = false;
     const load = async () => {
       setLoading(true);
@@ -45,7 +67,8 @@ export const AvatarPortrait = ({
       });
       const result = await generateImage({ prompt, aspectRatio: '1:1', forceRefresh: refreshKey > 0 });
       if (!cancelled) {
-        setImgSrc(result);
+        // Imagen fail → fallback procedural
+        setImgSrc(result ?? proceduralAvatar);
         setLoading(false);
       }
     };
@@ -53,7 +76,7 @@ export const AvatarPortrait = ({
     return () => {
       cancelled = true;
     };
-  }, [name, gender, personality, description, realm, refreshKey]);
+  }, [name, gender, personality, description, realm, element, refreshKey, proceduralAvatar]);
 
   if (imgSrc) {
     return (
