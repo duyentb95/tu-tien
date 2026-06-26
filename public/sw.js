@@ -3,10 +3,13 @@
  * Strategy:
  *   - HTML / JS / CSS / JSON từ same-origin → cache-first sau lần đầu (24h TTL)
  *   - Fonts từ Google → cache-first vĩnh viễn
- *   - Imagen API + Gemini API → network-only (không cache)
+ *   - Imagen API + Gemini API + AI proxy → network-only (không cache)
+ *
+ * IMPORTANT: bump CACHE_VERSION mỗi khi có breaking change (vd CSP, new endpoint)
+ * để force re-cache. Old version SW sẽ delete trong activate handler.
  */
 
-const CACHE_VERSION = 'mac-do-v1';
+const CACHE_VERSION = 'mac-do-v2';   // bumped: CSP allow workers.dev + proxy support
 const FONT_CACHE = 'mac-do-fonts-v1';
 
 const PRECACHE_URLS = ['/', '/manifest.webmanifest', '/icon-192.svg', '/icon-512.svg'];
@@ -34,10 +37,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Bypass non-GET + AI APIs
+  // Bypass non-GET + AI APIs (network-only)
   if (event.request.method !== 'GET') return;
   if (url.hostname.includes('generativelanguage.googleapis.com')) return;
   if (url.hostname.includes('firestore.googleapis.com')) return;
+  if (url.hostname.endsWith('.workers.dev')) return; // Cloudflare Worker proxy
+  if (url.hostname.includes('cloudfunctions.net')) return; // Firebase Function proxy
 
   // Google Fonts → cache forever
   if (url.hostname.includes('fonts.googleapis.com') || url.hostname.includes('fonts.gstatic.com')) {
