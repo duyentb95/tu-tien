@@ -61,6 +61,29 @@ export interface CustomRule {
   enabled: boolean;
 }
 
+/**
+ * Phase 11.1: Story summary block (2-tier).
+ * Level 1: tóm tắt 20 turn raw → 1 đoạn ~5-8 câu.
+ * Level 2: tóm tắt 10 block level 1 → 1 meta-summary 8-10 câu.
+ * Level 3+: continue meta-summarize khi level 2 ≥ 10.
+ */
+export interface StorySummary {
+  id: string;
+  content: string;
+  /** 1 = standard, 2 = meta, 3+ = super-meta */
+  level: number;
+  /** Turn range được tóm tắt (cho UI hiển thị) */
+  turnStart?: number;
+  turnEnd?: number;
+  /** Unix ms khi block tạo ra */
+  createdAt: number;
+}
+
+export const SUMMARY_TRIGGER_TURNS = 40;
+export const SUMMARY_BATCH_SIZE = 20;
+export const SUMMARY_RETAIN_TURNS = 20; // giữ lại 20 turn cuối sau khi tóm tắt
+export const SUMMARY_META_BATCH = 10;
+
 export interface MemorySlice {
   /** Cap rolling N entries — N = 30. Vượt → drop oldest */
   eventHistory: MeaningfulEvent[];
