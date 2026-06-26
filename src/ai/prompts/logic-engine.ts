@@ -51,6 +51,9 @@ export interface LogicEngineContext {
   loreLocations?: Array<{ id: string; name: string; description: string; region?: string; materialized?: boolean }>;
   worldNpcs?: Array<{ id: string; name: string; loreId?: string }>;
   worldLocations?: Array<{ id: string; name: string; loreId?: string }>;
+  // ─── Memory expand (Refactor 5) ───
+  meaningfulEvents?: Array<{ turn: number; kind: string; summary: string }>;
+  customRules?: string[];
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -283,11 +286,26 @@ KHÔNG viết gì ngoài JSON. KHÔNG dùng markdown wrapper.
 
   const loreContextBlock = buildLoreContextBlock(ctx);
 
+  const eventsBlock = ctx.meaningfulEvents && ctx.meaningfulEvents.length > 0
+    ? `[SỰ KIỆN TRỌNG ĐẠI ĐÃ XẢY RA — bám context lâu]\n${ctx.meaningfulEvents
+        .slice(-12)
+        .map((e) => `  · T${e.turn} [${e.kind}] ${e.summary}`)
+        .join('\n')}`
+    : '';
+
+  const rulesBlock = ctx.customRules && ctx.customRules.length > 0
+    ? `[QUY TẮC TÙY CHỈNH NGƯỜI CHƠI ĐẶT RA — TUÂN THỦ TUYỆT ĐỐI]\n${ctx.customRules
+        .map((r, i) => `  ${i + 1}. ${r}`)
+        .join('\n')}`
+    : '';
+
   return [
     SYSTEM_PERSONA,
     personaBlock,
     worldBlock,
     loreContextBlock,
+    eventsBlock,
+    rulesBlock,           // Đặt rules cuối cùng = AI sẽ "nhớ" gần nhất
     historyBlock,
     actionBlock,
     taskBlock,

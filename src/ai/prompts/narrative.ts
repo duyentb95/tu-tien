@@ -16,6 +16,11 @@ export interface NarrativeContext {
   /** Active world entities — đã materialize, AI cần reference đúng tên + state */
   worldNpcs?: Array<{ id: string; name: string; description?: string; loreId?: string }>;
   worldLocations?: Array<{ id: string; name: string; description?: string; loreId?: string }>;
+  // ─── Memory expand (Refactor 5) ───
+  /** Sự kiện trọng đại (rolling) — AI nhớ thay vì chỉ raw history */
+  meaningfulEvents?: Array<{ turn: number; kind: string; summary: string }>;
+  /** Custom rules user yêu cầu AI tuân thủ */
+  customRules?: string[];
 }
 
 /**

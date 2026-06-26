@@ -5,6 +5,8 @@ import type { Item, ItemCategory, Rarity } from '@gametypes/item';
 import type { Skill, SkillKind } from '@gametypes/skill';
 import type { Location, LocationType, GameTime, Faction } from '@gametypes/world';
 import type { LoreNPC, LoreLocation, LoreItem, LoreQuest } from '@gametypes/lore';
+import type { MeaningfulEvent, RecentAction, CustomRule } from '@gametypes/memory';
+import { pushEvent, pushAction } from '@gametypes/memory';
 import { getLongTermStatus } from '@data/long-term-statuses';
 import type { Difficulty } from '@data/difficulty';
 import {
@@ -111,6 +113,11 @@ export interface GameSettings {
    * Hybrid tốn 2x API call nhưng văn phong + state consistency tốt hơn nhiều.
    */
   useHybridLogic?: boolean;
+  /**
+   * Custom rules user nhập — AI phải tuân thủ. Inject vào mọi prompt.
+   * Vd: "Không bao giờ giết NPC chính trong nguyên tác", "Luôn xưng 'ngươi'".
+   */
+  customRules?: CustomRule[];
 }
 
 export interface KnowledgeSlice {
@@ -125,6 +132,11 @@ export interface KnowledgeSlice {
   loreLocations: Record<string, LoreLocation>;
   loreItems: Record<string, LoreItem>;
   loreQuests: Record<string, LoreQuest>;
+  // ─── Memory expand (Refactor 5) ───
+  /** Sự kiện trọng đại (rolling 30 entries). AI nhớ context lâu hơn storyLog */
+  eventHistory: MeaningfulEvent[];
+  /** Hành động + outcome gần đây (rolling 10 entries) */
+  recentMeaningfulActions: RecentAction[];
 }
 
 export interface StoryEntry {
@@ -186,6 +198,10 @@ interface GameState {
 
   // ───── Setup actions
   updateSettings: (patch: Partial<GameSettings>) => void;
+  /** Custom rules CRUD (Refactor 5) */
+  addCustomRule: (rule: string) => void;
+  removeCustomRule: (id: string) => void;
+  toggleCustomRule: (id: string) => void;
   /**
    * Fan-fic wizard: gọi AI phân tích tác phẩm gốc, hydrate settings +
    * knowledge.locations/characters từ initialWorldElements.
@@ -298,6 +314,8 @@ const DEFAULT_KNOWLEDGE: KnowledgeSlice = {
   loreLocations: {},
   loreItems: {},
   loreQuests: {},
+  eventHistory: [],
+  recentMeaningfulActions: [],
 };
 
 const SAVE_KEY = 'tu-tien:save:slot-0';
@@ -383,6 +401,30 @@ export const useGameStore = create<GameState>()(
     updateSettings: (patch) =>
       set((s) => {
         Object.assign(s.settings, patch);
+      }),
+
+    addCustomRule: (rule) =>
+      set((s) => {
+        if (!s.settings.customRules) s.settings.customRules = [];
+        s.settings.customRules.push({
+          id: crypto.randomUUID(),
+          rule: rule.trim(),
+          createdAt: Date.now(),
+          enabled: true,
+        });
+      }),
+
+    removeCustomRule: (id) =>
+      set((s) => {
+        if (s.settings.customRules) {
+          s.settings.customRules = s.settings.customRules.filter((r) => r.id !== id);
+        }
+      }),
+
+    toggleCustomRule: (id) =>
+      set((s) => {
+        const r = s.settings.customRules?.find((r) => r.id === id);
+        if (r) r.enabled = !r.enabled;
       }),
 
     analyzeFanFic: async (form) => {
@@ -546,6 +588,13 @@ export const useGameStore = create<GameState>()(
         s.currentActions = [];
         s.isAiThinking = true;
         s.lastError = null;
+        // Refactor 5: record action — outcome sẽ infer sau khi AI response (default neutral)
+        s.knowledge.recentMeaningfulActions = pushAction(s.knowledge.recentMeaningfulActions, {
+          turn: s.turn,
+          action: actionText,
+          outcome: 'neutral',
+          outcomeSummary: '(đang xử lý)',
+        });
       });
 
       const log = get().storyLog;
@@ -597,6 +646,15 @@ export const useGameStore = create<GameState>()(
               : {}),
           }));
 
+        const enabledRules = (settings.customRules ?? [])
+          .filter((r) => r.enabled)
+          .map((r) => r.rule);
+        const meaningfulEvents = knowledge.eventHistory.slice(-12).map((e) => ({
+          turn: e.turn,
+          kind: e.kind,
+          summary: e.summary,
+        }));
+
         const parsed = await generateNarrative({
           settings,
           player,
@@ -607,6 +665,8 @@ export const useGameStore = create<GameState>()(
           loreLocations: loreLocsArr,
           worldNpcs: worldNpcsArr,
           worldLocations: worldLocsArr,
+          meaningfulEvents,
+          customRules: enabledRules,
         });
 
         set((s) => {
@@ -1889,11 +1949,25 @@ function applyGameEvents(
         break;
       }
       case 'REALM_BREAK': {
+        set((s) => {
+          s.knowledge.eventHistory = pushEvent(s.knowledge.eventHistory, {
+            timestamp: Date.now(),
+            turn: s.turn,
+            kind: 'realm_break',
+            summary: `Đột phá đến cấp ${s.player?.level ?? '?'} (${s.player?.realm ?? 'cảnh giới mới'})`,
+          });
+        });
         notify.epic('ĐỘT PHÁ!', 'Cảnh giới mới khai mở');
         break;
       }
       case 'TRIBULATION': {
         set((s) => {
+          s.knowledge.eventHistory = pushEvent(s.knowledge.eventHistory, {
+            timestamp: Date.now(),
+            turn: s.turn,
+            kind: 'tribulation',
+            summary: e.reason ?? 'Thiên kiếp giáng lâm',
+          });
           s.tribulationContext = { ...(e.reason !== undefined ? { reason: e.reason } : {}) };
           s.prevStage = s.stage;
           s.stage = 'tribulation';
@@ -1982,6 +2056,12 @@ function applyGameEvents(
             q.status = 'completed';
             q.completedAtTurn = get().turn;
           }
+          s.knowledge.eventHistory = pushEvent(s.knowledge.eventHistory, {
+            timestamp: Date.now(),
+            turn: s.turn,
+            kind: 'quest_complete',
+            summary: `Hoàn thành quest "${e.title}"`,
+          });
         });
         notify.epic(`Hoàn thành: ${e.title}`, 'Nhận phần thưởng từ thiên cơ');
         break;
@@ -2231,6 +2311,15 @@ function applyGameEvents(
         const target = e.target?.toLowerCase();
         set((s) => {
           s.ep += e.epScore;
+          // Auto-record meaningful event nếu score cao
+          if (e.epScore >= 70) {
+            s.knowledge.eventHistory = pushEvent(s.knowledge.eventHistory, {
+              timestamp: Date.now(),
+              turn: s.turn,
+              kind: 'encounter_high',
+              summary: `+${e.epScore} EP: ${e.reason}`,
+            });
+          }
         });
         const emoji = e.epScore >= 80 ? '🌟🌟🌟' : e.epScore >= 50 ? '🌟🌟' : '🌟';
         notify.epic(`${emoji} +${e.epScore} EP`, e.reason);

@@ -88,6 +88,9 @@ const generateNarrativeHybrid = async (ctx: NarrativeContext): Promise<ParsedNar
     ...(ctx.loreLocations ? { loreLocations: ctx.loreLocations } : {}),
     ...(ctx.worldNpcs ? { worldNpcs: ctx.worldNpcs } : {}),
     ...(ctx.worldLocations ? { worldLocations: ctx.worldLocations } : {}),
+    // Memory expand (Refactor 5)
+    ...(ctx.meaningfulEvents ? { meaningfulEvents: ctx.meaningfulEvents } : {}),
+    ...(ctx.customRules ? { customRules: ctx.customRules } : {}),
   };
   const logicPrompt = buildLogicEnginePrompt(logicCtx);
   const logicResp = await callGemini(logicPrompt, {

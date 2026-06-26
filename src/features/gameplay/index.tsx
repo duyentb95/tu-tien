@@ -27,6 +27,9 @@ const SaveManagerModal = lazy(() =>
 const LoreBookModal = lazy(() =>
   import('@features/lore-book').then((m) => ({ default: m.LoreBookModal })),
 );
+const CustomRulesModal = lazy(() =>
+  import('@features/custom-rules').then((m) => ({ default: m.CustomRulesModal })),
+);
 
 export const GameplayScreen = () => {
   const player = useGameStore(selectPlayer);
@@ -47,6 +50,7 @@ export const GameplayScreen = () => {
   const [handbookOpen, setHandbookOpen] = useState(false);
   const [saveManagerOpen, setSaveManagerOpen] = useState(false);
   const [loreBookOpen, setLoreBookOpen] = useState(false);
+  const [customRulesOpen, setCustomRulesOpen] = useState(false);
 
   // Global keyboard shortcuts
   useKeyboard(
@@ -130,6 +134,7 @@ export const GameplayScreen = () => {
           />
           <NavButton label="Độ Kiếp" icon="⚡" onClick={() => setStage('tribulation')} />
           <NavButton label="Tàng Thư" icon="☷" onClick={() => setLoreBookOpen(true)} />
+          <NavButton label="Đạo Tâm" icon="◍" onClick={() => setCustomRulesOpen(true)} />
           <NavButton label="Lưu Trữ" icon="◭" onClick={() => setSaveManagerOpen(true)} />
           <NavButton label="Cẩm Nang" icon="?" onClick={() => setHandbookOpen(true)} />
           <NavButton
@@ -191,6 +196,7 @@ export const GameplayScreen = () => {
         {handbookOpen && <HandbookModal open onClose={() => setHandbookOpen(false)} />}
         {saveManagerOpen && <SaveManagerModal open onClose={() => setSaveManagerOpen(false)} />}
         {loreBookOpen && <LoreBookModal open onClose={() => setLoreBookOpen(false)} />}
+        {customRulesOpen && <CustomRulesModal open onClose={() => setCustomRulesOpen(false)} />}
       </Suspense>
     </div>
   );
