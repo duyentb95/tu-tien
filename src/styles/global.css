@@ -63,6 +63,52 @@
 
   code, pre, .mono { font-family: var(--font-mono); }
 
+  /* ─── A11y: focus-visible ring gold cho keyboard user ───
+     Chỉ hiện khi navigate qua keyboard, mouse click không trigger */
+  :focus {
+    outline: none;
+  }
+  :focus-visible {
+    outline: 2px solid var(--gold-500);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 0 0 4px rgba(205, 164, 94, 0.15);
+  }
+  /* Trên backdrop tối hơn, ring đậm hơn cho dễ thấy */
+  button:focus-visible,
+  a:focus-visible {
+    outline-color: var(--gold-300);
+  }
+
+  /* Skip-to-content link — tab đầu page sẽ thấy */
+  .skip-link {
+    position: absolute;
+    top: -100px;
+    left: 8px;
+    z-index: 9999;
+    padding: 8px 16px;
+    background: var(--gold-500);
+    color: var(--ink-900);
+    text-decoration: none;
+    font-family: var(--font-serif);
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    transition: top 0.2s ease;
+  }
+  .skip-link:focus {
+    top: 8px;
+  }
+
+  /* Reduce motion: respect prefers-reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
   *:focus-visible {
     outline: 2px solid var(--gold-500);
     outline-offset: 2px;

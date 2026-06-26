@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Bracketed } from '@shared/components/CornerBracket';
 import { useGameStore } from '@state/game-store';
+import { useKeyboard } from '@shared/hooks/useKeyboard';
 import {
   listSlots,
   exportSlot,
@@ -115,6 +116,9 @@ export const SaveManagerModal = ({ open, onClose }: SaveManagerModalProps) => {
     e.target.value = ''; // reset input
   };
 
+  // ESC để đóng
+  useKeyboard({ Escape: onClose }, [onClose], open);
+
   if (!open) return null;
 
   const manualSlots = slots.filter((s) => s.kind === 'manual');
@@ -125,6 +129,9 @@ export const SaveManagerModal = ({ open, onClose }: SaveManagerModalProps) => {
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(8,11,15,.85)', backdropFilter: 'blur(4px)' }}
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="save-manager-title"
     >
       <input
         ref={fileInputRef}
@@ -145,7 +152,7 @@ export const SaveManagerModal = ({ open, onClose }: SaveManagerModalProps) => {
             <header className="flex items-center justify-between border-b border-gold-700/15 px-6 py-4">
               <div>
                 <div className="label-section mb-1">Lưu Trữ · Đa Slot</div>
-                <h2 className="font-serif text-2xl font-bold uppercase tracking-wider text-gold-200">
+                <h2 id="save-manager-title" className="font-serif text-2xl font-bold uppercase tracking-wider text-gold-200">
                   Quản Lý Bản Lưu
                 </h2>
                 <p className="mt-1 text-[11.5px] text-jade-500">
@@ -157,8 +164,9 @@ export const SaveManagerModal = ({ open, onClose }: SaveManagerModalProps) => {
               </div>
               <button
                 onClick={onClose}
-                className="text-2xl text-gold-300 transition-colors hover:text-gold-100"
-                aria-label="Đóng"
+                className="rounded-sm p-2 text-2xl text-gold-300 transition-colors hover:text-gold-100"
+                aria-label="Đóng quản lý lưu trữ (Esc)"
+                title="Đóng (Esc)"
               >
                 ⊗
               </button>

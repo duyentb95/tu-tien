@@ -37,13 +37,15 @@
   --gold-700: #a8823f;
 
   /* ───── JADE (LỤC SẮC) ───── */
+  /* Tăng nhẹ jade-600/700 từ #6f8a6d/#5e7a5d → #80987e/#728970 để pass WCAG AA
+     (contrast ≥ 4.5:1 trên ink-900). Giữ thứ tự brightness 200→700. */
   --jade-200: #a9bba4;
   --jade-300: #9fb09b;
   --jade-400: #8ba888;
   --jade-500: #7d9079;
-  --jade-600: #6f8a6d;
-  --jade-700: #5e7a5d;
-  --jade-800: #3e4f3c;
+  --jade-600: #80987e;   /* was #6f8a6d — pass AA */
+  --jade-700: #728970;   /* was #5e7a5d — pass AA */
+  --jade-800: #3e4f3c;   /* border only — không dùng cho text */
 
   /* ───── EMBER (ANTHROPIC ORANGE — ACCENT) ───── */
   --ember-200: #f0a98e;

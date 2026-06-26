@@ -42,11 +42,21 @@ const CaveAbodeScreen = lazy(() =>
 export const App = () => {
   const stage = useGameStore(selectStage);
 
+  // Skip-to-content link — visible chỉ khi keyboard focus
+  const skipLink = (
+    <a href="#main-content" className="skip-link">
+      Bỏ qua đến nội dung chính
+    </a>
+  );
+
   // Eager render — không cần Suspense
   if (stage === 'initial') {
     return (
       <div className="min-h-screen w-full">
-        <InitialScreen />
+        {skipLink}
+        <div id="main-content">
+          <InitialScreen />
+        </div>
         <ToastStack />
       </div>
     );
@@ -54,7 +64,10 @@ export const App = () => {
   if (stage === 'setup') {
     return (
       <div className="min-h-screen w-full">
-        <GameSetupScreen />
+        {skipLink}
+        <div id="main-content">
+          <GameSetupScreen />
+        </div>
         <ToastStack />
       </div>
     );
@@ -62,7 +75,10 @@ export const App = () => {
   if (stage === 'playing') {
     return (
       <div className="min-h-screen w-full">
-        <GameplayScreen />
+        {skipLink}
+        <div id="main-content">
+          <GameplayScreen />
+        </div>
         <ToastStack />
       </div>
     );
@@ -71,18 +87,21 @@ export const App = () => {
   // Lazy screens — chia chung 1 Suspense boundary, fallback hiển thị loader cổ phong
   return (
     <div className="min-h-screen w-full">
-      <Suspense fallback={<ScreenLoader />}>
-        {stage === 'character' && <CharacterSheetScreen />}
-        {stage === 'inventory' && <InventoryScreen />}
-        {stage === 'world_map' && <WorldMapScreen />}
-        {stage === 'quests' && <QuestsScreen />}
-        {stage === 'sect_hall' && <SectHallScreen />}
-        {stage === 'secret_realm' && <SecretRealmScreen />}
-        {stage === 'spirit_beasts' && <SpiritBeastsScreen />}
-        {stage === 'cave_abode' && <CaveAbodeScreen />}
-        {stage === 'combat' && <CombatScreen />}
-        {stage === 'tribulation' && <TribulationScreen />}
-      </Suspense>
+      {skipLink}
+      <div id="main-content">
+        <Suspense fallback={<ScreenLoader />}>
+          {stage === 'character' && <CharacterSheetScreen />}
+          {stage === 'inventory' && <InventoryScreen />}
+          {stage === 'world_map' && <WorldMapScreen />}
+          {stage === 'quests' && <QuestsScreen />}
+          {stage === 'sect_hall' && <SectHallScreen />}
+          {stage === 'secret_realm' && <SecretRealmScreen />}
+          {stage === 'spirit_beasts' && <SpiritBeastsScreen />}
+          {stage === 'cave_abode' && <CaveAbodeScreen />}
+          {stage === 'combat' && <CombatScreen />}
+          {stage === 'tribulation' && <TribulationScreen />}
+        </Suspense>
+      </div>
       <ToastStack />
     </div>
   );

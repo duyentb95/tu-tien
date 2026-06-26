@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Bracketed } from '@shared/components/CornerBracket';
+import { useKeyboard } from '@shared/hooks/useKeyboard';
 import { HANDBOOK_ENTRIES, HANDBOOK_CATEGORIES, type HandbookEntry } from './handbook-content';
 
 interface HandbookModalProps {
@@ -27,6 +28,9 @@ export const HandbookModal = ({ open, onClose, initialEntryId }: HandbookModalPr
     [selectedId],
   );
 
+  // ESC để đóng modal — chỉ active khi open=true
+  useKeyboard({ Escape: onClose }, [onClose], open);
+
   if (!open) return null;
 
   return (
@@ -34,6 +38,9 @@ export const HandbookModal = ({ open, onClose, initialEntryId }: HandbookModalPr
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(8,11,15,.85)', backdropFilter: 'blur(4px)' }}
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="handbook-title"
     >
       <div
         className="relative w-full max-w-5xl"
@@ -46,14 +53,15 @@ export const HandbookModal = ({ open, onClose, initialEntryId }: HandbookModalPr
             <header className="flex items-center justify-between border-b border-gold-700/15 px-6 py-4">
               <div>
                 <div className="label-section mb-1">Wiki · Tu Tiên Toàn Thư</div>
-                <h2 className="font-serif text-2xl font-bold uppercase tracking-wider text-gold-200">
+                <h2 id="handbook-title" className="font-serif text-2xl font-bold uppercase tracking-wider text-gold-200">
                   Cẩm Nang Tu Tiên
                 </h2>
               </div>
               <button
                 onClick={onClose}
-                className="text-2xl text-gold-300 transition-colors hover:text-gold-100"
-                aria-label="Đóng cẩm nang"
+                className="rounded-sm p-2 text-2xl text-gold-300 transition-colors hover:text-gold-100"
+                aria-label="Đóng cẩm nang (Esc)"
+                title="Đóng (Esc)"
               >
                 ⊗
               </button>

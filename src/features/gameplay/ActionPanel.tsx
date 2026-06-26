@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@shared/components/Button';
 import { TextInput } from '@shared/components/FormField';
+import { useKeyboard } from '@shared/hooks/useKeyboard';
 
 interface Props {
   actions: string[];
@@ -18,8 +19,19 @@ export const ActionPanel = ({ actions, disabled, onSelect }: Props) => {
     setCustomInput('');
   };
 
+  // Hotkey 1-4 chọn nhanh action (skip nếu đang gõ input)
+  useKeyboard(
+    {
+      Digit1: () => !disabled && actions[0] && onSelect(actions[0]),
+      Digit2: () => !disabled && actions[1] && onSelect(actions[1]),
+      Digit3: () => !disabled && actions[2] && onSelect(actions[2]),
+      Digit4: () => !disabled && actions[3] && onSelect(actions[3]),
+    },
+    [actions, disabled, onSelect],
+  );
+
   return (
-    <div className="panel-gold mt-4 p-4">
+    <div className="panel-gold mt-4 p-4" role="region" aria-label="Bảng hành động">
       {/* 4 action choices */}
       <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
         {actions.map((action, idx) => (
@@ -27,11 +39,13 @@ export const ActionPanel = ({ actions, disabled, onSelect }: Props) => {
             key={idx}
             onClick={() => onSelect(action)}
             disabled={disabled}
+            aria-label={`Lựa chọn ${idx + 1}: ${action}. Phím tắt ${idx + 1}.`}
             className="group flex items-start gap-2 rounded-md border border-gold-700/30 bg-ink-700/60 px-4 py-3 text-left text-sm text-gold-200 transition hover:border-gold-500 hover:bg-ink-500/50 disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ minHeight: 44 }}
           >
-            <span className="font-mono text-xs text-gold-500 group-hover:text-gold-300">
-              {idx + 1}.
-            </span>
+            <kbd className="font-mono text-xs text-gold-500 group-hover:text-gold-300">
+              {idx + 1}
+            </kbd>
             <span className="leading-snug">{action}</span>
           </button>
         ))}

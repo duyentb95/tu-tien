@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { useKeyboard } from '@shared/hooks/useKeyboard';
 import {
   useGameStore,
   selectPlayer,
@@ -39,6 +40,27 @@ export const GameplayScreen = () => {
   const getCurrentPayload = useGameStore((s) => s.getCurrentPayload);
   const [handbookOpen, setHandbookOpen] = useState(false);
   const [saveManagerOpen, setSaveManagerOpen] = useState(false);
+
+  // Global keyboard shortcuts
+  useKeyboard(
+    {
+      Slash: () => setHandbookOpen((v) => !v),
+      'shift+Slash': () => setHandbookOpen((v) => !v), // ? (Shift+/)
+      KeyM: () => setStage('world_map'),
+      KeyI: () => setStage('inventory'),
+      KeyC: () => setStage('character'),
+      KeyQ: () => setStage('quests'),
+      'cmd+s': (e) => {
+        e.preventDefault();
+        setSaveManagerOpen(true);
+      },
+      'ctrl+s': (e) => {
+        e.preventDefault();
+        setSaveManagerOpen(true);
+      },
+    },
+    [setStage],
+  );
 
   // Auto-backup mỗi 10 lượt — rotate qua 3 slot autobackup
   const lastBackupTurnRef = useRef(turn);
@@ -161,10 +183,13 @@ interface NavButtonProps {
 const NavButton = ({ label, icon, active, onClick }: NavButtonProps) => (
   <button
     onClick={onClick}
+    aria-label={`Mở màn ${label}`}
+    aria-current={active ? 'page' : undefined}
     className="relative flex flex-shrink-0 items-center gap-1.5 rounded-sm px-3 py-2 text-[12.5px] transition-colors whitespace-nowrap"
     style={{
       color: active ? 'var(--gold-100)' : 'var(--gold-300)',
       background: active ? 'rgba(205,164,94,.08)' : 'transparent',
+      minHeight: 40,
     }}
   >
     {active && (
@@ -174,7 +199,7 @@ const NavButton = ({ label, icon, active, onClick }: NavButtonProps) => (
         style={{ background: 'var(--gold-500)', boxShadow: '0 0 9px rgba(205,164,94,.7)' }}
       />
     )}
-    <span style={{ color: 'var(--gold-500)', fontSize: 11 }}>{icon}</span>
+    <span aria-hidden style={{ color: 'var(--gold-500)', fontSize: 11 }}>{icon}</span>
     <span>{label}</span>
   </button>
 );
