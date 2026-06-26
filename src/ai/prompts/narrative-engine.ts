@@ -109,16 +109,24 @@ Sắc thái: ${toneGuide(tags.tone)}
 {Đoạn văn tường thuật, đúng độ dài + sắc thái yêu cầu. Có thể chứa <dialogue speaker="Tên NPC">Nội dung</dialogue>.}
 </narrative>
 
-[ACTION:1] {Lựa chọn 1, ngắn gọn dưới 80 ký tự — bám theo gì vừa xảy ra}
-[ACTION:2] {Lựa chọn 2 — hướng khác/thận trọng}
-[ACTION:3] {Lựa chọn 3 — táo bạo/khám phá}
-[ACTION:4] {Lựa chọn 4 — meta (mở bản đồ/inventory/tu luyện)}
+[ACTION:1|<rate>|<reward>] {Lựa chọn 1, ngắn gọn dưới 80 ký tự — bám theo gì vừa xảy ra}
+[ACTION:2|<rate>|<reward>] {Lựa chọn 2 — hướng khác/thận trọng}
+[ACTION:3|<rate>|<reward>] {Lựa chọn 3 — táo bạo/khám phá}
+[ACTION:4|<rate>|<reward>] {Lựa chọn 4 — meta (mở bản đồ/inventory/tu luyện)}
 
-LƯU Ý:
+**ĐỊNH DẠNG ACTION MỚI (PHẢI tuân theo)**:
+- \`<rate>\` = số 0-100, tỷ lệ thành công ước lượng (vd: 85). An toàn (ngồi tu luyện trong làng) ≥ 90%, mạo hiểm vừa 60-80%, nguy hiểm < 50%.
+- \`<reward>\` = mô tả phần thưởng/hậu quả ngắn, < 100 ký tự (vd: "Nhận 50 EXP, tăng tiến độ Linh Thai cảnh" hoặc "Tăng thiện cảm Tư Bà Bà, có thể nhận tin đồn"). KHÔNG để trống.
+
+Ví dụ đầy đủ:
+\`[ACTION:1|85|Nhận 50 EXP, tăng tiến độ đột phá cảnh giới Linh Thai] Ngồi xuống bên Trưởng Thôn để thỉnh giáo về dẫn khí huyết hóa thành Linh Thai\`
+
+LƯU Ý KHÁC:
 - KHÔNG viết game tag [EXP+]/[ITEM]/[NOTE]... — đã có ở scenario.commands.
 - KHÔNG dùng markdown # ** \`.
 - KHÔNG mở ngoặc kép cho dialogue trong văn xuôi — dùng <dialogue> tag thay.
 - 4 actions phải KHÁC NHAU, KHÔNG trùng ý.
+- Tỷ lệ thành công phải HỢP LÝ với độ khó action: ngồi tu luyện = 90%+, chiến đấu = tùy chỉ số, vượt thiên kiếp = 30-60%.
 `.trim();
 
   return [

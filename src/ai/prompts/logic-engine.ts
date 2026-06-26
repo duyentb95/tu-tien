@@ -57,6 +57,8 @@ export interface LogicEngineContext {
   // ─── Phase 8.3: Fan-fic items + skills hints ───
   fanFicItems?: Array<{ name: string; category: string; rarity: string; description: string }>;
   fanFicSkills?: Array<{ name: string; kind: string; rarity: string; description: string }>;
+  // ─── Phase 9.2: Cultivation terminology hints ───
+  fanFicTerms?: Array<{ term: string; kind: string; explanation: string }>;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -315,6 +317,13 @@ KHÔNG viết gì ngoài JSON. KHÔNG dùng markdown wrapper.
         .join('\n')}`
     : '';
 
+  // Phase 9.2: Thuật ngữ tu luyện đặc trưng — AI dùng đúng từ thay vì generic
+  const termsHintBlock = ctx.fanFicTerms && ctx.fanFicTerms.length > 0
+    ? `[THUẬT NGỮ TU LUYỆN ĐẶC TRƯNG UNIVERSE — KHI VIẾT SCENARIO SUMMARY HÃY DÙNG ĐÚNG]\n${ctx.fanFicTerms
+        .map((t) => `  · [${t.kind}] ${t.term} — ${t.explanation}`)
+        .join('\n')}\nVD: thay vì "kinh mạch" generic → dùng "Vĩnh Hải" nếu là Mục Thần Ký. Thay vì "vùng đất hoang" → "Đại Khư".`
+    : '';
+
   return [
     SYSTEM_PERSONA,
     personaBlock,
@@ -322,6 +331,7 @@ KHÔNG viết gì ngoài JSON. KHÔNG dùng markdown wrapper.
     loreContextBlock,
     itemsHintBlock,
     skillsHintBlock,
+    termsHintBlock,
     eventsBlock,
     rulesBlock,           // Đặt rules cuối cùng = AI sẽ "nhớ" gần nhất
     historyBlock,

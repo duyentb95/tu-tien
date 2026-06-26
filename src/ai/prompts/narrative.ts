@@ -24,6 +24,10 @@ export interface NarrativeContext {
   // ─── Phase 8.3: Fan-fic items + skills hints ───
   fanFicItems?: Array<{ name: string; category: string; rarity: string; description: string }>;
   fanFicSkills?: Array<{ name: string; kind: string; rarity: string; description: string }>;
+  // ─── Phase 9.2: Cultivation terminology hints ───
+  fanFicTerms?: Array<{ term: string; kind: string; explanation: string }>;
+  /** Phase 9.3: callback báo phase đang chạy (cho UI hiển thị state) */
+  onPhase?: (phase: 'logic' | 'narrative') => void;
 }
 
 /**

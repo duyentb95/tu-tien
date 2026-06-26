@@ -75,6 +75,8 @@ const generateNarrativeHybrid = async (ctx: NarrativeContext): Promise<ParsedNar
     import('@core/dice/scenario-roller'),
   ]);
 
+  ctx.onPhase?.('logic');
+
   // ─── Step 1: Logic Engine ───
   const logicCtx = {
     settings: ctx.settings,
@@ -96,6 +98,8 @@ const generateNarrativeHybrid = async (ctx: NarrativeContext): Promise<ParsedNar
     // Phase 8.3: Fan-fic items + skills hints
     ...(ctx.fanFicItems ? { fanFicItems: ctx.fanFicItems } : {}),
     ...(ctx.fanFicSkills ? { fanFicSkills: ctx.fanFicSkills } : {}),
+    // Phase 9.2: Cultivation terms
+    ...(ctx.fanFicTerms ? { fanFicTerms: ctx.fanFicTerms } : {}),
   };
   const logicPrompt = buildLogicEnginePrompt(logicCtx);
   // Phase 8.1: Logic Engine — default Gemini (rẻ + JSON structured tốt)
@@ -120,6 +124,8 @@ const generateNarrativeHybrid = async (ctx: NarrativeContext): Promise<ParsedNar
   console.info(
     `[hybrid] 🎲 Rolled ${pick.roll.toFixed(3)} → #${pick.index + 1} (${Math.round(pick.pickedProbability * 100)}% prob): ${pick.scenario.summary.slice(0, 60)}...`,
   );
+
+  ctx.onPhase?.('narrative');
 
   // ─── Step 3: Narrative Engine ───
   const narrativePrompt = buildNarrativeEnginePrompt({

@@ -7,10 +7,12 @@ import loadingDots from '@/lottie/loading-dots.json';
 interface Props {
   entries: StoryEntry[];
   isAiThinking: boolean;
+  /** Phase 9.3: chi tiết phase AI để hiển thị state phù hợp */
+  aiPhase?: 'idle' | 'logic' | 'narrative';
   playerName: string;
 }
 
-export const StoryView = ({ entries, isAiThinking, playerName }: Props) => {
+export const StoryView = ({ entries, isAiThinking, aiPhase, playerName }: Props) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll xuống dưới khi có entry mới
@@ -72,9 +74,19 @@ export const StoryView = ({ entries, isAiThinking, playerName }: Props) => {
       })}
 
       {isAiThinking && (
-        <div className="flex items-center gap-3 py-3 text-jade-400">
-          <LottiePlayer animationData={loadingDots} width={60} height={16} />
-          <span className="text-sm italic">Đang suy ngẫm thiên cơ…</span>
+        <div className="flex flex-col items-center gap-3 py-6 text-center">
+          <LottiePlayer animationData={loadingDots} width={80} height={20} />
+          <div className="space-y-1">
+            <p className="font-serif text-base text-gold-300">
+              {aiPhase === 'logic' && '🎲 Đang Gieo Xúc Xắc Vận Mệnh…'}
+              {aiPhase === 'narrative' && '✦ Thiên Đạo đang diễn hóa…'}
+              {(!aiPhase || aiPhase === 'idle') && 'Đang suy ngẫm thiên cơ…'}
+            </p>
+            <p className="text-xs italic text-jade-500">
+              {aiPhase === 'logic' && 'Đấng đang suy tính các khả năng có thể xảy ra...'}
+              {aiPhase === 'narrative' && 'Văn phong đang được thiêu chuyển thành thực tại...'}
+            </p>
+          </div>
         </div>
       )}
     </div>

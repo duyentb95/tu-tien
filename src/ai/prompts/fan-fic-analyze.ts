@@ -94,6 +94,28 @@ export const FanFicAnalyzeSchema = z.object({
       description: z.string(),
     }),
   ).min(0).max(8),
+  /**
+   * Phase 9.2: Thuật ngữ tu luyện đặc trưng universe (kinh mạch, huyệt vị, đơn vị thời gian, lãnh thổ...).
+   * Inject vào prompt narrative để AI tránh dùng từ generic, dùng đúng từ nguyên tác.
+   */
+  cultivationTerms: z.array(
+    z.object({
+      /** Tên thuật ngữ — vd "Khiếu Huyệt", "Vĩnh Hải", "Linh Khu", "Đại Khư", "Linh Thai cảnh tầng 1" */
+      term: z.string(),
+      /** Loại — giúp AI dùng đúng context */
+      kind: z.enum([
+        'kinh_mach',      // Kinh mạch (Vĩnh Hải, Linh Khu, Thân Trụ, Thiên Đình...)
+        'huyet_vi',       // Huyệt vị (Khiếu Huyệt, Đan Điền...)
+        'realm_term',     // Thuật ngữ cảnh giới phụ (Linh Thai, Linh Thể, Bá Thể...)
+        'territory',      // Lãnh thổ vĩ mô (Đại Khư, Đông Hoang, Tử Thần Châu...)
+        'time_unit',      // Đơn vị thời gian (canh giờ, kỷ nguyên...)
+        'item_category',  // Phân loại vật phẩm đặc trưng (Tiên Khí, Pháp Khí...)
+        'other',
+      ]),
+      /** Giải thích ngắn 1 câu — để AI biết khi nào dùng */
+      explanation: z.string(),
+    }),
+  ).min(0).max(15),
 });
 
 export type FanFicAnalyzeResult = z.infer<typeof FanFicAnalyzeSchema>;
@@ -171,6 +193,24 @@ Ngươi là **AI phân tích văn học** chuyên về tiểu thuyết tu tiên 
    - VD Đế Bá: "Đế Bá Pháp" (combat_ultimate Tiên Khí), "Lục Đạo Luân Hồi Quyết"
    - kind: 'combat_basic' (đánh thường) | 'combat_ultimate' (tuyệt học) | 'adventure' (di chuyển/buff)
 
+9. **cultivationTerms**: 5-12 thuật ngữ tu luyện đặc trưng (kinh mạch, huyệt vị, lãnh thổ, realm phụ...).
+   Quan trọng: đây là vốn từ AI dùng khi viết narrative để TRÁNH dùng từ generic.
+   - VD Mục Thần Ký:
+     * kinh_mach: "Vĩnh Hải", "Linh Khu", "Thân Trụ", "Thiên Đình" (kinh mạch dẫn khí huyết)
+     * huyet_vi: "Khiếu Huyệt", "Đan Điền"
+     * realm_term: "Linh Thai cảnh", "Bá Thể", "Linh Thể"
+     * territory: "Đại Khư" (vùng đại hoang nguy hiểm), "Đông Hoang"
+   - VD Đấu Phá:
+     * kinh_mach: "Đan Điền", "Mệnh Tuyền"
+     * realm_term: "Dị Hỏa", "Đấu Khí Hóa Sí"
+     * territory: "Tử Thần Châu", "Trung Châu"
+     * item_category: "Đan Vương", "Đan Đế"
+   - VD Phàm Nhân:
+     * realm_term: "Linh Căn", "Trúc Cơ Đan", "Kim Đan kỳ"
+     * territory: "Việt Quốc", "Thiên Nam"
+   - kind: chọn 1 trong [kinh_mach, huyet_vi, realm_term, territory, time_unit, item_category, other]
+   - explanation: 1 câu ngắn ("Kinh mạch lớn dẫn khí huyết từ chân lên đỉnh đầu" / "Vùng đại hoang đầy quái thú phía Đông")
+
 [QUY TẮC CẤM]
 - KHÔNG dùng cảnh giới Luyện Khí/Trúc Cơ/Kim Đan nếu nguyên tác có hệ thống riêng (vd Đế Bá = Sinh Mệnh Cung)
 - KHÔNG bịa tên NPC không có trong nguyên tác (trừ khi Khởi Sinh + không biết universe)
@@ -204,6 +244,11 @@ TRẢ VỀ DUY NHẤT 1 JSON OBJECT theo schema:
   ],
   "initialSkills": [
     { "name": "...", "kind": "combat_basic|combat_ultimate|adventure", "rarity": "Cực Phẩm", "description": "..." }
+  ],
+  "cultivationTerms": [
+    { "term": "Vĩnh Hải", "kind": "kinh_mach", "explanation": "Kinh mạch lớn dẫn khí huyết từ chân lên" },
+    { "term": "Khiếu Huyệt", "kind": "huyet_vi", "explanation": "Huyệt khai mở khi khí huyết đột phá" },
+    { "term": "Đại Khư", "kind": "territory", "explanation": "Vùng đại hoang đầy yêu thú phía Đông" }
   ]
 }
 

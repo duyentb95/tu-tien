@@ -167,6 +167,8 @@ interface GameState {
 
   storyLog: StoryEntry[];
   currentActions: string[];
+  /** Phase 9.1: structured actions với % + reward preview (parallel với currentActions) */
+  currentActionChoices: import('@ai/parser').ActionChoice[];
   turn: number;
 
   combat: CombatState | null;
@@ -196,6 +198,8 @@ interface GameState {
   ep: number;
 
   isAiThinking: boolean;
+  /** Phase 9.3: phase chi tiết khi đang call AI (cho UI hiển thị state phù hợp) */
+  aiPhase: 'idle' | 'logic' | 'narrative';
   lastError: string | null;
 
   // ───── Stage navigation
@@ -382,6 +386,7 @@ export const useGameStore = create<GameState>()(
     settings: DEFAULT_SETTINGS,
     storyLog: [],
     currentActions: [],
+    currentActionChoices: [],
     turn: 0,
     combat: null,
     tribulationContext: null,
@@ -397,6 +402,7 @@ export const useGameStore = create<GameState>()(
     weather: 'Trời quang',
     ep: 0,
     isAiThinking: false,
+    aiPhase: 'idle' as const,
     lastError: null,
 
     setStage: (stage) =>
@@ -579,6 +585,10 @@ export const useGameStore = create<GameState>()(
           if (result.initialSkills && result.initialSkills.length > 0) {
             (s.settings as Record<string, unknown>)._fanFicSkills = result.initialSkills;
           }
+          // Phase 9.2: Cultivation terms (kinh mạch, huyệt vị, lãnh thổ...)
+          if (result.cultivationTerms && result.cultivationTerms.length > 0) {
+            (s.settings as Record<string, unknown>)._fanFicTerms = result.cultivationTerms;
+          }
 
           if (result.initialBeasts && result.initialBeasts.length > 0) {
             (s.settings as Record<string, unknown>)._fanFicBeasts = result.initialBeasts.map((bst) => {
@@ -621,11 +631,13 @@ export const useGameStore = create<GameState>()(
           };
 
           s.isAiThinking = false;
+          s.aiPhase = 'idle';
         });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         set((s) => {
           s.isAiThinking = false;
+          s.aiPhase = 'idle';
           s.lastError = `[fan-fic] Phân tích thất bại: ${msg}`;
         });
         throw err;
@@ -692,8 +704,10 @@ export const useGameStore = create<GameState>()(
             segments: parsed.segments,
           });
           s.currentActions = parsed.actions;
+          s.currentActionChoices = parsed.actionChoices;
           s.turn = 1;
           s.isAiThinking = false;
+          s.aiPhase = 'idle';
         });
 
         // Apply tag events từ chunk đầu tiên
@@ -703,6 +717,7 @@ export const useGameStore = create<GameState>()(
       } catch (err) {
         set((s) => {
           s.isAiThinking = false;
+          s.aiPhase = 'idle';
           s.lastError = err instanceof Error ? err.message : String(err);
         });
       }
@@ -722,6 +737,7 @@ export const useGameStore = create<GameState>()(
         });
         s.turn += 1;
         s.currentActions = [];
+        s.currentActionChoices = [];
         s.isAiThinking = true;
         s.lastError = null;
         // Refactor 5: record action — outcome sẽ infer sau khi AI response (default neutral)
@@ -794,6 +810,8 @@ export const useGameStore = create<GameState>()(
         // Phase 8.3: Fan-fic items + skills hint context
         const ffItems = (settings as { _fanFicItems?: Array<{ name: string; category: string; rarity: string; description: string }> })._fanFicItems;
         const ffSkills = (settings as { _fanFicSkills?: Array<{ name: string; kind: string; rarity: string; description: string }> })._fanFicSkills;
+        // Phase 9.2: Cultivation terminology
+        const ffTerms = (settings as { _fanFicTerms?: Array<{ term: string; kind: string; explanation: string }> })._fanFicTerms;
 
         const parsed = await generateNarrative({
           settings,
@@ -809,6 +827,9 @@ export const useGameStore = create<GameState>()(
           customRules: enabledRules,
           ...(ffItems ? { fanFicItems: ffItems } : {}),
           ...(ffSkills ? { fanFicSkills: ffSkills } : {}),
+          ...(ffTerms ? { fanFicTerms: ffTerms } : {}),
+          // Phase 9.3: cập nhật aiPhase để UI hiển thị state phù hợp
+          onPhase: (phase) => set((st) => { st.aiPhase = phase; }),
         });
 
         set((s) => {
@@ -820,7 +841,9 @@ export const useGameStore = create<GameState>()(
             segments: parsed.segments,
           });
           s.currentActions = parsed.actions;
+          s.currentActionChoices = parsed.actionChoices;
           s.isAiThinking = false;
+          s.aiPhase = 'idle';
         });
 
         // Apply tag events
@@ -830,6 +853,7 @@ export const useGameStore = create<GameState>()(
       } catch (err) {
         set((s) => {
           s.isAiThinking = false;
+          s.aiPhase = 'idle';
           s.lastError = err instanceof Error ? err.message : String(err);
         });
       }
@@ -1118,7 +1142,9 @@ export const useGameStore = create<GameState>()(
             segments: parsed.segments,
           });
           s.currentActions = parsed.actions;
+          s.currentActionChoices = parsed.actionChoices;
           s.isAiThinking = false;
+          s.aiPhase = 'idle';
           s.prevStage = s.stage;
           s.stage = 'playing';
         });
@@ -1128,6 +1154,7 @@ export const useGameStore = create<GameState>()(
       } catch (err) {
         set((s) => {
           s.isAiThinking = false;
+          s.aiPhase = 'idle';
           s.lastError = err instanceof Error ? err.message : String(err);
         });
       }
@@ -1803,6 +1830,7 @@ export const useGameStore = create<GameState>()(
         s.settings = DEFAULT_SETTINGS;
         s.storyLog = [];
         s.currentActions = [];
+        s.currentActionChoices = [];
         s.turn = 0;
         s.combat = null;
         s.tribulationContext = null;
@@ -2521,7 +2549,9 @@ export const selectPlayer = (s: GameState) => s.player;
 export const selectSettings = (s: GameState) => s.settings;
 export const selectStoryLog = (s: GameState) => s.storyLog;
 export const selectActions = (s: GameState) => s.currentActions;
+export const selectActionChoices = (s: GameState) => s.currentActionChoices;
 export const selectIsAiThinking = (s: GameState) => s.isAiThinking;
+export const selectAiPhase = (s: GameState) => s.aiPhase;
 export const selectLastError = (s: GameState) => s.lastError;
 export const selectInventory = (s: GameState) => s.inventory;
 export const selectSkills = (s: GameState) => s.skills;

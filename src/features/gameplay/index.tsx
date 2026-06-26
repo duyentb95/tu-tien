@@ -5,6 +5,8 @@ import {
   selectPlayer,
   selectStoryLog,
   selectActions,
+  selectActionChoices,
+  selectAiPhase,
   selectIsAiThinking,
   selectLastError,
   selectSettings,
@@ -43,7 +45,9 @@ export const GameplayScreen = () => {
   const player = useGameStore(selectPlayer);
   const storyLog = useGameStore(selectStoryLog);
   const actions = useGameStore(selectActions);
+  const actionChoices = useGameStore(selectActionChoices);
   const isAiThinking = useGameStore(selectIsAiThinking);
+  const aiPhase = useGameStore(selectAiPhase);
   const lastError = useGameStore(selectLastError);
   const settings = useGameStore(selectSettings);
   const submitAction = useGameStore((s) => s.submitAction);
@@ -192,9 +196,10 @@ export const GameplayScreen = () => {
       {/* Main grid — mobile: sidebar trên trước, gameplay dưới. Desktop: 2 cột */}
       <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-[1fr_300px]">
         <div className="order-2 flex flex-col lg:order-1">
-          <StoryView entries={storyLog} isAiThinking={isAiThinking} playerName={player.Name} />
+          <StoryView entries={storyLog} isAiThinking={isAiThinking} aiPhase={aiPhase} playerName={player.Name} />
           <ActionPanel
             actions={actions}
+            choices={actionChoices}
             disabled={isAiThinking}
             onSelect={(action) => void submitAction(action)}
           />
