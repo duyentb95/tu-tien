@@ -30,6 +30,12 @@ const LoreBookModal = lazy(() =>
 const CustomRulesModal = lazy(() =>
   import('@features/custom-rules').then((m) => ({ default: m.CustomRulesModal })),
 );
+const TournamentModal = lazy(() =>
+  import('@features/tournament').then((m) => ({ default: m.TournamentModal })),
+);
+const AchievementsModal = lazy(() =>
+  import('@features/achievements').then((m) => ({ default: m.AchievementsModal })),
+);
 
 export const GameplayScreen = () => {
   const player = useGameStore(selectPlayer);
@@ -51,6 +57,8 @@ export const GameplayScreen = () => {
   const [saveManagerOpen, setSaveManagerOpen] = useState(false);
   const [loreBookOpen, setLoreBookOpen] = useState(false);
   const [customRulesOpen, setCustomRulesOpen] = useState(false);
+  const [tournamentOpen, setTournamentOpen] = useState(false);
+  const [achievementsOpen, setAchievementsOpen] = useState(false);
 
   // Global keyboard shortcuts
   useKeyboard(
@@ -134,6 +142,8 @@ export const GameplayScreen = () => {
           />
           <NavButton label="Độ Kiếp" icon="⚡" onClick={() => setStage('tribulation')} />
           <NavButton label="Tàng Thư" icon="☷" onClick={() => setLoreBookOpen(true)} />
+          <NavButton label="Đại Hội" icon="⚔" onClick={() => setTournamentOpen(true)} />
+          <NavButton label="Thành Tựu" icon="★" onClick={() => setAchievementsOpen(true)} />
           <NavButton label="Đạo Tâm" icon="◍" onClick={() => setCustomRulesOpen(true)} />
           <NavButton label="Lưu Trữ" icon="◭" onClick={() => setSaveManagerOpen(true)} />
           <NavButton label="Cẩm Nang" icon="?" onClick={() => setHandbookOpen(true)} />
@@ -197,6 +207,8 @@ export const GameplayScreen = () => {
         {saveManagerOpen && <SaveManagerModal open onClose={() => setSaveManagerOpen(false)} />}
         {loreBookOpen && <LoreBookModal open onClose={() => setLoreBookOpen(false)} />}
         {customRulesOpen && <CustomRulesModal open onClose={() => setCustomRulesOpen(false)} />}
+        {tournamentOpen && <TournamentModal open onClose={() => setTournamentOpen(false)} />}
+        {achievementsOpen && <AchievementsModal open onClose={() => setAchievementsOpen(false)} />}
       </Suspense>
     </div>
   );
