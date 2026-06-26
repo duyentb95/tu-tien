@@ -1,5 +1,6 @@
 import type { PlayerCharacter } from '@gametypes/character';
 import type { GameSettings } from '@state/game-store';
+import { findFanFicPreset, buildLoreInjection, FAN_FIC_PRESETS } from '@data/fan-fic-presets';
 
 export interface NarrativeContext {
   settings: GameSettings;
@@ -41,6 +42,14 @@ KHÔNG quá 6 tag/chunk (giữ tiết tấu).
 
 export const buildNarrativePrompt = (ctx: NarrativeContext): string => {
   const { settings, player, realm, recentHistory, lastAction, isOpening } = ctx;
+
+  // Inject fan-fic preset lore nếu có (priority: fanFicPresetId > storyTitle match)
+  const presetIdField = (settings as { fanFicPresetId?: string | null }).fanFicPresetId;
+  const presetById = presetIdField
+    ? FAN_FIC_PRESETS.find((p) => p.id === presetIdField)
+    : null;
+  const preset = presetById ?? findFanFicPreset(settings.storyTitle);
+  const loreBlock = preset && preset.id !== 'tieu-dao' ? buildLoreInjection(preset) : '';
 
   const personaBlock = `
 [BỐI CẢNH NHÂN VẬT]
@@ -112,6 +121,7 @@ KHÔNG viết gì ngoài định dạng trên. KHÔNG dùng markdown # ** \`.
 `.trim();
 
   return [
+    loreBlock,    // Đặt LORE đầu tiên — AI đọc đầu, weight cao nhất
     personaBlock,
     settingsBlock,
     historyBlock,

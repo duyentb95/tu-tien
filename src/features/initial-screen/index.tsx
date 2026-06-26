@@ -57,7 +57,7 @@ export const InitialScreen = () => {
               </button>
             )}
             <button
-              onClick={() => setStage('setup')}
+              onClick={() => setStage('adventure_mode')}
               className="btn-secondary text-[15px]"
               style={{ color: hasSave ? '#9fb09b' : '#cda45e' }}
             >

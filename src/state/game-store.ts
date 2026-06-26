@@ -66,6 +66,7 @@ import { notify } from './notifications';
 
 export type GameStage =
   | 'initial'
+  | 'adventure_mode'
   | 'setup'
   | 'playing'
   | 'character'
@@ -89,6 +90,8 @@ export interface GameSettings {
   narratorPronoun: string;
   currencyName: string;
   playerAvatarUrl: string | null;
+  /** Fan-fic preset id (vd 'muc-than-ky'). null = custom mode. */
+  fanFicPresetId?: string | null;
 }
 
 export interface KnowledgeSlice {

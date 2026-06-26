@@ -1,7 +1,8 @@
 import { lazy, Suspense } from 'react';
 import { useGameStore, selectStage } from '@state/game-store';
-// Eager: 3 screen luôn hit đầu game (initial → setup → playing)
+// Eager: 4 screen luôn hit đầu game (initial → adventure_mode → setup → playing)
 import { InitialScreen } from '@features/initial-screen';
+import { AdventureModeScreen } from '@features/adventure-mode';
 import { GameSetupScreen } from '@features/game-setup';
 import { GameplayScreen } from '@features/gameplay';
 import { ToastStack } from '@shared/components/ToastStack';
@@ -60,6 +61,18 @@ export const App = () => {
         {skipLink}
         <div id="main-content" className="flex-1">
           <InitialScreen />
+        </div>
+        {showFooter && <AppFooter />}
+        <ToastStack />
+      </div>
+    );
+  }
+  if (stage === 'adventure_mode') {
+    return (
+      <div className="flex min-h-screen w-full flex-col">
+        {skipLink}
+        <div id="main-content" className="flex-1">
+          <AdventureModeScreen />
         </div>
         {showFooter && <AppFooter />}
         <ToastStack />
