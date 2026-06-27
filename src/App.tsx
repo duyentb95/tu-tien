@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useGameStore, selectStage } from '@state/game-store';
 // Eager: 4 screen luôn hit đầu game (initial → adventure_mode → setup → playing)
 import { InitialScreen } from '@features/initial-screen';
@@ -8,6 +8,12 @@ import { GameplayScreen } from '@features/gameplay';
 import { ToastStack } from '@shared/components/ToastStack';
 import { ScreenLoader } from '@shared/components/ScreenLoader';
 import { AppFooter } from '@shared/components/AppFooter';
+// Phase 14.x: Global shortcuts (Esc back, M/I/C/Q/G/B/V navigation, Shift+? help)
+import { useGlobalShortcuts } from '@shared/hooks/useGlobalShortcuts';
+import { useKeyboard } from '@shared/hooks/useKeyboard';
+const ShortcutHelpModal = lazy(() =>
+  import('@features/shortcut-help/ShortcutHelpModal').then((m) => ({ default: m.ShortcutHelpModal })),
+);
 
 // Lazy: 10 screen ít dùng — chỉ tải JS chunk khi user nhấn vào
 const CharacterSheetScreen = lazy(() =>
@@ -43,6 +49,15 @@ const CaveAbodeScreen = lazy(() =>
 
 export const App = () => {
   const stage = useGameStore(selectStage);
+  // Phase 14.x: Global shortcuts (Esc back, M/I/C/Q/G/B/V navigation)
+  useGlobalShortcuts();
+
+  // Phase 14.x: Help modal mở bằng Shift+? hoặc F1
+  const [helpOpen, setHelpOpen] = useState(false);
+  useKeyboard({
+    'shift+?': () => setHelpOpen((v) => !v),
+    F1: (e) => { e.preventDefault(); setHelpOpen((v) => !v); },
+  }, []);
 
   // Skip-to-content link — visible chỉ khi keyboard focus
   const skipLink = (
@@ -54,6 +69,13 @@ export const App = () => {
   // Footer hiển thị ở các screen tĩnh — không show trong combat/tribulation để không phân tâm
   const showFooter = stage !== 'combat' && stage !== 'tribulation';
 
+  // Help modal overlay — luôn render ở root, hoạt động trên mọi screen
+  const helpOverlay = (
+    <Suspense fallback={null}>
+      {helpOpen && <ShortcutHelpModal open onClose={() => setHelpOpen(false)} />}
+    </Suspense>
+  );
+
   // Eager render — không cần Suspense
   if (stage === 'initial') {
     return (
@@ -64,6 +86,7 @@ export const App = () => {
         </div>
         {showFooter && <AppFooter />}
         <ToastStack />
+        {helpOverlay}
       </div>
     );
   }
@@ -76,6 +99,7 @@ export const App = () => {
         </div>
         {showFooter && <AppFooter />}
         <ToastStack />
+        {helpOverlay}
       </div>
     );
   }
@@ -88,6 +112,7 @@ export const App = () => {
         </div>
         {showFooter && <AppFooter />}
         <ToastStack />
+        {helpOverlay}
       </div>
     );
   }
@@ -100,6 +125,7 @@ export const App = () => {
         </div>
         {showFooter && <AppFooter />}
         <ToastStack />
+        {helpOverlay}
       </div>
     );
   }
@@ -124,6 +150,7 @@ export const App = () => {
       </div>
       {showFooter && <AppFooter />}
       <ToastStack />
+      {helpOverlay}
     </div>
   );
 };

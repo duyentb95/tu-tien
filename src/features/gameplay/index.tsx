@@ -93,15 +93,11 @@ export const GameplayScreen = () => {
     if (!traderSession) setTraderManuallyClosed(false);
   }, [traderSession?.traderName]);
 
-  // Global keyboard shortcuts
+  // Gameplay-only shortcuts (M/I/C/Q/G/B/V đã xử lý trong useGlobalShortcuts).
+  // Còn lại: ? mở Cẩm Nang, Ctrl/Cmd+S mở Lưu Trữ.
   useKeyboard(
     {
       Slash: () => setHandbookOpen((v) => !v),
-      'shift+Slash': () => setHandbookOpen((v) => !v), // ? (Shift+/)
-      KeyM: () => setStage('world_map'),
-      KeyI: () => setStage('inventory'),
-      KeyC: () => setStage('character'),
-      KeyQ: () => setStage('quests'),
       'cmd+s': (e) => {
         e.preventDefault();
         setSaveManagerOpen(true);
@@ -111,7 +107,7 @@ export const GameplayScreen = () => {
         setSaveManagerOpen(true);
       },
     },
-    [setStage],
+    [],
   );
 
   // Auto-backup mỗi 10 lượt — rotate qua 3 slot autobackup
@@ -193,6 +189,7 @@ export const GameplayScreen = () => {
           <NavButton label="Lưu Trữ" icon="◭" onClick={() => setSaveManagerOpen(true)} />
           <NavButton label="Tra Cứu" icon="📜" onClick={() => setQuickLookupOpen(true)} />
           <NavButton label="Cẩm Nang" icon="?" onClick={() => setHandbookOpen(true)} />
+          <NavButton label="Phím Tắt" icon="⌨" onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', code: 'Slash', shiftKey: true }))} />
           {/* Phase 14.2B: AI status indicator (auto-update via subscribeHealth) */}
           <AIStatusDot onClick={() => setAiStatusOpen(true)} />
           <NavButton

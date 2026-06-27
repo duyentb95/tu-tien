@@ -288,7 +288,7 @@ export const CharacterSheetScreen = () => {
 
       <div className="mt-6 flex justify-center gap-3">
         <button onClick={() => setStage('playing')} className="btn-jade">
-          ← Quay về câu chuyện
+          ← Quay về câu chuyện <kbd className="ml-2 rounded border border-current/40 px-1 font-mono text-[10px] opacity-70">Esc</kbd>
         </button>
       </div>
     </main>
