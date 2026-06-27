@@ -28,6 +28,15 @@ import { recomputeFinalStats, generateItemBonuses } from '@core/stats/equipment'
 import { generateItemBonusesV2 } from '@core/items/item-budget';
 import { calculateEpReward } from '@core/scoring/ep-scoring';
 import { EMPTY_TRADER_SESSION } from '@gametypes/trade';
+// Phase 15: Economy
+import {
+  INITIAL_ECONOMY,
+  computeRegenTokens,
+  generateReferralCode,
+  getOrCreateDeviceId,
+} from '@gametypes/economy';
+import { findCoupon } from '@data/coupons';
+import { CURRENCY_PACKS, EXCHANGE_OPTIONS } from '@data/store-packs';
 import { nourishArtifact, isArtifactEligible, ARTIFACT_GRADE_NAMES } from '@core/items/artifact';
 import { CATEGORY_TO_DEFAULT_SLOT, EQUIPPABLE_CATEGORIES } from '@gametypes/item';
 import type { EquipmentSlot } from '@gametypes/character';
@@ -217,6 +226,9 @@ interface GameState {
    * null = không trong giao dịch. Set qua [ENTER_TRADE_MODE], clear qua [EXIT_TRADE_MODE]. */
   traderSession: import('@gametypes/trade').TraderSession | null;
 
+  /** Phase 15: Economy state — Tiền Ngọc (premium currency), action tokens, referral, coupons */
+  economy: import('@gametypes/economy').EconomyState;
+
   isAiThinking: boolean;
   /** Phase 9.3: phase chi tiết khi đang call AI (cho UI hiển thị state phù hợp) */
   aiPhase: 'idle' | 'logic' | 'narrative';
@@ -271,6 +283,26 @@ interface GameState {
   /** Phase 9.6: Trang bị skill vào slot cụ thể. combat_basic_1/2/ultimate cho combat skill,
    * adventure_1/2/3 cho adventure skill. Tự validate kind/slot. */
   equipSkill: (skillId: string, slot: import('@gametypes/character').SkillSlot) => void;
+
+  // ─── Phase 15: Economy actions ───
+  /** Tự regen action tokens dựa trên thời gian (idempotent). Gọi mỗi khi mở app/turn. */
+  refreshTokens: () => void;
+  /** Tiêu 1 action token. Returns true nếu OK (vẫn cho nếu hết — soft gating). */
+  useActionToken: () => boolean;
+  /** Tiêu Tiền Ngọc. Returns false nếu không đủ. */
+  spendTienNgoc: (amount: number, reason?: string) => boolean;
+  /** Cộng Tiền Ngọc (mock payment OR coupon OR referral). */
+  addTienNgoc: (amount: number, reason?: string) => void;
+  /** Cộng action tokens (vượt cap được). */
+  addActionTokens: (amount: number) => void;
+  /** Mua exchange option qua effect ID. Returns true nếu OK. */
+  purchaseExchange: (effectId: import('@data/store-packs').ExchangeOption['effect']) => boolean;
+  /** Redeem coupon code. Returns { ok, message }. */
+  redeemCoupon: (code: string) => { ok: boolean; message: string };
+  /** Apply referral code (1 lần per device). Returns { ok, message }. */
+  applyReferral: (code: string) => { ok: boolean; message: string };
+  /** Mock buy currency pack (Phase 15 — wire Stripe sau). */
+  mockBuyPack: (packId: string) => { ok: boolean; message: string };
   unequipSkill: (slot: import('@gametypes/character').SkillSlot) => void;
   /** Dưỡng pháp bảo: tiêu linh thạch → tăng artifactSoul → có thể level up */
   nourishArtifactAction: (itemId: string, currencyAmount: number) => void;
@@ -432,6 +464,9 @@ export const useGameStore = create<GameState>()(
     weather: 'Trời quang',
     ep: 0,
     traderSession: null,
+
+    // Phase 15: Economy — generate referral code 1 lần lúc init store
+    economy: { ...INITIAL_ECONOMY, referralCode: generateReferralCode(getOrCreateDeviceId()) },
     isAiThinking: false,
     aiPhase: 'idle' as const,
     lastError: null,
@@ -918,6 +953,9 @@ export const useGameStore = create<GameState>()(
     submitAction: async (actionText) => {
       const state = get();
       if (!state.player || state.isAiThinking) return;
+      // Phase 15: Soft token gating — useActionToken vẫn return true cho play khi hết,
+      // chỉ hiện toast warn. Hard gating có thể bật sau bằng cách return early.
+      get().useActionToken();
 
       set((s) => {
         s.storyLog.push({
@@ -1282,6 +1320,168 @@ export const useGameStore = create<GameState>()(
         s.player.equippedSkills[slot] = null;
         if (skill) notify.info(`Gỡ kỹ năng: ${skill.name}`, '');
       });
+    },
+
+    // ─── Phase 15: Economy actions ───
+
+    refreshTokens: () => {
+      set((s) => {
+        s.economy = computeRegenTokens(s.economy);
+      });
+    },
+
+    useActionToken: () => {
+      const e = get().economy;
+      const regenerated = computeRegenTokens(e);
+      const hasTokens = regenerated.actionTokens > 0;
+      set((s) => {
+        s.economy = regenerated;
+        if (hasTokens) {
+          s.economy.actionTokens -= 1;
+        }
+      });
+      if (!hasTokens) {
+        notify.warn('Hết Lượt Hành Động', 'Đợi regen 1/15p hoặc nạp Tiền Ngọc đổi thêm (Cửa Hàng).');
+      } else if (regenerated.actionTokens <= 10) {
+        // Soft warning khi sắp hết
+        notify.info(`Còn ${regenerated.actionTokens - 1} lượt`, 'Sắp cạn — đợi regen hoặc đổi từ Tiền Ngọc.');
+      }
+      return true; // Soft gating: luôn cho play
+    },
+
+    spendTienNgoc: (amount, reason) => {
+      const have = get().economy.tienNgoc;
+      if (have < amount) {
+        notify.warn('Không đủ Tiền Ngọc', `Cần ${amount} TN (có ${have}). Nạp thêm ở Cửa Hàng.`);
+        return false;
+      }
+      set((s) => {
+        s.economy.tienNgoc -= amount;
+      });
+      if (reason) notify.info(`-${amount} Tiền Ngọc`, reason);
+      return true;
+    },
+
+    addTienNgoc: (amount, reason) => {
+      set((s) => {
+        s.economy.tienNgoc += amount;
+      });
+      notify.success(`+${amount} Tiền Ngọc`, reason ?? '');
+    },
+
+    addActionTokens: (amount) => {
+      set((s) => {
+        s.economy.actionTokens += amount; // Cho phép vượt cap (premium top-up)
+      });
+      notify.success(`+${amount} Lượt Hành Động`, '');
+    },
+
+    purchaseExchange: (effectId) => {
+      const option = EXCHANGE_OPTIONS.find((o) => o.effect === effectId);
+      if (!option) return false;
+      const cost = option.cost;
+      const { spendTienNgoc, addActionTokens } = get();
+      const e = get().economy;
+      // Block oneTime perks đã unlock
+      if (option.kind === 'oneTime') {
+        const key = effectId === 'speed_boost_unlock' ? 'speedBoost'
+          : effectId === 'unlimited_custom_rules' ? 'unlimitedCustomRules'
+          : effectId === 'extra_save_slots' ? 'extraSaveSlots' : null;
+        if (key && e.unlockedPerks[key]) {
+          notify.info('Đã mở khoá', option.label);
+          return false;
+        }
+      }
+      if (!spendTienNgoc(cost, `Mua: ${option.label}`)) return false;
+
+      // Apply effect
+      set((s) => {
+        switch (effectId) {
+          case 'topup_50_tokens': s.economy.actionTokens += 50; break;
+          case 'topup_200_tokens': s.economy.actionTokens += 220; break;
+          case 'topup_500_tokens': s.economy.actionTokens += 600; break;
+          case 'speed_boost_unlock': s.economy.unlockedPerks.speedBoost = true; break;
+          case 'unlimited_custom_rules': s.economy.unlockedPerks.unlimitedCustomRules = true; break;
+          case 'extra_save_slots': s.economy.unlockedPerks.extraSaveSlots = true; break;
+          case 'genesis_reroll_credit': /* future: track credit */ break;
+          case 'item_upgrade_credit': /* future: track credit */ break;
+        }
+      });
+      if (effectId.startsWith('topup_')) {
+        notify.success(`+ Lượt Hành Động`, option.label);
+      } else if (option.kind === 'oneTime') {
+        notify.epic('✦ Mở Khoá Vĩnh Viễn', option.label);
+      } else {
+        notify.success('Mua thành công', option.label);
+      }
+      // Avoid unused warning
+      void addActionTokens;
+      return true;
+    },
+
+    redeemCoupon: (code) => {
+      const coupon = findCoupon(code);
+      if (!coupon) {
+        return { ok: false, message: `Mã "${code}" không hợp lệ hoặc đã hết hạn.` };
+      }
+      const normalizedCode = coupon.code;
+      if (get().economy.redeemedCoupons.includes(normalizedCode)) {
+        return { ok: false, message: 'Mã này đã được sử dụng trên thiết bị.' };
+      }
+      if (coupon.newUserOnly && get().turn > 0) {
+        return { ok: false, message: 'Mã này chỉ dành cho tân thủ (chưa bắt đầu chơi).' };
+      }
+      set((s) => {
+        s.economy.redeemedCoupons.push(normalizedCode);
+        if (coupon.reward.tienNgoc) s.economy.tienNgoc += coupon.reward.tienNgoc;
+        if (coupon.reward.actionTokens) s.economy.actionTokens += coupon.reward.actionTokens;
+      });
+      const rewardParts: string[] = [];
+      if (coupon.reward.tienNgoc) rewardParts.push(`+${coupon.reward.tienNgoc} Tiền Ngọc`);
+      if (coupon.reward.actionTokens) rewardParts.push(`+${coupon.reward.actionTokens} Lượt`);
+      notify.epic('✦ Đổi mã thành công', `${coupon.description} (${rewardParts.join(', ')})`);
+      return { ok: true, message: `${coupon.description} (${rewardParts.join(', ')})` };
+    },
+
+    applyReferral: (code) => {
+      const trimmed = code.trim().toUpperCase();
+      if (!trimmed) return { ok: false, message: 'Vui lòng nhập mã.' };
+      if (trimmed === get().economy.referralCode) {
+        return { ok: false, message: 'Không thể tự giới thiệu chính mình.' };
+      }
+      if (get().economy.referredBy) {
+        return { ok: false, message: 'Đã sử dụng mã giới thiệu trước đó.' };
+      }
+      if (get().turn > 5) {
+        return { ok: false, message: 'Mã giới thiệu chỉ dùng được khi mới bắt đầu (< 5 lượt).' };
+      }
+      // V1: client-side trust — cộng reward ngay cho người mới.
+      // Future: gửi server validate inviter exists + cộng reward cho inviter qua Firebase.
+      set((s) => {
+        s.economy.referredBy = trimmed;
+        s.economy.tienNgoc += 100;
+        s.economy.actionTokens += 30;
+      });
+      notify.epic('✦ Cảm tạ tiền bối', `Mã "${trimmed}" — nhận 100 Tiền Ngọc + 30 Lượt!`);
+      return { ok: true, message: 'Áp dụng thành công. +100 TN, +30 Lượt.' };
+    },
+
+    mockBuyPack: (packId) => {
+      const pack = CURRENCY_PACKS.find((p) => p.id === packId);
+      if (!pack) return { ok: false, message: 'Pack không tồn tại.' };
+      // V1: mock — tự cộng currency. V2: wire Stripe/MoMo + verify webhook.
+      const total = pack.amount + pack.bonus;
+      set((s) => {
+        s.economy.tienNgoc += total;
+      });
+      notify.epic(
+        '✦ Mock Payment (Sắp triển khai)',
+        `+${total} Tiền Ngọc (${pack.amount} + ${pack.bonus} bonus). Wire payment thực sau.`,
+      );
+      return {
+        ok: true,
+        message: `Mock thành công +${total} TN. Payment thực sẽ triển khai sau.`,
+      };
     },
 
     nourishArtifactAction: (itemId, currencyAmount) => {
@@ -2978,6 +3178,10 @@ export const selectIsAiThinking = (s: GameState) => s.isAiThinking;
 export const selectAiPhase = (s: GameState) => s.aiPhase;
 export const selectLastError = (s: GameState) => s.lastError;
 export const selectInventory = (s: GameState) => s.inventory;
+// Phase 15: Economy selectors
+export const selectEconomy = (s: GameState) => s.economy;
+export const selectTienNgoc = (s: GameState) => s.economy.tienNgoc;
+export const selectActionTokens = (s: GameState) => s.economy.actionTokens;
 export const selectSkills = (s: GameState) => s.skills;
 export const selectCombat = (s: GameState) => s.combat;
 export const selectQuests = (s: GameState) => s.quests;

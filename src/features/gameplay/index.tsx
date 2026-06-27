@@ -55,6 +55,11 @@ const AIStatusModal = lazy(() =>
 // AIStatusDot nhẹ → eager import (header luôn render)
 import { AIStatusDot } from '@features/ai-status/AIStatusDot';
 import { AIFallbackBanner } from '@features/ai-status/AIFallbackBanner';
+// Phase 15: Monetization
+const MonetizationModal = lazy(() =>
+  import('@features/monetization/MonetizationModal').then((m) => ({ default: m.MonetizationModal })),
+);
+import { CurrencyDisplay } from '@features/monetization/CurrencyDisplay';
 
 export const GameplayScreen = () => {
   const player = useGameStore(selectPlayer);
@@ -84,6 +89,8 @@ export const GameplayScreen = () => {
   const [skillMgmtOpen, setSkillMgmtOpen] = useState(false);
   // Phase 14.2B: AI Status modal
   const [aiStatusOpen, setAiStatusOpen] = useState(false);
+  // Phase 15: Monetization modal
+  const [monetizationOpen, setMonetizationOpen] = useState(false);
   // Phase 12.2: Trader modal — auto-open theo traderSession state
   const traderSession = useGameStore((s) => s.traderSession);
   const [traderManuallyClosed, setTraderManuallyClosed] = useState(false);
@@ -192,6 +199,8 @@ export const GameplayScreen = () => {
           <NavButton label="Phím Tắt" icon="⌨" onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', code: 'Slash', shiftKey: true }))} />
           {/* Phase 14.2B: AI status indicator (auto-update via subscribeHealth) */}
           <AIStatusDot onClick={() => setAiStatusOpen(true)} />
+          {/* Phase 15: Currency display + cửa hàng */}
+          <CurrencyDisplay onClick={() => setMonetizationOpen(true)} />
           <NavButton
             label="Thoát"
             icon="⊗"
@@ -272,6 +281,7 @@ export const GameplayScreen = () => {
           <TraderModal open onClose={() => setTraderManuallyClosed(true)} />
         )}
         {aiStatusOpen && <AIStatusModal open onClose={() => setAiStatusOpen(false)} />}
+        {monetizationOpen && <MonetizationModal open onClose={() => setMonetizationOpen(false)} />}
       </Suspense>
     </div>
   );

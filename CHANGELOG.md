@@ -5,6 +5,26 @@ Versioning theo [SemVer](https://semver.org/lang/vi/).
 
 ---
 
+## [1.5.0] — 2026-06-26
+
+### Added — Phase 15 (Monetization + Marketing infrastructure)
+
+- **Economy state** (`src/types/economy.ts` + `src/state/game-store.ts`): Tiền Ngọc (premium currency) + actionTokens (50/ngày + regen 1/15 phút, soft cap). Daily reset 0h local. Compute pure function `computeRegenTokens()` idempotent — safe gọi mỗi 30s.
+- **Currency packs** (`src/data/store-packs.ts`): 5 pack từ 20k–500k VND với bonus tier (starter / standard / premium / whale).
+- **Exchange options**: 8 options đổi Tiền Ngọc → action tokens (50/200/500), speed boost vĩnh viễn, unlimited custom rules, extra save slots (3→10), genesis re-roll credit, item upgrade credit.
+- **Coupon registry** (`src/data/coupons.ts`): 5 mã hardcoded — `MACHOI2026`, `WELCOME` (newbie-only), `TUTIENVN`, `LAUNCH`, `TANMUC`. 1-time per device. Future: backend dynamic.
+- **Referral system**: Auto-gen 8-char code unique từ deviceId, share qua Web Share API hoặc copy. Reward inviter +200 TN +50 token, invitee +100 TN +30 token (chỉ áp dụng <5 turn).
+- **MonetizationModal** (`src/features/monetization/MonetizationModal.tsx`): 4-tab modal Cửa Hàng / Tiêu Tiền Ngọc / Giới Thiệu Bạn / Mã Khuyến Mãi.
+- **CurrencyDisplay** trong header gameplay: 💎 Tiền Ngọc + ⚡ tokens, anim-pulse khi tokens < 10.
+- **submitAction** wire `useActionToken()` — soft warn khi sắp hết, không block play.
+
+### Note
+
+- Payment thực (Stripe / MoMo / ZaloPay) chưa wire — button "Mua" hiện mock cộng currency cho dev test với banner "Sắp triển khai".
+- Coupon + Referral hoàn toàn functional (không cần payment) — sẵn sàng làm marketing campaign ngay.
+
+---
+
 ## [1.4.0] — 2026-06-26
 
 ### Added — Phase 14 (AI resilience + BYOK + Health monitoring)
