@@ -1,20 +1,28 @@
 /**
  * Service Worker — minimal offline cache.
- * Strategy:
- *   - HTML / CSS / JSON từ same-origin → stale-while-revalidate (24h TTL)
- *   - JS MODULES (lazy chunks) → NETWORK-ONLY (file path có hash, mỗi build mới hash đổi.
- *     Cache-first sẽ làm SW trả index.html fallback → MIME error)
- *   - Fonts từ Google → cache-first vĩnh viễn
- *   - Imagen API + Gemini API + DeepSeek API + AI proxy → network-only (không cache)
  *
- * IMPORTANT: bump CACHE_VERSION mỗi khi có breaking change (CSP, route, JS structure)
- * để force re-cache. Old version SW sẽ delete trong activate handler.
+ * Strategy:
+ *   - HTML / navigate request → NETWORK-FIRST với cache fallback (offline only).
+ *     LÝ DO: index.html mỗi build mới trỏ tới chunk hash khác. Cache-first =
+ *     user xem HTML cũ → request chunk cũ không tồn tại trên server → SPA fallback
+ *     → MIME text/html → module crash → màn hình đen.
+ *   - JS modules (lazy chunks) /assets/*.js → NETWORK-ONLY (bypass SW hoàn toàn).
+ *   - CSS /assets/*.css → NETWORK-ONLY (cùng lý do hash).
+ *   - Static asset same-origin (icon, manifest...) → stale-while-revalidate.
+ *   - Google Fonts → cache-first vĩnh viễn.
+ *   - AI APIs (Gemini / DeepSeek / Cloudflare Worker / Firebase) → network-only.
+ *
+ * + Auto-recover: khi page detect chunk load error (vd "Failed to fetch dynamically
+ *   imported module"), gửi message 'CLEAR_CACHE' → SW xoá cache + unregister →
+ *   page reload → fresh fetch.
+ *
+ * IMPORTANT: bump CACHE_VERSION mỗi khi có breaking change SW logic.
  */
 
-const CACHE_VERSION = 'mac-do-v3';   // bumped v3: skip cache JS modules, allow deepseek
+const CACHE_VERSION = 'mac-do-v4';   // v4: HTML network-first (fix stale chunk hash)
 const FONT_CACHE = 'mac-do-fonts-v1';
 
-const PRECACHE_URLS = ['/', '/manifest.webmanifest', '/icon-192.svg', '/icon-512.svg'];
+const PRECACHE_URLS = ['/manifest.webmanifest', '/icon-192.svg', '/icon-512.svg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -31,9 +39,22 @@ self.addEventListener('activate', (event) => {
           .filter((k) => k !== CACHE_VERSION && k !== FONT_CACHE)
           .map((k) => caches.delete(k))
       )
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
+});
+
+// Listen 'CLEAR_CACHE' message từ page (auto-recover stale chunk)
+self.addEventListener('message', (event) => {
+  if (event.data === 'CLEAR_CACHE' || event.data?.type === 'CLEAR_CACHE') {
+    caches.keys().then((keys) =>
+      Promise.all(keys.map((k) => caches.delete(k)))
+    ).then(() => {
+      // Notify all clients to reload
+      self.clients.matchAll().then((clients) => {
+        clients.forEach((c) => c.postMessage({ type: 'CACHE_CLEARED' }));
+      });
+    });
+  }
 });
 
 self.addEventListener('fetch', (event) => {
@@ -43,16 +64,35 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   if (url.hostname.includes('generativelanguage.googleapis.com')) return;
   if (url.hostname.includes('firestore.googleapis.com')) return;
-  if (url.hostname.includes('api.deepseek.com')) return; // Phase 8.1 DeepSeek
-  if (url.hostname.endsWith('.workers.dev')) return; // Cloudflare Worker proxy
-  if (url.hostname.includes('cloudfunctions.net')) return; // Firebase Function proxy
+  if (url.hostname.includes('api.deepseek.com')) return;
+  if (url.hostname.endsWith('.workers.dev')) return;
+  if (url.hostname.includes('cloudfunctions.net')) return;
 
-  // ⚠ CRITICAL: KHÔNG cache JS module chunks (vd /assets/feat-map-XXX.js)
-  // Mỗi build mới Vite gen hash khác → SW cache-first sẽ trả 404 fallback
-  // → SPA rewrite → trả index.html → MIME 'text/html' → module loader crash.
-  // Strategy: luôn network cho file .js trong /assets/
+  // ⚠ CRITICAL: KHÔNG cache JS/CSS module chunks (hash đổi mỗi build)
   if (url.pathname.startsWith('/assets/') && url.pathname.endsWith('.js')) return;
   if (url.pathname.startsWith('/assets/') && url.pathname.endsWith('.css')) return;
+
+  // HTML / navigate request → NETWORK-FIRST (cache chỉ là offline fallback)
+  const isNavigate = event.request.mode === 'navigate';
+  const acceptsHtml = event.request.headers.get('accept')?.includes('text/html');
+  if (isNavigate || acceptsHtml || url.pathname === '/' || url.pathname.endsWith('.html')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((res) => {
+          if (res.ok) {
+            // Cache fresh copy cho offline
+            const clone = res.clone();
+            caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, clone));
+          }
+          return res;
+        })
+        .catch(() => {
+          // Offline → fallback cache (HTML cũ vẫn tốt hơn không có gì)
+          return caches.match(event.request).then((cached) => cached || caches.match('/'));
+        })
+    );
+    return;
+  }
 
   // Google Fonts → cache forever
   if (url.hostname.includes('fonts.googleapis.com') || url.hostname.includes('fonts.gstatic.com')) {
@@ -71,7 +111,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Same-origin → cache-first with network fallback
+  // Other same-origin static (icon, manifest...) → stale-while-revalidate
   if (url.origin === self.location.origin) {
     event.respondWith(
       caches.open(CACHE_VERSION).then((cache) =>
@@ -82,7 +122,6 @@ self.addEventListener('fetch', (event) => {
               return res;
             })
             .catch(() => cached);
-          // Stale-while-revalidate
           return cached || fetchPromise;
         })
       )
