@@ -20,6 +20,7 @@ export const dauPhaThuongKhung: CanonPack = {
   },
 
   defaultStartingLocation: 'Ô Đàm thành (Tiêu gia)',
+  defaultStartingTechnique: 'Phần Quyết',
 
   signatureNpcs: [
     { name: 'Tiêu Viêm', role: 'Nhân vật chính', description: 'Thiếu niên Tiêu gia, ban đầu mất Đấu Khí, gặp Dược Lão truyền thừa nên trỗi dậy.' },

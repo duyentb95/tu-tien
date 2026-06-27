@@ -103,6 +103,13 @@ export interface CanonPack {
 
   /** Vị trí khởi đầu mặc định (nếu không có context cụ thể) */
   defaultStartingLocation: string;
+  /**
+   * Phase 14.x: Công pháp chính canonical cho nhân vật chính nguyên tác.
+   * Vd Tần Mục → "Bá Thể Tam Đan Công" (Mục Thần Ký).
+   * Khi user pick Hóa Thân chính, currentTechnique = field này.
+   * Khi Khởi Sinh, fallback default generic universe.
+   */
+  defaultStartingTechnique?: string;
 
   /** ─────────── World elements ─────────── */
   signatureNpcs: CanonNPC[];

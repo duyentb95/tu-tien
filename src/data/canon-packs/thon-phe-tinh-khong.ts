@@ -21,6 +21,7 @@ export const thonPheTinhKhong: CanonPack = {
   },
 
   defaultStartingLocation: 'Phổ Thông thành (Thượng Hải khu vực)',
+  defaultStartingTechnique: 'Cực Cảnh Tinh Chất',
 
   signatureNpcs: [
     { name: 'La Phong', role: 'Nhân vật chính', description: 'Thiếu niên phổ thông gia đình nghèo, gia nhập Nguyên Võ Trường tu Cực Cảnh, trỗi dậy thành Vũ Trụ Tôn Giả.' },

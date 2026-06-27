@@ -20,6 +20,7 @@ export const thanMo: CanonPack = {
   },
 
   defaultStartingLocation: 'Cổ Mộ Thần (núi Mãng Hùng)',
+  defaultStartingTechnique: 'Cửu Long Bí Văn',
 
   signatureNpcs: [
     { name: 'Thần Phong / Mãng Hùng', role: 'Nhân vật chính', description: 'Chiến thần thượng cổ sống lại từ Mộ Thần, ký ức cũ + thân thể trẻ.' },

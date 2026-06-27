@@ -151,6 +151,9 @@ export const CharacterSheetScreen = () => {
             <div className="label-section mb-2">Công Pháp Chính</div>
             <div className="font-serif text-base text-gold-200">
               {player.currentTechnique ?? 'Hồn Nguyên Trường Sinh Quyết'}
+              {!player.currentTechnique && (
+                <span className="ml-2 text-[10px] uppercase tracking-widest text-jade-500">(mặc định)</span>
+              )}
             </div>
             <div className="mt-1 text-[11.5px] text-gold-500">
               Hoàng phẩm · Sơ giai · Tinh thông{' '}

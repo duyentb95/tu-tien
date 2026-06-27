@@ -492,7 +492,13 @@ export const useGameStore = create<GameState>()(
         let result;
         if (pack) {
           // Convert CanonPack → FanFicAnalyzeResult shape (drop-in)
-          set((s) => { s.settings.canonPackId = pack.id; });
+          // + Stash canon defaultStartingTechnique vào settings để startNewGame dùng
+          set((s) => {
+            s.settings.canonPackId = pack.id;
+            if (pack.defaultStartingTechnique) {
+              (s.settings as Record<string, unknown>)._canonStartingTechnique = pack.defaultStartingTechnique;
+            }
+          });
           result = {
             storyTitle: `${pack.title}: ${form.characterName}`,
             theme: pack.themes.join(', '),
@@ -830,6 +836,12 @@ export const useGameStore = create<GameState>()(
       const fanFicStartId = (get().settings as { _fanFicStartingLocId?: string | null })._fanFicStartingLocId;
       const isFanFicWithCustomWorld = get().settings.isFanFictionMode && fanFicStartId && get().knowledge.locations[fanFicStartId];
       player.current_location_id = isFanFicWithCustomWorld ? fanFicStartId : 'thanh_van_phong';
+      // Phase 14.x hotfix: Canon pack có defaultStartingTechnique → override default
+      // (vd "Bá Thể Tam Đan Công" cho Tần Mục thay vì generic "Hồn Nguyên Trường Sinh Quyết")
+      const canonTech = (get().settings as { _canonStartingTechnique?: string })._canonStartingTechnique;
+      if (canonTech) {
+        player.currentTechnique = canonTech;
+      }
       set((s) => {
         s.player = player;
         Object.assign(s.settings, init.settings);

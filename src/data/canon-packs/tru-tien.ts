@@ -20,6 +20,7 @@ export const truTien: CanonPack = {
   },
 
   defaultStartingLocation: 'Thanh Vân Môn (Đại Trúc Phong)',
+  defaultStartingTechnique: 'Đại Phạm Bát Nhã',
 
   signatureNpcs: [
     { name: 'Trương Tiểu Phàm / Quỷ Lệ', role: 'Nhân vật chính', description: 'Thiếu niên Thảo Miếu thôn duy nhất sống sót, tu Đại Phạm Bát Nhã trong Thanh Vân + Hợp Hoan Linh ma đạo song tu.' },

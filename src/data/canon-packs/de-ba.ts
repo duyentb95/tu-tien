@@ -20,6 +20,7 @@ export const deBa: CanonPack = {
   },
 
   defaultStartingLocation: 'Tinh Thần phái (Tinh Thần lâu)',
+  defaultStartingTechnique: 'Tiên Hoàng Pháp',
 
   signatureNpcs: [
     { name: 'Lý Thất Dạ', role: 'Nhân vật chính', description: 'Tiên Đế chuyển thế, ngụy trang đệ tử Tinh Thần phái, sống lại từ vực sâu hỗn loạn.' },

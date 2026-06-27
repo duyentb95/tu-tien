@@ -21,6 +21,7 @@ export const tienNghich: CanonPack = {
   },
 
   defaultStartingLocation: 'Trương Nguyên thôn (Triệu quốc)',
+  defaultStartingTechnique: 'Tị Linh Quyết',
 
   signatureNpcs: [
     { name: 'Vương Lâm', role: 'Nhân vật chính', description: 'Thiếu niên Triệu quốc, ban đầu tư chất tầm thường nhưng quyết tâm tu chân, dần đi đến đỉnh.' },

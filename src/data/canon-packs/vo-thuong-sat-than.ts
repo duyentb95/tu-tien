@@ -20,6 +20,7 @@ export const voThuongSatThan: CanonPack = {
   },
 
   defaultStartingLocation: 'Phong Vân thành (Sở gia)',
+  defaultStartingTechnique: 'Cửu Long Thôn Thiên Quyết',
 
   signatureNpcs: [
     { name: 'Sở Phong', role: 'Nhân vật chính (sau hồn nhập)', description: 'Linh hồn thiếu niên đời khác nhập vào Sở Phong phế vật, dùng Cửu Long Thôn Thiên Quyết trỗi dậy.' },

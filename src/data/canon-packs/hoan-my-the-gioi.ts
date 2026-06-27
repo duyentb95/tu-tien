@@ -21,6 +21,7 @@ export const hoanMyTheGioi: CanonPack = {
   },
 
   defaultStartingLocation: 'Thạch Thôn (bộ lạc cổ Hoang Cảnh)',
+  defaultStartingTechnique: 'Bồ Đề Đạo',
 
   signatureNpcs: [
     { name: 'Thạch Hạo', role: 'Nhân vật chính', description: 'Thiếu niên Thạch Thôn, tu Bồ Đề Đạo, sức mạnh khôn lường + tính tình hùng tâm.' },

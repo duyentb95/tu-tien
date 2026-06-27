@@ -22,6 +22,7 @@ export const phamNhanTuTien: CanonPack = {
   },
 
   defaultStartingLocation: 'Mặc Lăng cốc (Sơn thôn nghèo)',
+  defaultStartingTechnique: 'Trường Xuân Công',
 
   signatureNpcs: [
     { name: 'Hàn Lập', role: 'Nhân vật chính', description: 'Phàm nhân tư chất tầm thường, tâm tính cực kỳ thận trọng, dựa kiên trì + cơ duyên dần dần tu thành.' },

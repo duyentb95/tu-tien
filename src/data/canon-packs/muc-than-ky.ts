@@ -21,6 +21,7 @@ export const mucThanKy: CanonPack = {
   },
 
   defaultStartingLocation: 'Đại Hoang thôn',
+  defaultStartingTechnique: 'Bá Thể Tam Đan Công',
 
   signatureNpcs: [
     { name: 'Tần Mục', role: 'Nhân vật chính', description: 'Cô nhi được lão tổ Đại Hoang nuôi lớn, mở mắt thiên sinh, có Thái Tô khí cực kỳ thuần khiết.' },
@@ -48,11 +49,12 @@ export const mucThanKy: CanonPack = {
   ],
 
   signatureSkills: [
+    { name: 'Bá Thể Tam Đan Công', kind: 'adventure', rarity: 'Huyền Thoại', description: 'Công pháp gốc của Tần Mục — tu Tinh / Khí / Thần Tam Đan, rèn bá thể bất diệt. Chia tu sĩ ra khỏi đường thông thường.' },
+    { name: 'Khôi Lỗi Thuật', kind: 'adventure', rarity: 'Cực Phẩm', description: 'Bí truyền Mặc Gia — chế tạo + điều khiển khôi lỗi chiến giáp, kết hợp thể chất tu sĩ.' },
     { name: 'Mở Mắt Thiên Sinh', kind: 'adventure', rarity: 'Huyền Thoại', description: 'Thiên phú bẩm sinh, mắt nhìn thấu vạn pháp + pháp tắc thiên địa.' },
     { name: 'Lữ Sơn Pháp Tướng', kind: 'combat_ultimate', rarity: 'Siêu Phẩm', description: 'Triệu hồi pháp tướng Lữ Sơn, chiến đấu với sức mạnh thần linh cổ.' },
     { name: 'Hồng Hoang chi Hùng', kind: 'combat_ultimate', rarity: 'Cực Phẩm', description: 'Triệu hồi tinh khí thái cổ, biến cơ thể thành hùng mãnh thú vương.' },
     { name: 'Đại Quang Minh Quyền', kind: 'combat_basic', rarity: 'Hiếm', description: 'Quyền pháp ánh sáng, khắc chế tà ma âm khí.' },
-    { name: 'Tinh Long Biến Quyết', kind: 'adventure', rarity: 'Cực Phẩm', description: 'Pháp môn cải tạo thể chất, mượn long khí tăng tiến tu vi.' },
   ],
 
   signatureBeasts: [

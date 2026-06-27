@@ -20,6 +20,7 @@ export const giaThien: CanonPack = {
   },
 
   defaultStartingLocation: 'Đông Hoang (Hoang Trủng)',
+  defaultStartingTechnique: 'Bồ Đề Cổ Pháp',
 
   signatureNpcs: [
     { name: 'Diệp Phàm', role: 'Nhân vật chính', description: 'Học sinh hiện đại chết lúc du lịch Thái Sơn, sống lại trên thi quan đồng cổ, tu thành Đại Đế.' },
