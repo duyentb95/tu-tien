@@ -15,13 +15,13 @@ interface Props {
   className?: string;
 }
 
-const HIGH_RARITIES = new Set(['Hiếm', 'Cực Phẩm', 'Siêu Phẩm', 'Huyền Thoại']);
-
+// Default render AI image cho MỌI rarity (user toggle off qua AI Status modal).
+// Placeholder SVG render ngay → AI image overlay khi load xong, không block UX.
 export const ItemIcon = ({ name, category, rarity, size = 64, className = '' }: Props) => {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  const enabled = isAiImageEnabled() && rarity && HIGH_RARITIES.has(rarity);
+  const enabled = isAiImageEnabled();
 
   const url = useMemo(() => {
     if (!enabled) return null;

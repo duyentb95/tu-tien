@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useGameStore, selectInventory } from '@state/game-store';
 import { Bracketed } from '@shared/components/CornerBracket';
+import { ItemIcon } from '@shared/components/ItemIcon';
 import { EQUIPPABLE_CATEGORIES, type Rarity, type ItemCategory } from '@gametypes/item';
 import { isArtifactEligible, ARTIFACT_GRADE_NAMES, ARTIFACT_SOUL_THRESHOLD } from '@core/items/artifact';
 
@@ -141,10 +142,10 @@ export const InventoryScreen = () => {
                     }}
                   >
                     <div
-                      className="mb-2 flex h-12 items-center justify-center rounded-sm border text-lg"
-                      style={{ borderColor: c.border, background: c.bg }}
+                      className="mb-2 rounded-sm border overflow-hidden"
+                      style={{ borderColor: c.border, background: c.bg, width: 64, height: 64 }}
                     >
-                      <span style={{ color: c.dot }}>◆</span>
+                      <ItemIcon name={it.name} category={it.category} rarity={it.rarity} size={64} />
                     </div>
                     <div className={`text-[12.5px] font-medium leading-tight ${c.text}`}>{it.name}</div>
                     <div className="mt-1 flex items-center justify-between text-[10.5px] text-jade-500">
@@ -170,15 +171,18 @@ export const InventoryScreen = () => {
                 {selected.name}
               </h2>
               <div
-                className="mb-4 flex h-32 items-center justify-center rounded-sm border"
+                className="mb-4 flex h-48 items-center justify-center rounded-sm border overflow-hidden"
                 style={{
                   borderColor: RARITY_CONFIG[selected.rarity].border,
                   background: RARITY_CONFIG[selected.rarity].bg,
                 }}
               >
-                <span className="text-5xl" style={{ color: RARITY_CONFIG[selected.rarity].dot }}>
-                  ◆
-                </span>
+                <ItemIcon
+                  name={selected.name}
+                  category={selected.category}
+                  rarity={selected.rarity}
+                  size={192}
+                />
               </div>
               <p className="mb-4 font-serif text-[13px] italic leading-relaxed text-gold-300">
                 {selected.description || 'Vật phẩm tu tiên trân quý, được luyện chế từ thiên tài địa bảo.'}

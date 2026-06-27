@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useGameStore } from '@state/game-store';
 import { Bracketed } from '@shared/components/CornerBracket';
+import { ItemIcon } from '@shared/components/ItemIcon';
 import type { Item } from '@gametypes/item';
 
 interface Props {
@@ -190,11 +191,12 @@ export const TraderModal = ({ open, onClose }: Props) => {
                         }`}
                       >
                         <div className="flex items-center gap-2">
+                          <ItemIcon name={item.name} category={item.category} rarity={item.rarity} size={36} className="flex-shrink-0 rounded-sm" />
                           <button
                             onClick={() => setSelectedSellId(isSelected ? null : item.id)}
-                            className="flex-1 text-left"
+                            className="flex-1 text-left min-w-0"
                           >
-                            <div className={`text-[13px] font-medium ${c.text}`}>{item.name}</div>
+                            <div className={`text-[13px] font-medium ${c.text} truncate`}>{item.name}</div>
                             <div className="text-[10px] uppercase tracking-wider text-jade-500">
                               {item.rarity} · {item.category}
                             </div>
