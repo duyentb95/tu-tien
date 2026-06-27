@@ -5,6 +5,22 @@ Versioning theo [SemVer](https://semver.org/lang/vi/).
 
 ---
 
+## [1.6.0] — 2026-06-27
+
+### Added — Phase 16 (Retention + Item upgrade + Coupon TANTHU)
+
+- **Speed Boost effect** (`src/ai/perks.ts`): AI client retry delay giảm 3× khi user mua `speed_boost_unlock` (1.5s/3s/6s/12s → 500ms/1s/2s/4s). Module flag accessor không phụ thuộc React, bootstrap từ localStorage + sync khi `purchaseExchange` / `loadFromLocalStorage`.
+- **Item Upgrade** (`store.rerollItemStats` + `store.upgradeItemRarity`): button "Tinh Luyện" trong InventoryScreen detail panel (chỉ hiện cho rarity Hiếm trở lên). Re-roll stats 50 TN (giữ rarity, random distribute lại), Thăng cấp 200 TN (rarity +1 tier). Dùng `generateItemBonusesV2()` pipeline.
+- **Daily Missions** (`src/types/daily-mission.ts` + `src/data/daily-missions-pool.ts`): điểm danh + 3 nhiệm vụ random mỗi ngày từ pool 10 template. Auto-reset 00:00 local. Login streak tăng dần với multiplier `×1.0/×1.2/×1.5/×2.0/×3.0` theo cột mốc 3/7/14/30 ngày. Mission progress auto-track qua `incrementMissionProgress()` wire vào submitAction / combat win / level up / skill learned / NPC met / location discovered / ENCOUNTER_REWARD ≥ 50.
+- **DailyMissionsModal**: UI hiển thị streak header + 3 mission cards với progress bar + claim button. Nav button "📅 Hàng Ngày" trong gameplay header. Auto-trigger `refreshDailyMissions()` khi mount để cộng login bonus.
+
+### Changed
+
+- **Coupon `MACHOI2026` → `TANTHU`** (newUserOnly): rich newbie reward 500 Tiền Ngọc + 200 Lượt Hành Động. Đủ để mua Speed Boost (300 TN) + còn 200 TN test Tinh Luyện. WelcomeOverlay thêm hint "Dùng mã TANTHU để nhận quà tân thủ".
+- `MACHOI2026` giữ lại nhưng đẩy xuống cuối list, reward giảm (300 TN + 100 token, không newUserOnly).
+
+---
+
 ## [1.5.0] — 2026-06-26
 
 ### Added — Phase 15 (Monetization + Marketing infrastructure)

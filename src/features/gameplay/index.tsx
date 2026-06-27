@@ -60,6 +60,10 @@ const MonetizationModal = lazy(() =>
   import('@features/monetization/MonetizationModal').then((m) => ({ default: m.MonetizationModal })),
 );
 import { CurrencyDisplay } from '@features/monetization/CurrencyDisplay';
+// Phase 16.3: Daily missions
+const DailyMissionsModal = lazy(() =>
+  import('@features/daily-missions/DailyMissionsModal').then((m) => ({ default: m.DailyMissionsModal })),
+);
 
 export const GameplayScreen = () => {
   const player = useGameStore(selectPlayer);
@@ -91,6 +95,11 @@ export const GameplayScreen = () => {
   const [aiStatusOpen, setAiStatusOpen] = useState(false);
   // Phase 15: Monetization modal
   const [monetizationOpen, setMonetizationOpen] = useState(false);
+  // Phase 16.3: Daily missions modal
+  const [dailyMissionsOpen, setDailyMissionsOpen] = useState(false);
+  // Auto-trigger refreshDailyMissions on mount để check daily reset + login bonus
+  const refreshDailyMissions = useGameStore((s) => s.refreshDailyMissions);
+  useEffect(() => { refreshDailyMissions(); }, [refreshDailyMissions]);
   // Phase 12.2: Trader modal — auto-open theo traderSession state
   const traderSession = useGameStore((s) => s.traderSession);
   const [traderManuallyClosed, setTraderManuallyClosed] = useState(false);
@@ -192,6 +201,7 @@ export const GameplayScreen = () => {
           <NavButton label="Tàng Thư" icon="☷" onClick={() => setLoreBookOpen(true)} />
           <NavButton label="Đại Hội" icon="⚔" onClick={() => setTournamentOpen(true)} />
           <NavButton label="Thành Tựu" icon="★" onClick={() => setAchievementsOpen(true)} />
+          <NavButton label="Hàng Ngày" icon="📅" onClick={() => setDailyMissionsOpen(true)} />
           <NavButton label="Đạo Tâm" icon="◍" onClick={() => setCustomRulesOpen(true)} />
           <NavButton label="Lưu Trữ" icon="◭" onClick={() => setSaveManagerOpen(true)} />
           <NavButton label="Tra Cứu" icon="📜" onClick={() => setQuickLookupOpen(true)} />
@@ -282,6 +292,7 @@ export const GameplayScreen = () => {
         )}
         {aiStatusOpen && <AIStatusModal open onClose={() => setAiStatusOpen(false)} />}
         {monetizationOpen && <MonetizationModal open onClose={() => setMonetizationOpen(false)} />}
+        {dailyMissionsOpen && <DailyMissionsModal open onClose={() => setDailyMissionsOpen(false)} />}
       </Suspense>
     </div>
   );

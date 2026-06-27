@@ -25,14 +25,10 @@ export interface Coupon {
 
 export const COUPONS: Coupon[] = [
   {
-    code: 'MACHOI2026',
-    reward: { tienNgoc: 300, actionTokens: 100 },
-    description: 'Ra mắt Mặc Hội Tiên Đồ — 300 Tiền Ngọc + 100 Lượt!',
-  },
-  {
-    code: 'WELCOME',
-    reward: { tienNgoc: 100, actionTokens: 50 },
-    description: 'Chào mừng tân thủ! Khởi đầu tu luyện.',
+    code: 'TANTHU',
+    reward: { tienNgoc: 500, actionTokens: 200 },
+    description:
+      'Quà Tân Thủ — 500 Tiền Ngọc + 200 Lượt Hành Động. Đủ để trải nghiệm đầy đủ Cửa Hàng, Speed Boost, Tinh Luyện Vật Phẩm.',
     newUserOnly: true,
   },
   {
@@ -49,6 +45,11 @@ export const COUPONS: Coupon[] = [
     code: 'TANMUC',
     reward: { tienNgoc: 150, actionTokens: 50 },
     description: 'Mã fan Mục Thần Ký — Tần Mục mời ngươi tu luyện!',
+  },
+  {
+    code: 'MACHOI2026',
+    reward: { tienNgoc: 300, actionTokens: 100 },
+    description: 'Ra mắt Mặc Hội Tiên Đồ 2026 — 300 Tiền Ngọc + 100 Lượt.',
   },
 ];
 

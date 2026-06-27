@@ -21,6 +21,7 @@ import type { z } from 'zod';
 import type { AIProvider, CallOptions } from './types';
 import { reportProviderSuccess, reportProviderError } from '../provider-health';
 import { getByokKey } from '../byok';
+import { getRetryDelay } from '../perks';
 
 const DEEPSEEK_BASE = 'https://api.deepseek.com/v1/chat/completions';
 const DEFAULT_MODEL = (import.meta.env.VITE_DEEPSEEK_MODEL as string | undefined) ?? 'deepseek-chat';
@@ -210,7 +211,7 @@ async function callViaProxy(prompt: string, opts: CallOptions): Promise<string> 
         // Retryable
         lastErr = new Error(`[deepseek/proxy] HTTP ${res.status}: ${errMsg}`);
         if (i < MAX_ATTEMPTS - 1) {
-          const delay = 1500 * Math.pow(2, i) + Math.random() * 500;
+          const delay = getRetryDelay(i); // Phase 16.1: speed boost giảm 3x
           console.warn(`[deepseek/proxy] HTTP ${res.status}, retry ${i + 1}/${MAX_ATTEMPTS} sau ${Math.round(delay)}ms`);
           await new Promise((r) => setTimeout(r, delay));
           continue;
@@ -225,7 +226,7 @@ async function callViaProxy(prompt: string, opts: CallOptions): Promise<string> 
     } catch (e) {
       lastErr = e;
       if (i < MAX_ATTEMPTS - 1) {
-        const delay = 1500 * Math.pow(2, i);
+        const delay = getRetryDelay(i);
         await new Promise((r) => setTimeout(r, delay));
         continue;
       }

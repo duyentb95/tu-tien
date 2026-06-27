@@ -69,13 +69,23 @@ export const WelcomeOverlay = () => {
           </div>
 
           {/* Hint */}
-          <div className="mt-6 border-t border-gold-700/30 pt-4">
+          <div className="mt-6 border-t border-gold-700/30 pt-4 space-y-2">
             <p className="flex items-start gap-2 text-[12.5px] text-jade-400">
               <span className="mt-0.5 text-gold-500">✦</span>
               <span>
                 Nếu có lúc nào cảm thấy bối rối, hãy mở{' '}
                 <strong className="text-gold-300">Cẩm Nang</strong> ở thanh chức năng để được
                 hướng dẫn chi tiết.
+              </span>
+            </p>
+            <p className="flex items-start gap-2 text-[12.5px] text-spirit-300">
+              <span className="mt-0.5 text-spirit-400">🎁</span>
+              <span>
+                Quà tân thủ: nhập mã{' '}
+                <strong className="font-mono tracking-widest text-gold-200">TANTHU</strong> ở
+                cửa hàng 💎 (góc trên bên phải) để nhận{' '}
+                <strong className="text-gold-300">500 Tiền Ngọc + 200 Lượt Hành Động</strong>{' '}
+                — đủ trải nghiệm full features.
               </span>
             </p>
           </div>

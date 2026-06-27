@@ -33,6 +33,10 @@ export const InventoryScreen = () => {
   const discardItem = useGameStore((s) => s.discardItem);
   const equipItem = useGameStore((s) => s.equipItem);
   const nourishArt = useGameStore((s) => s.nourishArtifactAction);
+  // Phase 16.2: Item upgrade actions
+  const rerollItemStats = useGameStore((s) => s.rerollItemStats);
+  const upgradeItemRarity = useGameStore((s) => s.upgradeItemRarity);
+  const tienNgoc = useGameStore((s) => s.economy.tienNgoc);
   const equippedItems = player?.equippedItems;
   const [activeFilter, setActiveFilter] = useState<'all' | ItemCategory>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -289,6 +293,48 @@ export const InventoryScreen = () => {
                   </div>
                 );
               })()}
+              {/* Phase 16.2: Item upgrade — chỉ hiện cho Hiếm trở lên */}
+              {['Hiếm', 'Cực Phẩm', 'Siêu Phẩm', 'Huyền Thoại'].includes(selected.rarity) && (
+                <div className="mt-3 rounded border border-gold-700/30 bg-ink-900/40 p-3">
+                  <div className="label-section mb-2">⚒ Tinh Luyện Pháp Bảo</div>
+                  <div className="grid gap-1.5 sm:grid-cols-2">
+                    <button
+                      onClick={() => {
+                        if (confirm(`Tinh luyện ${selected.name}? Tốn 50 Tiền Ngọc, random lại stats (giữ rarity).`)) {
+                          rerollItemStats(selected.id);
+                        }
+                      }}
+                      disabled={tienNgoc < 50}
+                      className="rounded border border-spirit-500/40 bg-spirit-900/20 px-2 py-1.5 text-[11px] font-bold uppercase tracking-widest text-spirit-300 hover:bg-spirit-900/40 disabled:cursor-not-allowed disabled:opacity-40"
+                      title={tienNgoc < 50 ? `Cần 50 💎 (có ${tienNgoc})` : 'Random lại chỉ số'}
+                    >
+                      Re-roll Stats · 💎 50
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (selected.rarity === 'Huyền Thoại') {
+                          alert('Đã đạt Huyền Thoại — không thể nâng thêm.');
+                          return;
+                        }
+                        if (confirm(`Thăng cấp ${selected.name}? Tốn 200 Tiền Ngọc, rarity tăng 1 tier.`)) {
+                          upgradeItemRarity(selected.id);
+                        }
+                      }}
+                      disabled={tienNgoc < 200 || selected.rarity === 'Huyền Thoại'}
+                      className="rounded border border-gold-500/50 bg-gold-900/30 px-2 py-1.5 text-[11px] font-bold uppercase tracking-widest text-gold-300 hover:bg-gold-900/50 disabled:cursor-not-allowed disabled:opacity-40"
+                      title={
+                        selected.rarity === 'Huyền Thoại'
+                          ? 'Đã đỉnh cấp'
+                          : tienNgoc < 200
+                          ? `Cần 200 💎 (có ${tienNgoc})`
+                          : 'Thăng cấp rarity'
+                      }
+                    >
+                      Thăng Cấp · 💎 200
+                    </button>
+                  </div>
+                </div>
+              )}
               <button
                 onClick={() => {
                   if (confirm(`Vứt bỏ ${selected.name}?`)) discardItem(selected.id);

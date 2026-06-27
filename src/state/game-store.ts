@@ -37,6 +37,13 @@ import {
 } from '@gametypes/economy';
 import { findCoupon } from '@data/coupons';
 import { CURRENCY_PACKS, EXCHANGE_OPTIONS } from '@data/store-packs';
+import { setPerkFlags } from '@ai/perks';
+import {
+  INITIAL_DAILY_MISSIONS,
+  formatDay,
+  getDailyLoginReward,
+} from '@gametypes/daily-mission';
+import { DAILY_MISSIONS_POOL, rollDailyMissions } from '@data/daily-missions-pool';
 import { nourishArtifact, isArtifactEligible, ARTIFACT_GRADE_NAMES } from '@core/items/artifact';
 import { CATEGORY_TO_DEFAULT_SLOT, EQUIPPABLE_CATEGORIES } from '@gametypes/item';
 import type { EquipmentSlot } from '@gametypes/character';
@@ -229,6 +236,9 @@ interface GameState {
   /** Phase 15: Economy state — Tiền Ngọc (premium currency), action tokens, referral, coupons */
   economy: import('@gametypes/economy').EconomyState;
 
+  /** Phase 16.3: Daily missions + login streak */
+  dailyMissions: import('@gametypes/daily-mission').DailyMissionsState;
+
   isAiThinking: boolean;
   /** Phase 9.3: phase chi tiết khi đang call AI (cho UI hiển thị state phù hợp) */
   aiPhase: 'idle' | 'logic' | 'narrative';
@@ -303,6 +313,18 @@ interface GameState {
   applyReferral: (code: string) => { ok: boolean; message: string };
   /** Mock buy currency pack (Phase 15 — wire Stripe sau). */
   mockBuyPack: (packId: string) => { ok: boolean; message: string };
+  /** Phase 16.2: Re-roll stats item (50 TN). Giữ rarity + slot count, random distribute lại. */
+  rerollItemStats: (itemId: string) => boolean;
+  /** Phase 16.2: Upgrade item rarity 1 tier (200 TN). Stats tự re-roll theo budget mới. */
+  upgradeItemRarity: (itemId: string) => boolean;
+
+  // ─── Phase 16.3: Daily missions ───
+  /** Check daily reset + roll new missions nếu sang ngày mới. Gọi mỗi khi mount. */
+  refreshDailyMissions: () => void;
+  /** Increment progress của missions match templateId. Gọi từ event handlers. */
+  incrementMissionProgress: (templateId: string, delta?: number) => void;
+  /** User click "Nhận" → cộng reward + mark claimed. */
+  claimDailyMission: (templateId: string) => boolean;
   unequipSkill: (slot: import('@gametypes/character').SkillSlot) => void;
   /** Dưỡng pháp bảo: tiêu linh thạch → tăng artifactSoul → có thể level up */
   nourishArtifactAction: (itemId: string, currencyAmount: number) => void;
@@ -467,6 +489,8 @@ export const useGameStore = create<GameState>()(
 
     // Phase 15: Economy — generate referral code 1 lần lúc init store
     economy: { ...INITIAL_ECONOMY, referralCode: generateReferralCode(getOrCreateDeviceId()) },
+    // Phase 16.3: Daily missions — empty, sẽ roll qua refreshDailyMissions()
+    dailyMissions: INITIAL_DAILY_MISSIONS,
     isAiThinking: false,
     aiPhase: 'idle' as const,
     lastError: null,
@@ -956,6 +980,13 @@ export const useGameStore = create<GameState>()(
       // Phase 15: Soft token gating — useActionToken vẫn return true cho play khi hết,
       // chỉ hiện toast warn. Hard gating có thể bật sau bằng cách return early.
       get().useActionToken();
+      // Phase 16.3: Increment daily mission progress
+      get().incrementMissionProgress('submit_5_actions');
+      get().incrementMissionProgress('submit_15_actions');
+      // Detect meditation/cultivation keyword in actionText
+      if (/tu luy|bế quan|thiền|tĩnh tâm|hít thở|đả tọa/i.test(actionText)) {
+        get().incrementMissionProgress('meditate_3_times');
+      }
 
       set((s) => {
         s.storyLog.push({
@@ -1151,6 +1182,9 @@ export const useGameStore = create<GameState>()(
         const expGain = Math.round(50 * enemy.level * 1.2);
         const currencyGain = Math.round(20 * enemy.level);
         notify.success('Chiến thắng!', `+${expGain} EXP · +${currencyGain} Linh Thạch`);
+        // Phase 16.3: Mission progress combat
+        get().incrementMissionProgress('win_combat');
+        get().incrementMissionProgress('win_2_combats');
         applyGameEvents(
           [
             { type: 'EXP_GAIN', amount: expGain },
@@ -1400,7 +1434,10 @@ export const useGameStore = create<GameState>()(
           case 'topup_50_tokens': s.economy.actionTokens += 50; break;
           case 'topup_200_tokens': s.economy.actionTokens += 220; break;
           case 'topup_500_tokens': s.economy.actionTokens += 600; break;
-          case 'speed_boost_unlock': s.economy.unlockedPerks.speedBoost = true; break;
+          case 'speed_boost_unlock':
+            s.economy.unlockedPerks.speedBoost = true;
+            setPerkFlags({ speedBoost: true });
+            break;
           case 'unlimited_custom_rules': s.economy.unlockedPerks.unlimitedCustomRules = true; break;
           case 'extra_save_slots': s.economy.unlockedPerks.extraSaveSlots = true; break;
           case 'genesis_reroll_credit': /* future: track credit */ break;
@@ -1482,6 +1519,152 @@ export const useGameStore = create<GameState>()(
         ok: true,
         message: `Mock thành công +${total} TN. Payment thực sẽ triển khai sau.`,
       };
+    },
+
+    // ─── Phase 16.2: Item Upgrade (re-roll stats / bump rarity) ───
+    rerollItemStats: (itemId) => {
+      const item = get().inventory[itemId];
+      const player = get().player;
+      if (!item || !player) {
+        notify.warn('Lỗi', 'Vật phẩm không tồn tại.');
+        return false;
+      }
+      const RARITY_ORDER: Rarity[] = ['Thường', 'Tốt', 'Hiếm', 'Cực Phẩm', 'Siêu Phẩm', 'Huyền Thoại'];
+      if (RARITY_ORDER.indexOf(item.rarity) < 2) {
+        notify.warn('Không thể tinh luyện', 'Chỉ vật phẩm từ Hiếm trở lên.');
+        return false;
+      }
+      if (!get().spendTienNgoc(50, `Tinh luyện: ${item.name}`)) return false;
+      const difficulty = (get().settings as { difficulty?: string }).difficulty;
+      const newBonuses =
+        generateItemBonusesV2({
+          rarity: item.rarity,
+          category: item.category,
+          playerLevel: player.level,
+          difficulty,
+        }) ?? generateItemBonuses(item.rarity, item.category, player.level);
+      set((s) => {
+        const it = s.inventory[itemId];
+        if (it) it.bonuses = newBonuses;
+        if (s.player) s.player = recomputeStats(s.player, s.inventory);
+      });
+      notify.epic('✦ Tinh luyện thành công', `${item.name}: chỉ số mới đã được rèn lại.`);
+      return true;
+    },
+
+    upgradeItemRarity: (itemId) => {
+      const item = get().inventory[itemId];
+      const player = get().player;
+      if (!item || !player) {
+        notify.warn('Lỗi', 'Vật phẩm không tồn tại.');
+        return false;
+      }
+      const RARITY_ORDER: Rarity[] = ['Thường', 'Tốt', 'Hiếm', 'Cực Phẩm', 'Siêu Phẩm', 'Huyền Thoại'];
+      const curIdx = RARITY_ORDER.indexOf(item.rarity);
+      if (curIdx < 0 || curIdx >= RARITY_ORDER.length - 1) {
+        notify.warn('Đã đỉnh cấp', 'Vật phẩm đã đạt Huyền Thoại — không thể nâng thêm.');
+        return false;
+      }
+      if (!get().spendTienNgoc(200, `Thăng cấp: ${item.name}`)) return false;
+      const newRarity = RARITY_ORDER[curIdx + 1]!;
+      const difficulty = (get().settings as { difficulty?: string }).difficulty;
+      const newBonuses =
+        generateItemBonusesV2({
+          rarity: newRarity,
+          category: item.category,
+          playerLevel: player.level,
+          difficulty,
+        }) ?? generateItemBonuses(newRarity, item.category, player.level);
+      set((s) => {
+        const it = s.inventory[itemId];
+        if (it) {
+          it.rarity = newRarity;
+          it.bonuses = newBonuses;
+        }
+        if (s.player) s.player = recomputeStats(s.player, s.inventory);
+      });
+      notify.epic('✦ Thăng cấp thành công', `${item.name}: ${item.rarity} → ${newRarity}!`);
+      return true;
+    },
+
+    // ─── Phase 16.3: Daily missions ───
+    refreshDailyMissions: () => {
+      const today = formatDay();
+      const cur = get().dailyMissions;
+      if (cur.lastResetDay === today) return; // đã reset hôm nay
+
+      // Tính streak: nếu lastLoginDay là yesterday → streak++, else reset về 1
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const yesterdayStr = formatDay(yesterday);
+      const newStreak = cur.lastLoginDay === yesterdayStr ? cur.loginStreak + 1 : 1;
+
+      // Roll 3 random missions
+      const rolled = rollDailyMissions().map((t) => ({
+        templateId: t.id,
+        progress: 0,
+        claimed: false,
+      }));
+
+      // Login reward (điểm danh)
+      const loginReward = getDailyLoginReward(newStreak);
+
+      set((s) => {
+        s.dailyMissions.lastResetDay = today;
+        s.dailyMissions.lastLoginDay = today;
+        s.dailyMissions.loginStreak = newStreak;
+        s.dailyMissions.todayMissions = rolled;
+        s.economy.tienNgoc += loginReward.tienNgoc;
+        s.economy.actionTokens += loginReward.actionTokens;
+      });
+
+      const streakBadge = newStreak >= 7 ? `🔥${newStreak} ngày liên tiếp` : `${newStreak} ngày`;
+      notify.epic(
+        `📅 Điểm Danh — ${streakBadge}`,
+        `+${loginReward.tienNgoc} Tiền Ngọc + ${loginReward.actionTokens} Lượt. Mở Nhiệm Vụ Hàng Ngày để xem 3 mission mới.`,
+      );
+    },
+
+    incrementMissionProgress: (templateId, delta = 1) => {
+      set((s) => {
+        const mission = s.dailyMissions.todayMissions.find((m) => m.templateId === templateId);
+        if (!mission || mission.claimed) return;
+        const template = DAILY_MISSIONS_POOL.find((t) => t.id === templateId);
+        if (!template) return;
+        mission.progress = Math.min(template.target, mission.progress + delta);
+        // Toast khi vừa complete
+        if (mission.progress >= template.target && delta > 0) {
+          // Gọi notify ngoài set (sau khi state đã update)
+          setTimeout(() => {
+            notify.success(`✓ Hoàn thành: ${template.title}`, 'Mở Nhiệm Vụ Hàng Ngày để nhận thưởng.');
+          }, 50);
+        }
+      });
+    },
+
+    claimDailyMission: (templateId) => {
+      const mission = get().dailyMissions.todayMissions.find((m) => m.templateId === templateId);
+      const template = DAILY_MISSIONS_POOL.find((t) => t.id === templateId);
+      if (!mission || !template) return false;
+      if (mission.claimed) {
+        notify.info('Đã nhận', 'Nhiệm vụ này đã được nhận thưởng.');
+        return false;
+      }
+      if (mission.progress < template.target) {
+        notify.warn('Chưa hoàn thành', `${mission.progress}/${template.target}`);
+        return false;
+      }
+      set((s) => {
+        const m = s.dailyMissions.todayMissions.find((mm) => mm.templateId === templateId);
+        if (m) m.claimed = true;
+        s.dailyMissions.totalCompleted += 1;
+        if (template.reward.tienNgoc) s.economy.tienNgoc += template.reward.tienNgoc;
+        if (template.reward.actionTokens) s.economy.actionTokens += template.reward.actionTokens;
+      });
+      const parts: string[] = [];
+      if (template.reward.tienNgoc) parts.push(`+${template.reward.tienNgoc} 💎`);
+      if (template.reward.actionTokens) parts.push(`+${template.reward.actionTokens} ⚡`);
+      notify.epic('✦ Nhận thưởng', `${template.title}: ${parts.join(', ')}`);
+      return true;
     },
 
     nourishArtifactAction: (itemId, currencyAmount) => {
@@ -2394,9 +2577,23 @@ export const useGameStore = create<GameState>()(
           s.activeBeastId = data.activeBeastId ?? null;
           s.caveAbode = data.caveAbode ?? { ...DEFAULT_CAVE_ABODE, rooms: { ...DEFAULT_CAVE_ABODE.rooms }, plots: {} };
           s.daoLu = data.daoLu ?? {};
+          // Phase 15: Economy — restore từ save, generate code mới nếu chưa có
+          if (data.economy) {
+            s.economy = { ...INITIAL_ECONOMY, ...data.economy };
+            if (!s.economy.referralCode) {
+              s.economy.referralCode = generateReferralCode(getOrCreateDeviceId());
+            }
+          }
+          // Phase 16.3: Daily missions
+          if (data.dailyMissions) {
+            s.dailyMissions = { ...INITIAL_DAILY_MISSIONS, ...data.dailyMissions };
+          }
           s.prevStage = s.stage;
           s.stage = 'playing';
         });
+        // Phase 16.1: Sync perk flags vào AI client sau khi load
+        const loaded = get().economy;
+        setPerkFlags({ speedBoost: !!loaded.unlockedPerks.speedBoost });
         return true;
       } catch (e) {
         console.warn('[loadFromLocalStorage]', e);
@@ -2539,6 +2736,7 @@ function applyGameEvents(
   for (const e of events) {
     switch (e.type) {
       case 'EXP_GAIN': {
+        let levelsGained = 0;
         set((s) => {
           if (!s.player) return;
           const r = applyExpGain(s.player.level, s.player.exp, e.amount);
@@ -2546,6 +2744,7 @@ function applyGameEvents(
           s.player.exp = r.newExp;
           s.player.maxExp = r.newMaxExp;
           s.player.ap += r.apEarned;
+          levelsGained = r.levelsGained;
           if (r.levelsGained > 0) {
             s.player.realm = getRealmInfoFromLevel(
               r.newLevel,
@@ -2554,6 +2753,12 @@ function applyGameEvents(
           }
         });
         notify.success(`+${e.amount} Tu Vi`, '');
+        // Phase 16.3: Mission progress khi đột phá cảnh giới
+        if (levelsGained > 0) {
+          for (let i = 0; i < levelsGained; i++) {
+            get().incrementMissionProgress('level_up');
+          }
+        }
         break;
       }
       case 'HP_DELTA': {
@@ -2636,6 +2841,8 @@ function applyGameEvents(
           if (s.player) s.player.learnedSkills.push(id);
         });
         notify.epic(`Học được: ${e.name}`, `${e.rarity} · ${e.kind}`);
+        // Phase 16.3: Mission progress
+        get().incrementMissionProgress('learn_skill');
         break;
       }
       case 'REALM_BREAK': {
@@ -2885,6 +3092,8 @@ function applyGameEvents(
         if (e.loreId && get().knowledge.loreNpcs[e.loreId]) {
           notify.epic(`Hội ngộ · ${e.name}`, `Người ngươi từng nghe đồn nay xuất hiện`);
         }
+        // Phase 16.3: Mission progress (gặp NPC mới)
+        get().incrementMissionProgress('meet_npc');
         break;
       }
       case 'WORLD_LOCATION': {
@@ -2906,6 +3115,8 @@ function applyGameEvents(
         if (e.loreId && get().knowledge.loreLocations[e.loreId]) {
           notify.epic(`Đến nơi · ${e.name}`, `Địa danh từng nghe đồn nay hiện ra trước mắt`);
         }
+        // Phase 16.3: Mission progress (khám phá location mới)
+        get().incrementMissionProgress('discover_location');
         break;
       }
 
@@ -3027,6 +3238,10 @@ function applyGameEvents(
         // Convert sang EXP nếu finalEp ≥ threshold
         if (result.expGain > 0) {
           applyGameEvents([{ type: 'EXP_GAIN', amount: result.expGain }], get, set);
+        }
+        // Phase 16.3: Mission progress khi đạt EP cao
+        if (result.finalEp >= 50) {
+          get().incrementMissionProgress('high_ep_reward');
         }
 
         const emoji = result.finalEp >= 80 ? '🌟🌟🌟' : result.finalEp >= 50 ? '🌟🌟' : '🌟';

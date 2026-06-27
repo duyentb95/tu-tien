@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { reportProviderSuccess, reportProviderError } from './provider-health';
 import { getByokKey } from './byok';
+import { getRetryDelay } from './perks';
 
 /**
  * AI CLIENT — chỗ DUY NHẤT trong codebase gọi Gemini API.
@@ -422,7 +423,7 @@ async function callViaProxy<T>(
         // Retryable: 429 (rate limit), 5xx (server error / high demand)
         lastError = new Error(`[ai/proxy] HTTP ${res.status}: ${errBody.error ?? ''}`);
         if (attempt < MAX_ATTEMPTS - 1) {
-          const delay = 1500 * Math.pow(2, attempt) + Math.random() * 500;
+          const delay = getRetryDelay(attempt); // Phase 16.1: speed boost giảm 3x
           console.warn(`[ai/proxy] HTTP ${res.status}, retry ${attempt + 1}/${MAX_ATTEMPTS} sau ${Math.round(delay)}ms`);
           await new Promise((r) => setTimeout(r, delay));
           continue;
@@ -451,7 +452,7 @@ async function callViaProxy<T>(
       lastError = e;
       // Network error → retry
       if (attempt < MAX_ATTEMPTS - 1) {
-        const delay = 1500 * Math.pow(2, attempt);
+        const delay = getRetryDelay(attempt);
         console.warn(`[ai/proxy] Network error, retry ${attempt + 1}/${MAX_ATTEMPTS}:`, e);
         await new Promise((r) => setTimeout(r, delay));
         continue;

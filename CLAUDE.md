@@ -8,7 +8,7 @@
 
 **Game:** Mặc Hội Tiên Đồ — RPG tu tiên nhập vai thế giới mở, AI-driven (Gemini).
 
-**Trạng thái:** **v1.5.0 production** tại https://tien-do.netlify.app. Hoàn thành Phase 1-15 + 6/8 pattern Google Canvas RPG + Creative Engine + AI Resilience + **Monetization layer** (Tiền Ngọc premium currency, action tokens 50/ngày + regen, 5 currency packs, 8 exchange options, referral code, 5 coupon mẫu). Payment thực sắp wire Stripe/MoMo. Xem `CHANGELOG.md`.
+**Trạng thái:** **v1.6.0 production** tại https://tien-do.netlify.app. Hoàn thành Phase 1-16 + 6/8 pattern Google Canvas RPG + Creative Engine + AI Resilience + Monetization + **Retention layer** (Daily Missions + login streak ×3.0, Item Upgrade với re-roll/thăng cấp, Speed Boost effect, coupon TANTHU tân thủ 500 TN + 200 Lượt). Payment thực sắp wire Stripe/MoMo. Xem `CHANGELOG.md`.
 
 **Stack:** Vite + React 18 + TypeScript strict + Tailwind + Zustand+Immer + Zod + Firebase (optional cloud sync) + Gemini 2.5 Flash via Cloudflare Worker proxy + lottie-react.
 
