@@ -33,31 +33,39 @@ const health: Record<ProviderName, ProviderHealth> = {
   deepseek: { name: 'deepseek', status: 'unknown', consecutiveFailures: 0 },
 };
 
-type Listener = (snapshot: Record<ProviderName, ProviderHealth>) => void;
+type Listener = () => void;
 const listeners = new Set<Listener>();
 
-/** Subscribe để React component re-render khi state đổi */
-export const subscribeHealth = (listener: Listener): (() => void) => {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-};
-
-const notify = () => {
-  // Snapshot copy để consumer reference equality check
-  const snapshot: Record<ProviderName, ProviderHealth> = {
-    gemini: { ...health.gemini },
-    deepseek: { ...health.deepseek },
-  };
-  for (const l of listeners) {
-    try { l(snapshot); } catch (e) { console.warn('[provider-health] Listener error:', e); }
-  }
-};
-
-/** Đọc snapshot hiện tại (cho React useSyncExternalStore) */
-export const getHealthSnapshot = (): Record<ProviderName, ProviderHealth> => ({
+/**
+ * HOTFIX React error #185: getHealthSnapshot PHẢI return cùng reference khi data
+ * chưa đổi, nếu không useSyncExternalStore loop vô tận → màn hình đen.
+ *
+ * Cache snapshot, chỉ refresh khi notify() được gọi (success/error report).
+ */
+const makeSnapshot = (): Record<ProviderName, ProviderHealth> => ({
   gemini: { ...health.gemini },
   deepseek: { ...health.deepseek },
 });
+
+let cachedSnapshot: Record<ProviderName, ProviderHealth> = makeSnapshot();
+
+/** Subscribe để React component re-render khi state đổi.
+ * Note: signature theo useSyncExternalStore — listener không nhận args. */
+export const subscribeHealth = (listener: Listener): (() => void) => {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+};
+
+const notify = () => {
+  // Refresh cache trước khi gọi listeners — đảm bảo getHealthSnapshot trả new ref
+  cachedSnapshot = makeSnapshot();
+  for (const l of listeners) {
+    try { l(); } catch (e) { console.warn('[provider-health] Listener error:', e); }
+  }
+};
+
+/** Đọc snapshot hiện tại — STABLE REFERENCE để useSyncExternalStore không loop */
+export const getHealthSnapshot = (): Record<ProviderName, ProviderHealth> => cachedSnapshot;
 
 /** Gọi khi 1 provider call thành công */
 export const reportProviderSuccess = (provider: ProviderName): void => {
