@@ -64,6 +64,10 @@ import { CurrencyDisplay } from '@features/monetization/CurrencyDisplay';
 const DailyMissionsModal = lazy(() =>
   import('@features/daily-missions/DailyMissionsModal').then((m) => ({ default: m.DailyMissionsModal })),
 );
+// Phase 17.1: Extended quests
+const ExtendedQuestsModal = lazy(() =>
+  import('@features/extended-quests/ExtendedQuestsModal').then((m) => ({ default: m.ExtendedQuestsModal })),
+);
 
 export const GameplayScreen = () => {
   const player = useGameStore(selectPlayer);
@@ -97,6 +101,11 @@ export const GameplayScreen = () => {
   const [monetizationOpen, setMonetizationOpen] = useState(false);
   // Phase 16.3: Daily missions modal
   const [dailyMissionsOpen, setDailyMissionsOpen] = useState(false);
+  // Phase 17.1: Extended quests modal
+  const [extendedQuestsOpen, setExtendedQuestsOpen] = useState(false);
+  // Auto-refresh extended quest progress + load missions on mount
+  const refreshExtendedQuests = useGameStore((s) => s.refreshExtendedQuests);
+  useEffect(() => { refreshExtendedQuests(); }, [refreshExtendedQuests]);
   // Auto-trigger refreshDailyMissions on mount để check daily reset + login bonus
   const refreshDailyMissions = useGameStore((s) => s.refreshDailyMissions);
   useEffect(() => { refreshDailyMissions(); }, [refreshDailyMissions]);
@@ -202,6 +211,7 @@ export const GameplayScreen = () => {
           <NavButton label="Đại Hội" icon="⚔" onClick={() => setTournamentOpen(true)} />
           <NavButton label="Thành Tựu" icon="★" onClick={() => setAchievementsOpen(true)} />
           <NavButton label="Hàng Ngày" icon="📅" onClick={() => setDailyMissionsOpen(true)} />
+          <NavButton label="Chuỗi NV" icon="✦" onClick={() => setExtendedQuestsOpen(true)} />
           <NavButton label="Đạo Tâm" icon="◍" onClick={() => setCustomRulesOpen(true)} />
           <NavButton label="Lưu Trữ" icon="◭" onClick={() => setSaveManagerOpen(true)} />
           <NavButton label="Tra Cứu" icon="📜" onClick={() => setQuickLookupOpen(true)} />
@@ -293,6 +303,7 @@ export const GameplayScreen = () => {
         {aiStatusOpen && <AIStatusModal open onClose={() => setAiStatusOpen(false)} />}
         {monetizationOpen && <MonetizationModal open onClose={() => setMonetizationOpen(false)} />}
         {dailyMissionsOpen && <DailyMissionsModal open onClose={() => setDailyMissionsOpen(false)} />}
+        {extendedQuestsOpen && <ExtendedQuestsModal open onClose={() => setExtendedQuestsOpen(false)} />}
       </Suspense>
     </div>
   );

@@ -40,14 +40,14 @@ export const MonetizationModal = ({ open, onClose }: Props) => {
 
   if (!open) return null;
 
-  const handleCoupon = () => {
+  const handleCoupon = async () => {
     if (!couponInput.trim()) return;
-    const r = redeemCoupon(couponInput);
+    const r = await redeemCoupon(couponInput);
     if (r.ok) setCouponInput('');
   };
-  const handleReferral = () => {
+  const handleReferral = async () => {
     if (!referralInput.trim()) return;
-    const r = applyReferral(referralInput);
+    const r = await applyReferral(referralInput);
     if (r.ok) setReferralInput('');
   };
   const handleCopyReferral = () => {

@@ -38,12 +38,15 @@ import {
 import { findCoupon } from '@data/coupons';
 import { CURRENCY_PACKS, EXCHANGE_OPTIONS } from '@data/store-packs';
 import { setPerkFlags } from '@ai/perks';
+import { trackEvent } from '@services/analytics';
 import {
   INITIAL_DAILY_MISSIONS,
   formatDay,
   getDailyLoginReward,
 } from '@gametypes/daily-mission';
 import { DAILY_MISSIONS_POOL, rollDailyMissions } from '@data/daily-missions-pool';
+import { INITIAL_EXTENDED_QUESTS, makeProgress } from '@gametypes/extended-quest';
+import { EXTENDED_QUESTS, getExtendedQuestById } from '@data/extended-quests';
 import { nourishArtifact, isArtifactEligible, ARTIFACT_GRADE_NAMES } from '@core/items/artifact';
 import { CATEGORY_TO_DEFAULT_SLOT, EQUIPPABLE_CATEGORIES } from '@gametypes/item';
 import type { EquipmentSlot } from '@gametypes/character';
@@ -185,7 +188,7 @@ export interface StoryEntry {
   content?: string;
 }
 
-interface GameState {
+export interface GameState {
   stage: GameStage;
   prevStage: GameStage | null;
   player: PlayerCharacter | null;
@@ -238,6 +241,9 @@ interface GameState {
 
   /** Phase 16.3: Daily missions + login streak */
   dailyMissions: import('@gametypes/daily-mission').DailyMissionsState;
+
+  /** Phase 17.1: Extended/Hidden quests progress */
+  extendedQuests: import('@gametypes/extended-quest').ExtendedQuestsState;
 
   isAiThinking: boolean;
   /** Phase 9.3: phase chi tiết khi đang call AI (cho UI hiển thị state phù hợp) */
@@ -307,10 +313,10 @@ interface GameState {
   addActionTokens: (amount: number) => void;
   /** Mua exchange option qua effect ID. Returns true nếu OK. */
   purchaseExchange: (effectId: import('@data/store-packs').ExchangeOption['effect']) => boolean;
-  /** Redeem coupon code. Returns { ok, message }. */
-  redeemCoupon: (code: string) => { ok: boolean; message: string };
-  /** Apply referral code (1 lần per device). Returns { ok, message }. */
-  applyReferral: (code: string) => { ok: boolean; message: string };
+  /** Redeem coupon code. Returns { ok, message }. Try remote (Firebase) first, fallback local. */
+  redeemCoupon: (code: string) => Promise<{ ok: boolean; message: string }>;
+  /** Apply referral code (1 lần per device). Returns { ok, message }. Try remote first. */
+  applyReferral: (code: string) => Promise<{ ok: boolean; message: string }>;
   /** Mock buy currency pack (Phase 15 — wire Stripe sau). */
   mockBuyPack: (packId: string) => { ok: boolean; message: string };
   /** Phase 16.2: Re-roll stats item (50 TN). Giữ rarity + slot count, random distribute lại. */
@@ -325,6 +331,14 @@ interface GameState {
   incrementMissionProgress: (templateId: string, delta?: number) => void;
   /** User click "Nhận" → cộng reward + mark claimed. */
   claimDailyMission: (templateId: string) => boolean;
+
+  // ─── Phase 17.1: Extended/Hidden quests ───
+  /** Check unlock + step progress cho tất cả quest templates. Gọi sau mỗi event. */
+  refreshExtendedQuests: () => void;
+  /** Claim reward của step đã hoàn thành */
+  claimQuestStep: (templateId: string, stepIdx: number) => boolean;
+  /** Claim final reward khi đã hoàn thành toàn bộ chuỗi */
+  claimQuestFinal: (templateId: string) => boolean;
   unequipSkill: (slot: import('@gametypes/character').SkillSlot) => void;
   /** Dưỡng pháp bảo: tiêu linh thạch → tăng artifactSoul → có thể level up */
   nourishArtifactAction: (itemId: string, currencyAmount: number) => void;
@@ -491,6 +505,8 @@ export const useGameStore = create<GameState>()(
     economy: { ...INITIAL_ECONOMY, referralCode: generateReferralCode(getOrCreateDeviceId()) },
     // Phase 16.3: Daily missions — empty, sẽ roll qua refreshDailyMissions()
     dailyMissions: INITIAL_DAILY_MISSIONS,
+    // Phase 17.1: Extended quests
+    extendedQuests: INITIAL_EXTENDED_QUESTS,
     isAiThinking: false,
     aiPhase: 'idle' as const,
     lastError: null,
@@ -983,6 +999,8 @@ export const useGameStore = create<GameState>()(
       // Phase 16.3: Increment daily mission progress
       get().incrementMissionProgress('submit_5_actions');
       get().incrementMissionProgress('submit_15_actions');
+      // Phase 17.1: Check extended quest progress
+      get().refreshExtendedQuests();
       // Detect meditation/cultivation keyword in actionText
       if (/tu luy|bế quan|thiền|tĩnh tâm|hít thở|đả tọa/i.test(actionText)) {
         get().incrementMissionProgress('meditate_3_times');
@@ -1451,25 +1469,53 @@ export const useGameStore = create<GameState>()(
       } else {
         notify.success('Mua thành công', option.label);
       }
+      trackEvent('exchange_purchase', { effectId, cost, kind: option.kind });
       // Avoid unused warning
       void addActionTokens;
       return true;
     },
 
-    redeemCoupon: (code) => {
+    redeemCoupon: async (code) => {
+      const normalizedCode = code.trim().toUpperCase();
+      // Phase 17.2: Try Firebase function trước (atomic claim, chống fake)
+      try {
+        const { validateCouponRemote } = await import('@services/coupon-referral-api');
+        const { getOrCreateDeviceId: getDeviceId } = await import('@gametypes/economy');
+        const res = await validateCouponRemote({
+          code: normalizedCode,
+          deviceId: getDeviceId(),
+          turn: get().turn,
+        });
+        if (res.ok && res.reward) {
+          set((s) => {
+            s.economy.redeemedCoupons.push(normalizedCode);
+            if (res.reward!.tienNgoc) s.economy.tienNgoc += res.reward!.tienNgoc;
+            if (res.reward!.actionTokens) s.economy.actionTokens += res.reward!.actionTokens;
+          });
+          notify.epic('✦ Đổi mã thành công', res.message);
+          trackEvent('coupon_redeemed', { code: normalizedCode, source: 'remote',
+            tienNgoc: res.reward.tienNgoc ?? 0, actionTokens: res.reward.actionTokens ?? 0 });
+          return { ok: true, message: res.message };
+        }
+        if (!res.ok) return { ok: false, message: res.message };
+      } catch (err) {
+        // Firebase chưa config / network fail → fallback client-side
+        console.info('[redeemCoupon] remote unavailable, fallback local:', err);
+      }
+
+      // ─── Fallback client-side (Phase 15 behavior) ───
       const coupon = findCoupon(code);
       if (!coupon) {
         return { ok: false, message: `Mã "${code}" không hợp lệ hoặc đã hết hạn.` };
       }
-      const normalizedCode = coupon.code;
-      if (get().economy.redeemedCoupons.includes(normalizedCode)) {
+      if (get().economy.redeemedCoupons.includes(coupon.code)) {
         return { ok: false, message: 'Mã này đã được sử dụng trên thiết bị.' };
       }
       if (coupon.newUserOnly && get().turn > 0) {
         return { ok: false, message: 'Mã này chỉ dành cho tân thủ (chưa bắt đầu chơi).' };
       }
       set((s) => {
-        s.economy.redeemedCoupons.push(normalizedCode);
+        s.economy.redeemedCoupons.push(coupon.code);
         if (coupon.reward.tienNgoc) s.economy.tienNgoc += coupon.reward.tienNgoc;
         if (coupon.reward.actionTokens) s.economy.actionTokens += coupon.reward.actionTokens;
       });
@@ -1477,10 +1523,12 @@ export const useGameStore = create<GameState>()(
       if (coupon.reward.tienNgoc) rewardParts.push(`+${coupon.reward.tienNgoc} Tiền Ngọc`);
       if (coupon.reward.actionTokens) rewardParts.push(`+${coupon.reward.actionTokens} Lượt`);
       notify.epic('✦ Đổi mã thành công', `${coupon.description} (${rewardParts.join(', ')})`);
+      trackEvent('coupon_redeemed', { code: coupon.code, source: 'local',
+        tienNgoc: coupon.reward.tienNgoc ?? 0, actionTokens: coupon.reward.actionTokens ?? 0 });
       return { ok: true, message: `${coupon.description} (${rewardParts.join(', ')})` };
     },
 
-    applyReferral: (code) => {
+    applyReferral: async (code) => {
       const trimmed = code.trim().toUpperCase();
       if (!trimmed) return { ok: false, message: 'Vui lòng nhập mã.' };
       if (trimmed === get().economy.referralCode) {
@@ -1492,25 +1540,54 @@ export const useGameStore = create<GameState>()(
       if (get().turn > 5) {
         return { ok: false, message: 'Mã giới thiệu chỉ dùng được khi mới bắt đầu (< 5 lượt).' };
       }
-      // V1: client-side trust — cộng reward ngay cho người mới.
-      // Future: gửi server validate inviter exists + cộng reward cho inviter qua Firebase.
+
+      // Phase 17.2: Try Firebase function trước (verify inviter exists, bump inviter stats)
+      try {
+        const { validateReferralRemote } = await import('@services/coupon-referral-api');
+        const { getOrCreateDeviceId: getDeviceId } = await import('@gametypes/economy');
+        const res = await validateReferralRemote({
+          inviterCode: trimmed,
+          deviceId: getDeviceId(),
+          myReferralCode: get().economy.referralCode,
+          turn: get().turn,
+        });
+        if (res.ok && res.inviteeReward) {
+          set((s) => {
+            s.economy.referredBy = trimmed;
+            s.economy.tienNgoc += res.inviteeReward!.tienNgoc;
+            s.economy.actionTokens += res.inviteeReward!.actionTokens;
+          });
+          notify.epic('✦ Cảm tạ tiền bối', res.message);
+          trackEvent('referral_applied', { code: trimmed, source: 'remote' });
+          return { ok: true, message: res.message };
+        }
+        if (!res.ok) return { ok: false, message: res.message };
+      } catch (err) {
+        console.info('[applyReferral] remote unavailable, fallback local:', err);
+      }
+
+      // Fallback client-side (trust)
       set((s) => {
         s.economy.referredBy = trimmed;
         s.economy.tienNgoc += 100;
         s.economy.actionTokens += 30;
       });
       notify.epic('✦ Cảm tạ tiền bối', `Mã "${trimmed}" — nhận 100 Tiền Ngọc + 30 Lượt!`);
+      trackEvent('referral_applied', { code: trimmed, source: 'local' });
       return { ok: true, message: 'Áp dụng thành công. +100 TN, +30 Lượt.' };
     },
 
     mockBuyPack: (packId) => {
       const pack = CURRENCY_PACKS.find((p) => p.id === packId);
       if (!pack) return { ok: false, message: 'Pack không tồn tại.' };
+      // Phase 17.3: Analytics — track intent + complete
+      trackEvent('pack_purchase_intent', { packId, priceVnd: pack.priceVnd, amount: pack.amount });
       // V1: mock — tự cộng currency. V2: wire Stripe/MoMo + verify webhook.
       const total = pack.amount + pack.bonus;
       set((s) => {
         s.economy.tienNgoc += total;
       });
+      trackEvent('pack_purchase_complete', { packId, priceVnd: pack.priceVnd, total, mock: true });
       notify.epic(
         '✦ Mock Payment (Sắp triển khai)',
         `+${total} Tiền Ngọc (${pack.amount} + ${pack.bonus} bonus). Wire payment thực sau.`,
@@ -1622,6 +1699,7 @@ export const useGameStore = create<GameState>()(
         `📅 Điểm Danh — ${streakBadge}`,
         `+${loginReward.tienNgoc} Tiền Ngọc + ${loginReward.actionTokens} Lượt. Mở Nhiệm Vụ Hàng Ngày để xem 3 mission mới.`,
       );
+      trackEvent('daily_login', { streak: newStreak, tienNgocReward: loginReward.tienNgoc });
     },
 
     incrementMissionProgress: (templateId, delta = 1) => {
@@ -1639,6 +1717,130 @@ export const useGameStore = create<GameState>()(
           }, 50);
         }
       });
+    },
+
+    // ─── Phase 17.1: Extended/Hidden quests ───
+    refreshExtendedQuests: () => {
+      const state = get();
+      set((s) => {
+        for (const tpl of EXTENDED_QUESTS) {
+          if (!s.extendedQuests.progress[tpl.id]) {
+            s.extendedQuests.progress[tpl.id] = makeProgress();
+          }
+          const p = s.extendedQuests.progress[tpl.id]!;
+          if (p.completed) continue;
+
+          // Check unlock — visible quest (not hidden) auto-unlock luôn
+          if (!p.unlocked) {
+            const visible = !tpl.hidden || (tpl.unlockCondition && tpl.unlockCondition(state));
+            if (visible) {
+              p.unlocked = true;
+              p.unlockedAtTurn = state.turn;
+              setTimeout(() => {
+                notify.epic(`✦ Mở khóa chuỗi: ${tpl.title}`, tpl.description.slice(0, 100));
+                trackEvent('quest_started', { questId: tpl.id, hidden: tpl.hidden });
+              }, 100);
+            }
+          }
+          if (!p.unlocked) continue;
+
+          // Check current step completion
+          while (p.currentStep < tpl.steps.length) {
+            const step = tpl.steps[p.currentStep]!;
+            if (step.check(state)) {
+              // Auto-advance to next step (reward sẽ claim manual)
+              p.currentStep += 1;
+            } else {
+              break;
+            }
+          }
+
+          // Final completion check
+          if (p.currentStep >= tpl.steps.length && !p.completed) {
+            p.completed = true;
+            p.completedAtTurn = state.turn;
+            setTimeout(() => {
+              notify.epic(`✦ Hoàn thành chuỗi: ${tpl.title}`, 'Vào Nhiệm Vụ để nhận đại thưởng!');
+              trackEvent('quest_completed', { questId: tpl.id });
+            }, 100);
+          }
+        }
+      });
+    },
+
+    claimQuestStep: (templateId, stepIdx) => {
+      const tpl = getExtendedQuestById(templateId);
+      const p = get().extendedQuests.progress[templateId];
+      if (!tpl || !p) return false;
+      if (p.claimedSteps.includes(stepIdx)) {
+        notify.info('Đã nhận', 'Phần thưởng bước này đã được nhận.');
+        return false;
+      }
+      if (stepIdx >= p.currentStep) {
+        notify.warn('Chưa hoàn thành', 'Bước này chưa hoàn thành.');
+        return false;
+      }
+      const step = tpl.steps[stepIdx];
+      if (!step) return false;
+      const r = step.reward;
+      set((s) => {
+        s.extendedQuests.progress[templateId]!.claimedSteps.push(stepIdx);
+        if (r.tienNgoc) s.economy.tienNgoc += r.tienNgoc;
+        if (r.actionTokens) s.economy.actionTokens += r.actionTokens;
+        if (r.currency && s.player) s.player.currency += r.currency;
+      });
+      // EXP qua applyGameEvents để trigger level up
+      if (r.exp) {
+        applyGameEvents([{ type: 'EXP_GAIN', amount: r.exp }], get, set);
+      }
+      const parts: string[] = [];
+      if (r.tienNgoc) parts.push(`+${r.tienNgoc} 💎`);
+      if (r.actionTokens) parts.push(`+${r.actionTokens} ⚡`);
+      if (r.exp) parts.push(`+${r.exp} EXP`);
+      if (r.currency) parts.push(`+${r.currency} 🪙`);
+      notify.epic(`✦ Bước ${stepIdx + 1}: ${step.title}`, parts.join(', '));
+      return true;
+    },
+
+    claimQuestFinal: (templateId) => {
+      const tpl = getExtendedQuestById(templateId);
+      const p = get().extendedQuests.progress[templateId];
+      if (!tpl || !p) return false;
+      if (!p.completed) {
+        notify.warn('Chưa hoàn thành', 'Cần hoàn thành toàn bộ các bước.');
+        return false;
+      }
+      if (p.claimedFinal) {
+        notify.info('Đã nhận', 'Đại thưởng đã được nhận.');
+        return false;
+      }
+      const r = tpl.finalReward;
+      set((s) => {
+        s.extendedQuests.progress[templateId]!.claimedFinal = true;
+        if (r.tienNgoc) s.economy.tienNgoc += r.tienNgoc;
+        if (r.actionTokens) s.economy.actionTokens += r.actionTokens;
+        if (r.currency && s.player) s.player.currency += r.currency;
+      });
+      if (r.exp) {
+        applyGameEvents([{ type: 'EXP_GAIN', amount: r.exp }], get, set);
+      }
+      // Item reward: spawn pháp bảo qua ITEM event
+      if (r.itemName && r.itemRarity) {
+        applyGameEvents(
+          [{
+            type: 'ITEM_GAINED',
+            name: r.itemName,
+            rarity: r.itemRarity,
+            category: 'Pháp bảo',
+          } as GameEvent],
+          get, set,
+        );
+      }
+      const parts: string[] = [];
+      if (r.tienNgoc) parts.push(`+${r.tienNgoc} 💎`);
+      if (r.itemName) parts.push(`+ ${r.itemName} [${r.itemRarity}]`);
+      notify.epic(`✦✦✦ Đại Thưởng: ${tpl.title}`, parts.join(', '));
+      return true;
     },
 
     claimDailyMission: (templateId) => {
@@ -1664,6 +1866,7 @@ export const useGameStore = create<GameState>()(
       if (template.reward.tienNgoc) parts.push(`+${template.reward.tienNgoc} 💎`);
       if (template.reward.actionTokens) parts.push(`+${template.reward.actionTokens} ⚡`);
       notify.epic('✦ Nhận thưởng', `${template.title}: ${parts.join(', ')}`);
+      trackEvent('mission_claimed', { templateId, category: template.category });
       return true;
     },
 
@@ -2587,6 +2790,10 @@ export const useGameStore = create<GameState>()(
           // Phase 16.3: Daily missions
           if (data.dailyMissions) {
             s.dailyMissions = { ...INITIAL_DAILY_MISSIONS, ...data.dailyMissions };
+          }
+          // Phase 17.1: Extended quests
+          if (data.extendedQuests) {
+            s.extendedQuests = { ...INITIAL_EXTENDED_QUESTS, ...data.extendedQuests };
           }
           s.prevStage = s.stage;
           s.stage = 'playing';

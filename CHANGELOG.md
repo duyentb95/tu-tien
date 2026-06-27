@@ -5,6 +5,41 @@ Versioning theo [SemVer](https://semver.org/lang/vi/).
 
 ---
 
+## [1.7.0] — 2026-06-27
+
+### Added — Phase 17 (Extended Quests + Backend infrastructure + Analytics)
+
+**17.1 — Hidden + Extended Quests:**
+- `src/types/extended-quest.ts` + `src/data/extended-quests.ts`: 6 chuỗi quest multi-step (2 main-story visible, 2 hidden cần unlock condition, 2 secret). Mỗi quest 2-3 step, final reward pháp bảo Cực Phẩm/Siêu Phẩm/Huyền Thoại.
+- `store.refreshExtendedQuests()`: auto-check unlock + step progress mỗi turn. Hidden quest reveal qua `unlockCondition(state)` (vd: level ≥ 5, có item Hiếm, EP ≥ 100, NPC death ≥ 2).
+- `store.claimQuestStep` / `claimQuestFinal`: nhận step reward riêng + final đại thưởng.
+- `ExtendedQuestsModal` 2-tab (Đang Tu Luyện / Đã Hoàn Thành) + hint "Còn N chuỗi quest ẩn".
+- Nav button "✦ Chuỗi NV" trong gameplay header.
+
+**17.2 — Firebase Cloud Functions backend:**
+- `proxy/coupon-referral-function.ts`: 3 callable functions (validateCoupon, validateReferral, registerReferralCode) với Firestore transaction atomic, chống fake claim.
+- Firestore schema: `coupons/{code}`, `coupon_claims/{deviceId_code}`, `referrals/{deviceId}`.
+- `src/services/coupon-referral-api.ts`: client SDK wrapper httpsCallable.
+- `store.redeemCoupon` + `applyReferral`: refactored thành async, try remote trước, fallback localStorage nếu Firebase chưa deploy.
+- Admin tạo coupon qua Firebase Console manual (sau làm admin UI).
+
+**17.3 — Analytics — Firestore event tracker:**
+- `src/services/analytics.ts`: `trackEvent(name, props)` thin wrapper, buffer 5s flush batch (giảm Firestore write cost). Auto-flush khi tab hidden / beforeunload.
+- 18 event names: pack_view / purchase_intent / purchase_complete / exchange_purchase / daily_login / mission_claimed / coupon_redeemed / referral_applied / quest_started / quest_completed / combat_won / realm_break / item_upgraded / world_genesis / canon_pack_picked / byok_set / ai_provider_failed / sw_chunk_recovery.
+- Privacy: KHÔNG track PII (name, narrative, BYOK keys). Chỉ event metadata + deviceId anonymous.
+- User opt-out qua `setAnalyticsEnabled(false)`.
+- Wire vào store actions: mockBuyPack, purchaseExchange, coupon, referral, daily login, mission claim, quest start/complete.
+
+**17.4 — Documentation:**
+- `docs/BACKEND_DEPLOY.md`: hướng dẫn deploy Firebase Functions (4 steps), Firestore Security Rules, BigQuery analytics queries (top events, conversion rate, retention curve D1/D7/D30, mission completion rate), cost estimate (~700 DAU free tier).
+
+### Changed
+
+- `GameState` interface export (was `interface`, now `export interface`) để extended-quest check function dùng được.
+- `redeemCoupon` + `applyReferral` signature: `() => result` → `async () => Promise<result>`.
+
+---
+
 ## [1.6.0] — 2026-06-27
 
 ### Added — Phase 16 (Retention + Item upgrade + Coupon TANTHU)
