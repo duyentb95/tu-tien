@@ -15,6 +15,19 @@ const RARITY_CONFIG: Record<Rarity, { border: string; bg: string; text: string; 
   'Huyền Thoại': { border: 'rgba(224,101,78,.6)', bg: 'rgba(224,101,78,.13)', text: 'text-rarity-legendary', dot: '#e0654e' },
 };
 
+/** Phase 23.x: Map raw bonus key → friendly Vietnamese label + tooltip. */
+const BONUS_LABEL: Record<string, { label: string; tip: string; pct?: boolean }> = {
+  atk:     { label: 'Công Kích',      tip: 'Sát thương cơ bản gây ra khi đánh thường' },
+  def:     { label: 'Phòng Ngự',      tip: 'Giảm sát thương nhận từ kẻ địch' },
+  hp:      { label: 'Sinh Mệnh',      tip: 'Máu tối đa' },
+  spd:     { label: 'Thân Pháp',      tip: 'Tốc độ ra đòn, kẻ nhanh hơn đi trước' },
+  cr:      { label: 'Bạo Kích',       tip: 'Xác suất chí mạng', pct: true },
+  cdmg:    { label: 'Sát Bạo',        tip: 'Hệ số sát thương khi chí mạng', pct: true },
+  dmgAmp:  { label: 'Tăng Sát',       tip: 'Tăng tổng damage gây ra', pct: true },
+  dmgRes:  { label: 'Kháng Sát',      tip: 'Giảm tổng damage nhận', pct: true },
+  evasion: { label: 'Né Tránh',       tip: 'Xác suất né hoàn toàn đòn đánh', pct: true },
+};
+
 const FILTERS: { id: 'all' | ItemCategory; label: string; icon: string }[] = [
   { id: 'all', label: 'Tất Cả', icon: '◆' },
   { id: 'Vũ khí', label: 'Vũ khí', icon: '⚔' },
@@ -190,27 +203,60 @@ export const InventoryScreen = () => {
                   size={192}
                 />
               </div>
-              <p className="mb-4 font-serif text-[13px] italic leading-relaxed text-gold-300">
-                {selected.description || 'Vật phẩm tu tiên trân quý, được luyện chế từ thiên tài địa bảo.'}
-              </p>
+              <div className="mb-3">
+                <div className="flex items-center gap-2 text-[10.5px] uppercase tracking-widest text-jade-500 mb-1">
+                  <span style={{ color: RARITY_CONFIG[selected.rarity].dot }}>● {selected.rarity}</span>
+                  <span className="text-jade-600">·</span>
+                  <span>{selected.category}</span>
+                  {EQUIPPABLE_CATEGORIES.includes(selected.category) && (
+                    <>
+                      <span className="text-jade-600">·</span>
+                      <span className="text-gold-400">Trang bị</span>
+                    </>
+                  )}
+                </div>
+                <p className="font-serif text-[13px] italic leading-relaxed text-gold-300">
+                  {selected.description ||
+                    (selected.category === 'Vũ khí'
+                      ? 'Vũ khí pháp bảo, khi trang bị cộng các chỉ số bonus bên dưới vào nhân vật. Tăng damage chính.'
+                      : selected.category === 'Đan dược'
+                      ? 'Đan dược tu tiên. Nhấn "Sử Dụng" để hồi máu / tăng EXP / giải trừ trạng thái (xem hiệu ứng bên dưới).'
+                      : selected.category === 'Nguyên liệu'
+                      ? 'Nguyên liệu luyện đan / luyện khí. Mang đến Luyện Đan Thất / Luyện Khí phòng để chế tác.'
+                      : selected.category === 'Tín vật'
+                      ? 'Tín vật quý hiếm — có thể là chìa khóa nhiệm vụ, di vật cổ, hoặc trang sức cộng stats khi đeo.'
+                      : selected.category === 'Sách kỹ năng'
+                      ? 'Sách pháp ghi chép kỹ năng tu tiên. Nhấn "Sử Dụng" để học thành kỹ năng (vĩnh viễn).'
+                      : 'Vật phẩm tu tiên trân quý, được luyện chế từ thiên tài địa bảo.')}
+                </p>
+              </div>
               {selected.bonuses && Object.keys(selected.bonuses).length > 0 && (
                 <div className="mb-4 rounded-sm border border-gold-700/20 bg-ink-800/50 p-3">
-                  <div className="label-section mb-2">Chỉ Số Bonus</div>
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
+                  <div className="label-section mb-2">
+                    Chỉ Số Trang Bị
+                    {selected.refineLevel ? (
+                      <span className="ml-2 text-[10px] text-ember-300">
+                        +{selected.refineLevel}/12 · ×{(1 + (selected.refineLevel * 0.05)).toFixed(2)}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="space-y-1 text-[12.5px]">
                     {Object.entries(selected.bonuses).map(([k, v]) => {
                       if (!v) return null;
-                      const isPct = ['cr', 'cdmg', 'dmgAmp', 'dmgRes', 'evasion'].includes(k);
+                      const meta = BONUS_LABEL[k] ?? { label: k.toUpperCase(), tip: '', pct: false };
                       return (
-                        <div key={k} className="flex justify-between">
-                          <span className="text-jade-400">{k.toUpperCase()}</span>
-                          <span className="font-mono text-leaf-500">
-                            +{v}
-                            {isPct ? '%' : ''}
+                        <div key={k} className="flex items-baseline justify-between gap-2" title={meta.tip}>
+                          <span className="text-jade-300">{meta.label}</span>
+                          <span className="font-mono text-leaf-400">
+                            +{v}{meta.pct ? '%' : ''}
                           </span>
                         </div>
                       );
                     })}
                   </div>
+                  <p className="mt-2 text-[10.5px] italic text-jade-500/80">
+                    Khi trang bị, các chỉ số này cộng trực tiếp vào nhân vật. Càng nhiều phẩm cấp / rèn luyện càng cao bonus.
+                  </p>
                 </div>
               )}
               {selected.effects && (
@@ -299,40 +345,58 @@ export const InventoryScreen = () => {
               {['Hiếm', 'Cực Phẩm', 'Siêu Phẩm', 'Huyền Thoại'].includes(selected.rarity) && (
                 <div className="mt-3 rounded border border-gold-700/30 bg-ink-900/40 p-3">
                   <div className="label-section mb-2">⚒ Tinh Luyện Pháp Bảo</div>
-                  <div className="grid gap-1.5 sm:grid-cols-2">
+
+                  {/* Re-roll Stats — explanation + button */}
+                  <div className="mb-3 rounded border border-spirit-700/30 bg-spirit-900/15 p-2.5">
+                    <div className="flex items-baseline justify-between mb-1">
+                      <span className="text-[12px] font-semibold text-spirit-200">↻ Đổi Chỉ Số</span>
+                      <span className="text-[10px] font-mono text-spirit-400">💎 50 Tiên Ngọc</span>
+                    </div>
+                    <p className="text-[11px] leading-snug text-jade-400 mb-2">
+                      <strong className="text-spirit-300">Giữ nguyên phẩm cấp</strong>, random lại toàn bộ chỉ số bonus theo budget của rarity hiện tại.
+                      <br />Dùng khi stats hiện tại không vừa ý (vd vũ khí mà chia nhiều DEF). Có thể roll xấu hơn — đây là <em>gamble</em>.
+                    </p>
                     <button
                       onClick={() => {
-                        if (confirm(`Tinh luyện ${selected.name}? Tốn 50 Tiền Ngọc, random lại stats (giữ rarity).`)) {
+                        if (confirm(`Tinh luyện ${selected.name}? Tốn 50 Tiên Ngọc, random lại stats (giữ rarity ${selected.rarity}).`)) {
                           rerollItemStats(selected.id);
                         }
                       }}
                       disabled={tienNgoc < 50}
-                      className="rounded border border-spirit-500/40 bg-spirit-900/20 px-2 py-1.5 text-[11px] font-bold uppercase tracking-widest text-spirit-300 hover:bg-spirit-900/40 disabled:cursor-not-allowed disabled:opacity-40"
-                      title={tienNgoc < 50 ? `Cần 50 💎 (có ${tienNgoc})` : 'Random lại chỉ số'}
+                      className="w-full rounded border border-spirit-500/50 bg-spirit-900/30 px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-spirit-200 hover:bg-spirit-900/50 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      Re-roll Stats · 💎 50
+                      {tienNgoc < 50 ? `Cần 50 💎 (có ${tienNgoc})` : 'Đổi Chỉ Số · 💎 50'}
                     </button>
+                  </div>
+
+                  {/* Upgrade Rarity — explanation + button */}
+                  <div className="rounded border border-gold-700/40 bg-gold-900/15 p-2.5">
+                    <div className="flex items-baseline justify-between mb-1">
+                      <span className="text-[12px] font-semibold text-gold-200">▲ Thăng Phẩm Cấp</span>
+                      <span className="text-[10px] font-mono text-gold-400">💎 200 Tiên Ngọc</span>
+                    </div>
+                    <p className="text-[11px] leading-snug text-jade-400 mb-2">
+                      <strong className="text-gold-300">Tăng rarity lên 1 bậc</strong> (Hiếm → Cực Phẩm → Siêu Phẩm → Huyền Thoại). Stats tự re-roll theo budget mới <strong>cao hơn</strong> → bonus mạnh hơn rõ rệt.
+                      <br />Đầu tư cho vũ khí/giáp main. Huyền Thoại = đỉnh cấp, không nâng thêm.
+                    </p>
                     <button
                       onClick={() => {
                         if (selected.rarity === 'Huyền Thoại') {
                           alert('Đã đạt Huyền Thoại — không thể nâng thêm.');
                           return;
                         }
-                        if (confirm(`Thăng cấp ${selected.name}? Tốn 200 Tiền Ngọc, rarity tăng 1 tier.`)) {
+                        if (confirm(`Thăng cấp ${selected.name}? Tốn 200 Tiên Ngọc, rarity tăng 1 tier (${selected.rarity} → +1).`)) {
                           upgradeItemRarity(selected.id);
                         }
                       }}
                       disabled={tienNgoc < 200 || selected.rarity === 'Huyền Thoại'}
-                      className="rounded border border-gold-500/50 bg-gold-900/30 px-2 py-1.5 text-[11px] font-bold uppercase tracking-widest text-gold-300 hover:bg-gold-900/50 disabled:cursor-not-allowed disabled:opacity-40"
-                      title={
-                        selected.rarity === 'Huyền Thoại'
-                          ? 'Đã đỉnh cấp'
-                          : tienNgoc < 200
-                          ? `Cần 200 💎 (có ${tienNgoc})`
-                          : 'Thăng cấp rarity'
-                      }
+                      className="w-full rounded border border-gold-500/60 bg-gold-900/40 px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-gold-200 hover:bg-gold-900/60 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      Thăng Cấp · 💎 200
+                      {selected.rarity === 'Huyền Thoại'
+                        ? 'Đã Đỉnh Cấp'
+                        : tienNgoc < 200
+                        ? `Cần 200 💎 (có ${tienNgoc})`
+                        : 'Thăng Phẩm · 💎 200'}
                     </button>
                   </div>
                 </div>
@@ -347,14 +411,19 @@ export const InventoryScreen = () => {
                    (!cost.tienNgoc || tienNgoc >= cost.tienNgoc));
                 return (
                   <div className="mt-3 rounded border border-ember-500/30 bg-ember-900/10 p-3">
-                    <div className="label-section mb-2 flex items-center justify-between">
+                    <div className="label-section mb-1 flex items-center justify-between">
                       <span>✦ Rèn Luyện <span className="text-gold-400">+{curLv}/12</span></span>
                       {curLv < 12 && (
                         <span className="text-[10px] italic text-jade-500">
-                          Tỷ lệ thành công {rate}%
+                          Thành công {rate}%
                         </span>
                       )}
                     </div>
+                    <p className="text-[11px] leading-snug text-jade-400 mb-2">
+                      Mỗi cấp rèn cộng <strong className="text-ember-300">+5% damage</strong> vào toàn bộ chỉ số bonus của trang bị (cộng dồn: lv 12 = ×1.60).
+                      Dùng <strong>Linh Thạch</strong> (in-game), từ lv 6+ cần thêm Tiên Ngọc cho thiên hỏa.
+                      {curLv >= 9 && <span className="text-ember-400"> Lv 9+: rèn fail có 30% rớt 1 cấp — cân nhắc!</span>}
+                    </p>
                     {curLv >= 12 ? (
                       <div className="text-center text-[11px] italic text-gold-300">
                         ✦ Đỉnh cấp — không thể rèn thêm
