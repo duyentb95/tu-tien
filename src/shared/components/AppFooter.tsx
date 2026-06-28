@@ -10,7 +10,7 @@ const LegalModal = lazy(() =>
 /**
  * AppFooter — render ở cuối mọi screen.
  * - Version + build date
- * - Links: Privacy / TOS / About / GitHub
+ * - Links: Privacy / TOS / About
  * - Discord/Facebook community (placeholder URLs)
  */
 export const AppFooter = () => {
@@ -38,14 +38,10 @@ export const AppFooter = () => {
             <FooterLink onClick={() => openLegal('tos')}>Điều Khoản</FooterLink>
             <span aria-hidden className="text-jade-700">·</span>
             <FooterLink onClick={() => openLegal('about')}>Về Game</FooterLink>
-            <span aria-hidden className="text-jade-700">·</span>
-            <FooterExternal href="https://github.com/duyentb95/tu-tien" label="Source code">
-              GitHub ↗
-            </FooterExternal>
           </nav>
         </div>
         <p className="mt-3 text-center text-[10.5px] italic text-jade-700 sm:text-right">
-          Dự án phi thương mại · MIT License · Nội dung do AI Gemini sinh — vui lòng đọc Điều Khoản trước khi chơi.
+          Nội dung do AI Gemini sinh — vui lòng đọc Điều Khoản trước khi chơi.
         </p>
       </footer>
 
@@ -75,19 +71,3 @@ const FooterLink = ({ onClick, children }: FooterLinkProps) => (
   </button>
 );
 
-interface FooterExternalProps {
-  href: string;
-  label: string;
-  children: React.ReactNode;
-}
-const FooterExternal = ({ href, label, children }: FooterExternalProps) => (
-  <a
-    href={href}
-    target="_blank"
-    rel="noopener noreferrer"
-    aria-label={`${label} (mở tab mới)`}
-    className="text-jade-400 transition-colors hover:text-gold-300 hover:underline underline-offset-2"
-  >
-    {children}
-  </a>
-);
