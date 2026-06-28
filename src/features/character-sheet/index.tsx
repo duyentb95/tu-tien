@@ -6,9 +6,23 @@ import { getRealmInfoFromLevel } from '@core/stats/realms';
 import {
   getRootDisplayName,
   getRootSubtitle,
+  getRootFullDescription,
+  getRootCultivationTip,
   ELEMENT_DISPLAY,
 } from '@core/cultivation/spiritual-roots';
 import type { Rarity } from '@gametypes/item';
+
+/** Phase 23.UX: gợi ý cách tu luyện theo công pháp hiện tại */
+const getTechniqueHint = (name: string): string => {
+  const n = name.toLowerCase();
+  if (n.includes('quyết') || n.includes('kinh') || n.includes('chân')) {
+    return 'Công pháp chính — tăng tốc độ tu luyện EXP và quyết định realm progression. Tinh thông tăng khi tham thiền + đột phá cảnh giới.';
+  }
+  if (n.includes('thuật')) {
+    return 'Thuật pháp — kỹ thuật chiến đấu hoặc bổ trợ.';
+  }
+  return 'Công pháp tu luyện. Tinh thông tăng dần qua tham thiền (Tu Luyện Thất) + dùng skill trong combat.';
+};
 
 const RARITY_COLORS: Record<Rarity, { border: string; bg: string; dot: string; text: string }> = {
   'Thường':      { border: 'rgba(217,211,194,.4)', bg: 'rgba(217,211,194,.05)', dot: '#d9d3c2', text: 'text-rarity-common' },
@@ -34,6 +48,8 @@ export const CharacterSheetScreen = () => {
   const setStage = useGameStore((s) => s.setStage);
   const allocatePoint = useGameStore((s) => s.allocatePoint);
   const unequipItem = useGameStore((s) => s.unequipItem);
+  const rerollSpiritualRoot = useGameStore((s) => s.rerollSpiritualRoot);
+  const tienNgoc = useGameStore((s) => s.economy.tienNgoc);
   const inventory = useGameStore(selectInventory);
   const skills = useGameStore(selectSkills);
   const [avatarRefresh, setAvatarRefresh] = useState(0);
@@ -144,6 +160,32 @@ export const CharacterSheetScreen = () => {
                 <span className="text-jade-300">Hệ số tu luyện</span>
                 <span className="font-mono text-spirit-200">×{root.cultivationMultiplier.toFixed(1)}</span>
               </div>
+              {/* Phase 23.UX: mô tả + tip + reroll button */}
+              <p className="mt-3 text-[11.5px] italic text-jade-400 leading-snug">
+                {getRootFullDescription(root)}
+              </p>
+              <p className="mt-2 text-[11px] text-spirit-400 leading-snug">
+                <strong className="text-spirit-300">Cách tu luyện:</strong> {getRootCultivationTip(root)}
+              </p>
+              <button
+                onClick={() => {
+                  if (tienNgoc < 500) {
+                    alert(`Cần 500 Tiên Ngọc (có ${tienNgoc}).`);
+                    return;
+                  }
+                  if (!confirm(
+                    `Tẩy linh căn? Tốn 500 Tiên Ngọc.\n\n` +
+                    `Linh căn mới sẽ random hoàn toàn — có thể tốt hơn (Đơn/Dị) hoặc tệ hơn (Tứ/Ngũ). Hệ số tu luyện thay đổi vĩnh viễn cho đến khi tẩy lại.\n\n` +
+                    `Hệ số hiện tại: ×${root.cultivationMultiplier.toFixed(1)}`
+                  )) return;
+                  rerollSpiritualRoot();
+                }}
+                disabled={tienNgoc < 500}
+                className="mt-3 w-full rounded border border-spirit-500/50 bg-spirit-900/30 px-2 py-2 text-[11.5px] font-bold uppercase tracking-wider text-spirit-200 hover:bg-spirit-900/50 disabled:cursor-not-allowed disabled:opacity-40"
+                title={tienNgoc < 500 ? `Cần 500 💎 (có ${tienNgoc})` : 'Random lại linh căn'}
+              >
+                ↻ Tẩy Linh Căn · 💎 500
+              </button>
             </div>
           )}
 
@@ -170,6 +212,25 @@ export const CharacterSheetScreen = () => {
                 }}
               />
             </div>
+            {/* Phase 23.UX: mô tả công pháp + effect */}
+            <p className="mt-3 text-[11px] italic text-jade-400 leading-snug">
+              {getTechniqueHint(player.currentTechnique ?? 'Hồn Nguyên')}
+            </p>
+            <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-[10.5px]">
+              <div className="flex justify-between">
+                <span className="text-jade-500">EXP / turn</span>
+                <span className="font-mono text-spirit-300">
+                  ×{root?.cultivationMultiplier.toFixed(1) ?? '1.0'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-jade-500">Cảnh giới</span>
+                <span className="font-mono text-gold-300">{realm.realmName}</span>
+              </div>
+            </div>
+            <p className="mt-2 text-[10.5px] text-jade-500/80 italic">
+              Tham thiền tại Tu Luyện Thất hoặc tham gia combat để tăng tinh thông.
+            </p>
           </Bracketed>
         </div>
 
@@ -262,7 +323,12 @@ export const CharacterSheetScreen = () => {
             })}
           </div>
 
-          <div className="label-gold mb-3.5 mt-6">Kỹ Năng ({learnedSkillObjects.length})</div>
+          <div className="label-gold mb-3.5 mt-6 flex items-center justify-between">
+            <span>Kỹ Năng ({learnedSkillObjects.length})</span>
+            <span className="text-[10px] normal-case tracking-normal italic text-jade-500/80">
+              Hover xem mô tả
+            </span>
+          </div>
           {learnedSkillObjects.length === 0 ? (
             <p className="py-4 text-center text-[12px] italic text-jade-700">
               Chưa học được pháp thuật nào.
@@ -272,20 +338,46 @@ export const CharacterSheetScreen = () => {
               {learnedSkillObjects.map((sk) => {
                 if (!sk) return null;
                 const c = RARITY_COLORS[sk.rarity];
+                const kindLabel =
+                  sk.kind === 'combat_ultimate' ? 'Tuyệt học · Damage cao + Cooldown dài' :
+                  sk.kind === 'combat_basic' ? 'Chiêu thường · Damage vừa + Cooldown ngắn' :
+                  'Phụ trợ · Buff/Debuff/Healing/Khám phá';
                 return (
-                  <div key={sk.id} className="skill-row" style={{ borderColor: c.border, background: c.bg }}>
-                    <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ background: c.dot }} />
-                    <div className="min-w-0">
-                      <div className={`text-[13px] font-medium ${c.text}`}>{sk.name}</div>
-                      <div className="text-[10.5px] text-jade-500">
-                        {sk.kind === 'combat_ultimate' ? 'Tuyệt học' : sk.kind === 'combat_basic' ? 'Chiêu thường' : 'Phụ trợ'}
+                  <div
+                    key={sk.id}
+                    className="skill-row flex flex-col items-stretch !gap-0 !p-0 overflow-hidden"
+                    style={{ borderColor: c.border, background: c.bg }}
+                  >
+                    <div className="flex items-center gap-2 px-2.5 py-1.5">
+                      <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ background: c.dot }} />
+                      <div className="min-w-0 flex-1">
+                        <div className={`text-[13px] font-medium ${c.text}`}>{sk.name}</div>
+                        <div className="text-[10.5px] text-jade-500">{kindLabel}</div>
                       </div>
+                      <span className="text-[10px] uppercase tracking-wider font-mono" style={{ color: c.dot }}>
+                        {sk.rarity}
+                      </span>
                     </div>
+                    {sk.description && (
+                      <p className="px-2.5 pb-2 pt-0 text-[11px] italic text-jade-400 leading-snug border-t border-current/10">
+                        {sk.description}
+                      </p>
+                    )}
+                    {/* Phase 23.UX: quick stats — cost/cooldown từ Skill type chuẩn */}
+                    {(sk.cost !== undefined || sk.cooldown !== undefined) && (
+                      <div className="flex gap-3 px-2.5 pb-1.5 text-[10px] text-jade-500/90 font-mono">
+                        {sk.cost !== undefined && sk.cost > 0 && <span>Linh khí: {sk.cost}</span>}
+                        {sk.cooldown !== undefined && sk.cooldown > 0 && <span>CD: {sk.cooldown}t</span>}
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
           )}
+          <p className="mt-3 text-[10.5px] text-jade-500/70 italic">
+            Quản lý kĩ năng + trang bị slot ở mục <strong>Pháp Thuật</strong> trên menu.
+          </p>
         </Bracketed>
       </div>
 

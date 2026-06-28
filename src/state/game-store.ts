@@ -370,6 +370,8 @@ export interface GameState {
   cancelMomoPayment: () => void;
   /** Phase 16.2: Re-roll stats item (50 TN). Giữ rarity + slot count, random distribute lại. */
   rerollItemStats: (itemId: string) => boolean;
+  /** Phase 23.UX: Tẩy linh căn — random lại linh căn nếu quá phế. Tốn 500 Tiên Ngọc. */
+  rerollSpiritualRoot: () => { ok: boolean; message: string };
   /** Phase 23.1: Rèn luyện item +N. Trừ linh thạch + (lv 6+) Tiền Ngọc, roll success/fail. */
   refineItem: (itemId: string) => { ok: boolean; message: string };
   /** Phase 16.2: Upgrade item rarity 1 tier (200 TN). Stats tự re-roll theo budget mới. */
@@ -1943,6 +1945,37 @@ export const useGameStore = create<GameState>()(
         action: { target: 'inventory', label: 'Xem hành trang' },
       });
       return true;
+    },
+
+    // Phase 23.UX: Tẩy linh căn
+    rerollSpiritualRoot: () => {
+      const player = get().player;
+      if (!player) return { ok: false, message: 'Chưa có nhân vật.' };
+      const COST_TN = 500;
+      if (!get().spendTienNgoc(COST_TN, 'Tẩy linh căn')) {
+        return { ok: false, message: `Cần ${COST_TN} Tiên Ngọc.` };
+      }
+      const oldRoot = player.spiritualRoot;
+      // Sync import — đã có import trong file
+      const newRoot = rollSpiritualRoot();
+      set((s) => {
+        if (!s.player) return;
+        s.player.spiritualRoot = newRoot;
+        // Recompute multiplier vào maxExp / regen rate
+        s.player = recomputeStats(s.player, s.inventory);
+      });
+      const oldMul = oldRoot?.cultivationMultiplier ?? 1;
+      const newMul = newRoot.cultivationMultiplier;
+      const delta = newMul - oldMul;
+      const deltaStr = delta > 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2);
+      notify.epic('✦ Tẩy linh căn thành công', {
+        message: `Hệ số tu luyện: ×${oldMul.toFixed(1)} → ×${newMul.toFixed(1)} (${deltaStr})`,
+        action: { target: 'character-sheet', label: 'Xem Đạo Cơ' },
+      });
+      return {
+        ok: true,
+        message: `Linh căn mới! Hệ số tu luyện: ×${oldMul.toFixed(1)} → ×${newMul.toFixed(1)} (${deltaStr})`,
+      };
     },
 
     // Phase 23.1: Rèn luyện item +N

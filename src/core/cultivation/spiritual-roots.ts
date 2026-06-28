@@ -107,3 +107,27 @@ export const getRootSubtitle = (root: SpiritualRoot): string => {
 export const getPrimaryElement = (root: SpiritualRoot): Element => root.elements[0]!;
 
 export const getRootRolltypes = (): RootTypeDef[] => ROOT_TYPES;
+
+/** Phase 23.UX: lấy mô tả đầy đủ của root để hiển thị (description + grade) */
+export const getRootFullDescription = (root: SpiritualRoot): string => {
+  const t = ROOT_TYPES.find((x) => x.type === root.type)!;
+  return t.description;
+};
+
+/** Phase 23.UX: cách tu luyện gợi ý theo loại linh căn */
+export const getRootCultivationTip = (root: SpiritualRoot): string => {
+  const mul = root.cultivationMultiplier;
+  if (mul >= 4) {
+    return 'Dị bẩm — tu luyện bùng nổ. Tập trung 1 công pháp đơn hệ, không cần học nhiều. Ngộ pháp tắc sớm hơn người thường.';
+  }
+  if (mul >= 3) {
+    return 'Đơn linh căn — tu luyện cực nhanh. Tinh thông 1 hệ đến cực hạn, có thể vượt phẩm cấp đối thủ.';
+  }
+  if (mul >= 2) {
+    return 'Song linh căn — cân bằng tốc độ + đa dạng kỹ năng. Nên học công pháp 2 hệ phối hợp (vd Hỏa+Phong = Bão Lửa).';
+  }
+  if (mul >= 1) {
+    return 'Tam-Tứ linh căn — tu luyện ổn định. Nhiều lựa chọn công pháp, dùng đan dược + cảnh giới để bù tốc độ.';
+  }
+  return 'Ngũ linh căn — "phế tài" tốc độ, nhưng học được mọi loại công pháp. Cần đại cơ duyên / pháp bảo mạnh để bứt phá.';
+};
