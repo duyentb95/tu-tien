@@ -1,12 +1,4 @@
 {
-  "indexes": [
-    {
-      "collectionGroup": "referrals",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {"fieldPath": "referralCode", "order": "ASCENDING"}
-      ]
-    }
-  ],
+  "indexes": [],
   "fieldOverrides": []
 }
