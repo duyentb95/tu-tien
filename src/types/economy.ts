@@ -52,6 +52,18 @@ export interface EconomyState {
     /** Speed boost — bỏ retry delay AI, render ngay */
     speedBoost?: boolean;
   };
+
+  /** Phase 18: active payment intent (MoMo deeplink), null = không có */
+  paymentIntent: null | {
+    intentId: string;
+    packId: string;
+    memo: string;
+    amount: number;
+    momoDeeplink: string;
+    qrPayload: string;
+    expiresAt: number;
+    status: 'pending' | 'approved' | 'expired' | 'rejected';
+  };
 }
 
 export const INITIAL_ECONOMY: EconomyState = {
@@ -64,6 +76,7 @@ export const INITIAL_ECONOMY: EconomyState = {
   referredCount: 0,
   redeemedCoupons: [],
   unlockedPerks: {},
+  paymentIntent: null,
 };
 
 export const TOKEN_DAILY_CAP = 50;

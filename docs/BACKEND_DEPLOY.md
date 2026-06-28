@@ -1,15 +1,18 @@
-# Backend Deploy Guide — Phase 17
+# Backend Deploy Guide — Phase 17 + 18
 
-Hướng dẫn deploy Firebase Cloud Functions cho coupon + referral + analytics infrastructure.
+Hướng dẫn deploy Firebase Cloud Functions cho coupon + referral + analytics + MoMo payment.
 
 ## Tổng quan
 
-Phase 17 thêm 3 backend pieces:
-1. **Cloud Functions** (`proxy/coupon-referral-function.ts`): validateCoupon, validateReferral, registerReferralCode
-2. **Firestore collections**: `coupons`, `coupon_claims`, `referrals`, `analytics_events`
-3. **Client SDK** (đã wire): `src/services/coupon-referral-api.ts`, `src/services/analytics.ts`
+Phase 17 + 18 thêm 5 backend pieces:
+1. **Cloud Functions (Phase 17)**: validateCoupon, validateReferral, registerReferralCode
+2. **Cloud Functions (Phase 18)**: createPaymentIntent, getPaymentStatus, approvePayment, rejectPayment, listPendingPayments
+3. **Firestore collections**: `coupons`, `coupon_claims`, `referrals`, `analytics_events`, `payments`
+4. **Client SDK**: `src/services/coupon-referral-api.ts`, `src/services/analytics.ts`, `src/services/payment-api.ts`
+5. **Admin panel**: `public/admin.html` standalone (deploy cùng dist Netlify)
 
-Toàn bộ optional — nếu không deploy, client tự fallback localStorage (Phase 15 behavior).
+Coupon/referral optional — nếu không deploy backend, client tự fallback localStorage.
+Payment cần backend deploy + secret `ADMIN_TOKEN` set + `MOMO_PHONE` env.
 
 ---
 
@@ -277,3 +280,64 @@ CHỈ track metadata:
 - Timestamps + app version
 
 User có thể opt-out qua `setAnalyticsEnabled(false)` (lưu localStorage).
+
+---
+
+## 9. Phase 18: MoMo Personal QR + Admin Approval (KHÔNG cần GPKD)
+
+Flow: client tạo intent → mở QR/deeplink → user pay qua MoMo cá nhân → admin (Sếp) xác nhận sao kê → 1-click approve → reward auto credit.
+
+### 9.1. Set Functions secrets (1 lần)
+
+```bash
+# Admin token — long random string, NEVER share
+firebase functions:secrets:set ADMIN_TOKEN
+# Khi prompt, paste: openssl rand -base64 32  (vd "xK3v9j...")
+
+# MoMo phone nhận tiền + tên hiển thị (KHÔNG phải secret nhưng tiện set chung)
+firebase functions:config:set momo.phone="0912345678" momo.name="Mac Hoi Tu Tien"
+# Hoặc set env runtime (preferred v2):
+echo "MOMO_PHONE=0912345678" >> functions/.env.tu-tien-cbff0
+echo "MOMO_NAME=Mac Hoi Tu Tien" >> functions/.env.tu-tien-cbff0
+```
+
+### 9.2. Deploy
+
+```bash
+firebase deploy --only functions  # deploy 5 functions mới + secret rotate
+firebase deploy --only firestore  # rules + composite index payments(status,createdAt)
+```
+
+Composite index `payments(status ASC, createdAt DESC)` cần ~2-3 phút build. Trong lúc đó `listPendingPayments` sẽ throw — chờ xong rồi mở admin.
+
+### 9.3. Deploy admin panel
+
+`public/admin.html` build sẵn vào dist khi `npm run build`. Truy cập:
+```
+https://tien-do.netlify.app/admin.html
+```
+
+Setup 1 lần trong browser admin:
+- Paste 4 trường Firebase config (apiKey, projectId, appId, messagingSenderId)
+- Paste `ADMIN_TOKEN` (đã set ở 9.1)
+- Bookmark URL — config lưu trong localStorage, không cần nhập lại
+
+### 9.4. Workflow xác nhận đơn
+
+1. User nạp gói → admin.html hiện row pending với memo `TT-XXXXXX`
+2. Mở MoMo app/web → sao kê → tìm giao dịch trùng memo + đúng amount
+3. Click `✓ Approve` → user được credit ngay lập tức (poll 3s)
+4. Sai memo / không tìm thấy → `✗ Reject` với reason → user nhận thông báo
+
+Intent tự expire sau 15 phút nếu không approve.
+
+### 9.5. Bảo mật
+
+- `ADMIN_TOKEN` chỉ ở Firebase secret + admin browser localStorage. Không commit.
+- Client KHÔNG biết reward (server PACK_REGISTRY authoritative). User edit packId → reject.
+- Firestore rule: `payments/*` deny read/write client → chỉ Cloud Functions.
+- Admin panel có `noindex` meta để không bị search engine index.
+
+### 9.6. Khi nào upgrade lên MoMo Business gateway
+
+Khi vượt ngưỡng manual: > 50 đơn/ngày, hoặc cần invoice xuất hoá đơn → đăng ký GPKD + MoMo Business (~2-4 tuần approval) → wire IPN webhook tự credit. File `functions/src/payments.ts` đã structure rõ để chỉ cần thêm 1 function `momoIpnCallback` thay cho `approvePayment` manual.

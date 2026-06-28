@@ -5,6 +5,53 @@ Versioning theo [SemVer](https://semver.org/lang/vi/).
 
 ---
 
+## [1.8.0] — 2026-06-28
+
+### Added — Phase 18 (MoMo Personal QR Payment + Admin Approval)
+
+**Mục tiêu:** Bật thanh toán thật KHÔNG cần giấy phép kinh doanh (Personal QR + manual admin approve), thay vì mock cộng currency.
+
+**18.1 — Payment Cloud Functions:**
+- `proxy/payment-functions.ts` + `functions/src/payments.ts`: 5 callable v2:
+  - `createPaymentIntent({deviceId, packId})` → tạo doc `payments/{intentId}` + memo unique `TT-XXXXXX` + MoMo deeplink `nhantien.momo.vn/{phone}/{amount}/{memo}` + qrPayload.
+  - `getPaymentStatus({intentId, deviceId})` → client poll, auto-expire 15min.
+  - `approvePayment({intentId, adminToken})` → ADMIN ONLY, Firestore transaction flip `pending → approved`, return reward.
+  - `rejectPayment({intentId, adminToken, reason})` → manual reject với lý do.
+  - `listPendingPayments({adminToken, limit})` → liệt kê pending sort theo createdAt desc.
+- Server-side `PACK_REGISTRY` authoritative — client KHÔNG quyết định reward (chống spoof packId).
+- Secret `ADMIN_TOKEN` set qua `firebase functions:secrets:set`, MoMo phone đọc từ env `MOMO_PHONE`/`MOMO_NAME`.
+- Composite index `payments(status ASC, createdAt DESC)` cho `listPendingPayments`.
+- Rules: `payments/*` deny read/write client — chỉ admin SDK touched.
+
+**18.2 — Client payment-api + poll loop:**
+- `src/services/payment-api.ts`: 3 wrapper (createPaymentIntent, getPaymentStatus, approvePaymentAdmin).
+- `EconomyState.paymentIntent` field (intentId + memo + deeplink + qrPayload + expiresAt + status).
+- Store actions: `startMomoPayment(packId)`, `pollMomoPayment()` (auto-credit khi approved + clear intent), `cancelMomoPayment()`.
+- Analytics: track `pack_purchase_intent` + `pack_purchase_complete` với realAmount.
+
+**18.3 — PaymentModal UI:**
+- `src/features/monetization/MomoPaymentModal.tsx`: sub-modal hiện QR (qrserver.com render từ deeplink) + memo highlighted + countdown 15min + deeplink button mobile + status indicator + cancel.
+- Auto-poll mỗi 3s, auto-tick countdown mỗi 1s.
+- MonetizationModal pack button đổi "Mua (mock)" → "◭ Mua bằng MoMo" khi backend config có sẵn.
+
+**18.4 — Admin Panel standalone:**
+- `public/admin.html`: gate paste Firebase config + ADMIN_TOKEN, lưu localStorage. Auto-refresh 10s list pending. 1-click Approve/Reject với confirm + reason prompt. Memo select-all để copy nhanh khi check sao kê.
+- Deploy cùng dist Netlify → `tien-do.netlify.app/admin.html`. Có `noindex` meta.
+
+**18.5 — Docs:**
+- `docs/BACKEND_DEPLOY.md` thêm Section 9 — MoMo flow + secrets setup + admin panel deploy + bảo mật + roadmap upgrade lên MoMo Business gateway (cần GPKD).
+
+### Changed
+- `CURRENCY_PACKS` registry sync giữa client + server (5 packs: starter 20k, standard_small 50k, standard_large 100k, premium 200k, whale 500k).
+- `MonetizationModal` mount `MomoPaymentModal` sub-modal sau Bracketed root.
+
+### Security
+- `ADMIN_TOKEN` secret only — KHÔNG commit, set qua Firebase secret manager.
+- Client gọi `getPaymentStatus` phải match deviceId mới được approve (chống user khác claim intent).
+- Admin panel có meta `noindex` để search engine không index URL.
+
+---
+
 ## [1.7.0] — 2026-06-27
 
 ### Added — Phase 17 (Extended Quests + Backend infrastructure + Analytics)

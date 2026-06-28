@@ -319,6 +319,12 @@ export interface GameState {
   applyReferral: (code: string) => Promise<{ ok: boolean; message: string }>;
   /** Mock buy currency pack (Phase 15 — wire Stripe sau). */
   mockBuyPack: (packId: string) => { ok: boolean; message: string };
+  /** Phase 18: Tạo payment intent MoMo (gọi backend, mở deeplink). Trả về null nếu lỗi. */
+  startMomoPayment: (packId: string) => Promise<{ ok: boolean; message: string }>;
+  /** Phase 18: Poll status payment intent hiện tại. Auto credit khi approved + clear intent. */
+  pollMomoPayment: () => Promise<'pending' | 'approved' | 'expired' | 'rejected' | 'none'>;
+  /** Phase 18: Cancel/clear intent (user đóng modal). */
+  cancelMomoPayment: () => void;
   /** Phase 16.2: Re-roll stats item (50 TN). Giữ rarity + slot count, random distribute lại. */
   rerollItemStats: (itemId: string) => boolean;
   /** Phase 16.2: Upgrade item rarity 1 tier (200 TN). Stats tự re-roll theo budget mới. */
@@ -1596,6 +1602,88 @@ export const useGameStore = create<GameState>()(
         ok: true,
         message: `Mock thành công +${total} TN. Payment thực sẽ triển khai sau.`,
       };
+    },
+
+    // ─── Phase 18: MoMo Personal QR + deeplink + admin approve ───
+    startMomoPayment: async (packId) => {
+      try {
+        const { createPaymentIntent } = await import('@services/payment-api');
+        const deviceId = getOrCreateDeviceId();
+        const res = await createPaymentIntent({ deviceId, packId });
+        if (!res.ok || !res.intentId) {
+          notify.warn('Thanh toán không khả dụng', res.message ?? 'Backend chưa sẵn sàng.');
+          return { ok: false, message: res.message ?? 'Lỗi tạo intent.' };
+        }
+        trackEvent('pack_purchase_intent', { packId, amount: res.amount, intentId: res.intentId });
+        set((s) => {
+          s.economy.paymentIntent = {
+            intentId: res.intentId!,
+            packId,
+            memo: res.memo ?? '',
+            amount: res.amount ?? 0,
+            momoDeeplink: res.momoDeeplink ?? '',
+            qrPayload: res.qrPayload ?? '',
+            expiresAt: res.expiresAt ?? Date.now() + 15 * 60 * 1000,
+            status: 'pending',
+          };
+        });
+        return { ok: true, message: 'Intent đã tạo, quét QR hoặc mở MoMo.' };
+      } catch (err) {
+        console.error('[startMomoPayment]', err);
+        notify.warn('Lỗi mạng', 'Không kết nối được server thanh toán.');
+        return { ok: false, message: 'Network error' };
+      }
+    },
+
+    pollMomoPayment: async () => {
+      const intent = get().economy.paymentIntent;
+      if (!intent) return 'none';
+      try {
+        const { getPaymentStatus } = await import('@services/payment-api');
+        const deviceId = getOrCreateDeviceId();
+        const res = await getPaymentStatus({ intentId: intent.intentId, deviceId });
+        if (!res.ok || !res.status) return 'pending';
+        // Update status trong state
+        set((s) => {
+          if (s.economy.paymentIntent) s.economy.paymentIntent.status = res.status!;
+        });
+        // Credit reward khi approved
+        if (res.status === 'approved' && res.reward) {
+          set((s) => {
+            s.economy.tienNgoc += res.reward!.tienNgoc ?? 0;
+            s.economy.actionTokens += res.reward!.actionTokens ?? 0;
+            // Apply perks (vd speed_boost)
+            for (const perk of res.reward!.perks ?? []) {
+              if (perk === 'speed_boost') s.economy.unlockedPerks.speedBoost = true;
+            }
+            s.economy.paymentIntent = null;  // Clear sau khi credit
+          });
+          trackEvent('pack_purchase_complete', {
+            packId: intent.packId, amount: intent.amount,
+            tienNgoc: res.reward.tienNgoc ?? 0, actionTokens: res.reward.actionTokens ?? 0,
+          });
+          notify.epic(
+            '✦ Nạp thành công',
+            `+${res.reward.tienNgoc ?? 0} Tiền Ngọc, +${res.reward.actionTokens ?? 0} lượt. Cảm tạ tiền bối!`,
+          );
+        } else if (res.status === 'expired' || res.status === 'rejected') {
+          set((s) => { s.economy.paymentIntent = null; });
+          notify.warn(
+            res.status === 'expired' ? 'Hết hạn' : 'Bị từ chối',
+            res.status === 'expired'
+              ? 'Intent đã quá 15 phút. Vui lòng tạo lại.'
+              : 'Admin đã từ chối giao dịch này. Liên hệ hỗ trợ nếu nhầm lẫn.',
+          );
+        }
+        return res.status;
+      } catch (err) {
+        console.error('[pollMomoPayment]', err);
+        return 'pending';
+      }
+    },
+
+    cancelMomoPayment: () => {
+      set((s) => { s.economy.paymentIntent = null; });
     },
 
     // ─── Phase 16.2: Item Upgrade (re-roll stats / bump rarity) ───

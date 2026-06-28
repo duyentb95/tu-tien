@@ -17,6 +17,15 @@ admin.initializeApp();
 const db = admin.firestore();
 const REGION = "asia-southeast1";
 
+// Re-export payment functions (file riêng, dùng admin SDK đã init ở trên)
+export {
+  createPaymentIntent,
+  getPaymentStatus,
+  approvePayment,
+  rejectPayment,
+  listPendingPayments,
+} from "./payments";
+
 // ─────────────────────────────────────────────────────────
 // validateCoupon
 // ─────────────────────────────────────────────────────────

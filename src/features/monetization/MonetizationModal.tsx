@@ -3,6 +3,7 @@ import { useGameStore, selectEconomy } from '@state/game-store';
 import { Bracketed } from '@shared/components/CornerBracket';
 import { CURRENCY_PACKS, EXCHANGE_OPTIONS, formatVnd } from '@data/store-packs';
 import { notify } from '@state/notifications';
+import { MomoPaymentModal } from './MomoPaymentModal';
 
 interface Props {
   open: boolean;
@@ -33,6 +34,9 @@ export const MonetizationModal = ({ open, onClose }: Props) => {
   const redeemCoupon = useGameStore((s) => s.redeemCoupon);
   const applyReferral = useGameStore((s) => s.applyReferral);
   const mockBuyPack = useGameStore((s) => s.mockBuyPack);
+  const startMomoPayment = useGameStore((s) => s.startMomoPayment);
+  const env = import.meta.env as Record<string, string | undefined>;
+  const hasMomoBackend = !!(env.VITE_FIREBASE_API_KEY && env.VITE_FIREBASE_PROJECT_ID);
 
   const [tab, setTab] = useState<TabKey>('store');
   const [couponInput, setCouponInput] = useState('');
@@ -132,10 +136,16 @@ export const MonetizationModal = ({ open, onClose }: Props) => {
             {/* TAB: Store */}
             {tab === 'store' && (
               <div>
-                <div className="mb-3 rounded border border-ember-500/40 bg-ember-900/20 p-2.5 text-[12px] text-ember-200">
-                  ⚠ <strong>Thanh toán thực sắp triển khai.</strong> Hiện tại bấm "Mua" sẽ mock cộng currency cho test.
-                  Production sẽ tích hợp Stripe / MoMo / ZaloPay.
-                </div>
+                {hasMomoBackend ? (
+                  <div className="mb-3 rounded border border-jade-500/40 bg-jade-900/20 p-2.5 text-[12px] text-jade-200">
+                    ✓ <strong>Thanh toán MoMo đang hoạt động.</strong> Sau khi chuyển khoản, đợi admin xác nhận ~1-5 phút,
+                    Tiền Ngọc tự cộng. Sai memo = phải liên hệ hỗ trợ.
+                  </div>
+                ) : (
+                  <div className="mb-3 rounded border border-ember-500/40 bg-ember-900/20 p-2.5 text-[12px] text-ember-200">
+                    ⚠ <strong>Backend chưa config — chỉ mock cộng currency cho test.</strong> Production wire VITE_FIREBASE_* env.
+                  </div>
+                )}
                 <div className="grid gap-2 sm:grid-cols-2">
                   {CURRENCY_PACKS.map((pack) => {
                     const total = pack.amount + pack.bonus;
@@ -162,10 +172,13 @@ export const MonetizationModal = ({ open, onClose }: Props) => {
                             {formatVnd(pack.priceVnd)}
                           </span>
                           <button
-                            onClick={() => mockBuyPack(pack.id)}
+                            onClick={() => {
+                              if (hasMomoBackend) startMomoPayment(pack.id);
+                              else mockBuyPack(pack.id);
+                            }}
                             className="rounded border border-gold-500/50 bg-gold-900/30 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-gold-200 hover:bg-gold-700/30"
                           >
-                            Mua (mock)
+                            {hasMomoBackend ? '◭ Mua bằng MoMo' : 'Mua (mock)'}
                           </button>
                         </div>
                         <div className="mt-1 text-right text-[9px] italic text-jade-600">
@@ -321,6 +334,9 @@ export const MonetizationModal = ({ open, onClose }: Props) => {
           </div>
         </Bracketed>
       </div>
+
+      {/* Phase 18: MoMo payment sub-modal (tự render khi paymentIntent != null) */}
+      <MomoPaymentModal />
     </div>
   );
 };

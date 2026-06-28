@@ -29,5 +29,10 @@ service cloud.firestore {
       allow create: if request.resource.data.keys().hasAll(['name', 'props', 'deviceId', 'serverTs']);
       allow read, update, delete: if false;
     }
+
+    // ─── Payments: client KHÔNG touch trực tiếp (đi qua Cloud Functions) ───
+    match /payments/{id} {
+      allow read, write: if false;
+    }
   }
 }
