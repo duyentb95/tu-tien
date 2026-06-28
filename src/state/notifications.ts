@@ -1,6 +1,42 @@
 import { create } from 'zustand';
 import { sfx } from '@services/audio';
 
+// Phase 21.0: persist history + unreadCount cross-session qua localStorage.
+// KHÔNG persist items (toast đang active) — chỉ persist history archive.
+const LS_KEY = 'tu-tien:notif-history-v1';
+const PERSIST_MAX = 50;
+
+type Persisted = { history: Notification[]; unreadCount: number };
+
+const loadPersisted = (): Persisted => {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return { history: [], unreadCount: 0 };
+  }
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return { history: [], unreadCount: 0 };
+    const parsed = JSON.parse(raw) as Persisted;
+    return {
+      history: Array.isArray(parsed.history) ? parsed.history.slice(0, PERSIST_MAX) : [],
+      unreadCount: typeof parsed.unreadCount === 'number' ? parsed.unreadCount : 0,
+    };
+  } catch {
+    return { history: [], unreadCount: 0 };
+  }
+};
+
+const savePersisted = (s: Persisted) => {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      history: s.history.slice(0, PERSIST_MAX),
+      unreadCount: s.unreadCount,
+    }));
+  } catch {
+    // quota exceeded / disabled → silent fail
+  }
+};
+
 export type NotificationKind = 'success' | 'info' | 'warn' | 'epic';
 
 /** Phase 19: Target khi click action button trong NotificationCenter */
@@ -59,53 +95,61 @@ interface NotifStore {
   clearHistory: () => void;
 }
 
-export const useNotifStore = create<NotifStore>((set, get) => ({
-  items: [],
-  history: [],
-  unreadCount: 0,
+export const useNotifStore = create<NotifStore>((set, get) => {
+  const persisted = loadPersisted();
+  return {
+    items: [],
+    history: persisted.history,
+    unreadCount: persisted.unreadCount,
 
-  push: (n) => {
-    const id = crypto.randomUUID();
-    const item: Notification = {
-      ttl: 4500,
-      ...n,
-      id,
-      createdAt: Date.now(),
-      read: false,
-    };
-    set((s) => ({
-      items: [...s.items, item],
-      history: [item, ...s.history].slice(0, HISTORY_CAP),
-      unreadCount: s.unreadCount + 1,
-    }));
-    if (item.ttl && item.ttl > 0) {
-      setTimeout(() => get().dismiss(id), item.ttl);
-    }
-  },
-
-  dismiss: (id) =>
-    set((s) => ({ items: s.items.filter((i) => i.id !== id) })),
-
-  clear: () => set({ items: [] }),
-
-  markRead: (id) =>
-    set((s) => {
-      const hit = s.history.find((n) => n.id === id);
-      if (!hit || hit.read) return s;
-      return {
-        history: s.history.map((n) => (n.id === id ? { ...n, read: true } : n)),
-        unreadCount: Math.max(0, s.unreadCount - 1),
+    push: (n) => {
+      const id = crypto.randomUUID();
+      const item: Notification = {
+        ttl: 4500,
+        ...n,
+        id,
+        createdAt: Date.now(),
+        read: false,
       };
-    }),
+      set((s) => {
+        const history = [item, ...s.history].slice(0, HISTORY_CAP);
+        const unreadCount = s.unreadCount + 1;
+        savePersisted({ history, unreadCount });
+        return { items: [...s.items, item], history, unreadCount };
+      });
+      if (item.ttl && item.ttl > 0) {
+        setTimeout(() => get().dismiss(id), item.ttl);
+      }
+    },
 
-  markAllRead: () =>
-    set((s) => ({
-      history: s.history.map((n) => ({ ...n, read: true })),
-      unreadCount: 0,
-    })),
+    dismiss: (id) =>
+      set((s) => ({ items: s.items.filter((i) => i.id !== id) })),
 
-  clearHistory: () => set({ history: [], unreadCount: 0 }),
-}));
+    clear: () => set({ items: [] }),
+
+    markRead: (id) =>
+      set((s) => {
+        const hit = s.history.find((n) => n.id === id);
+        if (!hit || hit.read) return s;
+        const history = s.history.map((n) => (n.id === id ? { ...n, read: true } : n));
+        const unreadCount = Math.max(0, s.unreadCount - 1);
+        savePersisted({ history, unreadCount });
+        return { history, unreadCount };
+      }),
+
+    markAllRead: () =>
+      set((s) => {
+        const history = s.history.map((n) => ({ ...n, read: true }));
+        savePersisted({ history, unreadCount: 0 });
+        return { history, unreadCount: 0 };
+      }),
+
+    clearHistory: () => {
+      savePersisted({ history: [], unreadCount: 0 });
+      set({ history: [], unreadCount: 0 });
+    },
+  };
+});
 
 type NotifyOpts = Pick<Notification, 'message' | 'action' | 'ttl'>;
 

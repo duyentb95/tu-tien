@@ -1216,10 +1216,12 @@ export const useGameStore = create<GameState>()(
         const expGain = Math.round(50 * enemy.level * 1.2);
         const currencyGain = Math.round(20 * enemy.level);
         notify.success('Chiến thắng!', `+${expGain} EXP · +${currencyGain} Linh Thạch`);
-        // Phase 20: lifetime kill + currency tracker
+        // Phase 20 + 21.2: lifetime kill + currency + per-enemy tracker
         set((s) => {
           s.playerStats.totalKills += 1;
           s.playerStats.totalCurrencyEarned += currencyGain;
+          const name = (enemy as { name?: string }).name || 'Vô danh';
+          s.playerStats.killsByEnemy[name] = (s.playerStats.killsByEnemy[name] ?? 0) + 1;
         });
         // Phase 16.3: Mission progress combat
         get().incrementMissionProgress('win_combat');
@@ -1240,6 +1242,8 @@ export const useGameStore = create<GameState>()(
         }, 1500);
       } else if (state.status === 'enemy_win') {
         notify.warn('Bại trận', 'Ngươi bị đánh ngã, tỉnh dậy ở nơi an toàn');
+        // Phase 21.2: lifetime defeat tracker
+        set((s) => { s.playerStats.totalDefeats += 1; });
         setTimeout(() => {
           set((s) => {
             s.combat = null;
@@ -1251,6 +1255,8 @@ export const useGameStore = create<GameState>()(
         }, 1500);
       } else if (state.status === 'fled') {
         notify.info('Bỏ chạy', 'Ngươi trốn thoát khỏi trận chiến');
+        // Phase 21.2: fled cũng tính defeat (không phải win)
+        set((s) => { s.playerStats.totalDefeats += 1; });
         setTimeout(() => {
           set((s) => {
             s.combat = null;

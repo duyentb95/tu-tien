@@ -31,6 +31,8 @@ export interface PlayerLifetimeStats {
   tribulationsPassed: number;
   /** Realm breaks lifetime (≠ current level — tính cả khi reset) */
   realmBreaksLifetime: number;
+  /** Phase 21.2: per-enemy kill count map → leaderboard "sát nhiều nhất" */
+  killsByEnemy: Record<string, number>;
 }
 
 export const INITIAL_LIFETIME_STATS: PlayerLifetimeStats = {
@@ -42,4 +44,5 @@ export const INITIAL_LIFETIME_STATS: PlayerLifetimeStats = {
   legendaryItemsOwned: 0,
   tribulationsPassed: 0,
   realmBreaksLifetime: 0,
+  killsByEnemy: {},
 };

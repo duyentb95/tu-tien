@@ -99,6 +99,10 @@ export const DailyMissionsModal = ({ open, onClose }: Props) => {
             </div>
           </div>
 
+          {/* Phase 21.1: 7-day login calendar visual */}
+          <LoginCalendar7Day streak={loginStreak} />
+
+
           {/* Missions list */}
           <div className="custom-scroll flex-grow space-y-2 overflow-y-auto pr-1">
             {todayMissions.length === 0 ? (
@@ -201,6 +205,79 @@ const StreakProgressBar = ({ streak }: { streak: number }) => {
         <span className={streak >= 7 ? 'text-gold-400' : ''}>7 (×1.5)</span>
         <span className={streak >= 14 ? 'text-gold-300' : ''}>14 (×2)</span>
         <span className={streak >= 30 ? 'text-ember-300' : ''}>30 (×3)</span>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Phase 21.1: 7-day login calendar visual.
+ * Hiển thị reward 7 ngày trong chu kỳ hiện tại, highlight ngày hôm nay,
+ * cộng cảm giác "đã đi được X ngày trong tuần" + động lực không bỏ ngày nào.
+ */
+const LoginCalendar7Day = ({ streak }: { streak: number }) => {
+  // Trong chu kỳ 7-day current — day index 1-7 = streak % 7 (1-based)
+  // Nếu streak=0 → chưa điểm danh hôm nay, hiển thị "Day 1" chưa nhận
+  const cycleDay = streak === 0 ? 0 : ((streak - 1) % 7) + 1;
+  const milestoneAt = (d: number) => (d === 7 ? '🎁' : d === 3 ? '✦' : '◆');
+
+  return (
+    <div className="mb-3 rounded border border-gold-500/30 bg-ink-800/40 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <div className="text-[10px] uppercase tracking-widest text-jade-500">
+          📅 Lịch điểm danh 7 ngày
+        </div>
+        <div className="text-[9px] italic text-jade-600">
+          Ngày {cycleDay}/7 trong tuần · streak {streak}
+        </div>
+      </div>
+      <div className="grid grid-cols-7 gap-1.5">
+        {[1, 2, 3, 4, 5, 6, 7].map((d) => {
+          const claimed = d <= cycleDay;
+          const isToday = d === cycleDay && cycleDay > 0;
+          const rewardForDay = getDailyLoginReward(d);
+          // Bonus mỗi 3 + 7
+          const isBonus = d === 3 || d === 7;
+          return (
+            <div
+              key={d}
+              className={`relative rounded border p-1.5 text-center text-[10px] transition-all ${
+                claimed
+                  ? isToday
+                    ? 'border-gold-400 bg-gold-900/40 shadow-[0_0_8px_rgba(212,175,55,0.4)]'
+                    : 'border-jade-500/40 bg-jade-900/20'
+                  : isBonus
+                  ? 'border-spirit-500/40 bg-spirit-900/15'
+                  : 'border-ink-500 bg-ink-900/40 opacity-60'
+              }`}
+            >
+              <div className={`text-[9px] uppercase tracking-widest ${
+                isToday ? 'text-gold-300' : claimed ? 'text-jade-400' : 'text-jade-700'
+              }`}>
+                D{d}
+              </div>
+              <div className="text-[14px]">{isBonus ? milestoneAt(d) : '✧'}</div>
+              <div className={`font-mono text-[10px] font-bold ${
+                claimed ? 'text-gold-300' : 'text-jade-700'
+              }`}>
+                {rewardForDay.tienNgoc}
+              </div>
+              {claimed && !isToday && (
+                <div className="absolute -right-0.5 -top-0.5 rounded-full bg-jade-500 px-1 text-[8px] text-ink-900">
+                  ✓
+                </div>
+              )}
+              {isToday && (
+                <div className="absolute -right-0.5 -top-0.5 animate-pulse rounded-full bg-ember-500 px-1 text-[8px] text-ink-900">
+                  ★
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-2 text-center text-[9px] italic text-jade-600">
+        Ngày 3 + 7 = phần thưởng nhân đôi · Streak reset nếu bỏ 1 ngày
       </div>
     </div>
   );

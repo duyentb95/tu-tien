@@ -5,6 +5,7 @@ import { InitialScreen } from '@features/initial-screen';
 import { AdventureModeScreen } from '@features/adventure-mode';
 import { GameSetupScreen } from '@features/game-setup';
 import { GameplayScreen } from '@features/gameplay';
+import { MobileBottomNav } from '@features/gameplay/MobileBottomNav';
 import { ToastStack } from '@shared/components/ToastStack';
 import { ScreenLoader } from '@shared/components/ScreenLoader';
 import { AppFooter } from '@shared/components/AppFooter';
@@ -118,7 +119,7 @@ export const App = () => {
   }
   if (stage === 'playing') {
     return (
-      <div className="flex min-h-screen w-full flex-col">
+      <div className="flex min-h-screen w-full flex-col pb-16 lg:pb-0">
         {skipLink}
         <div id="main-content" className="flex-1">
           <GameplayScreen />
@@ -126,13 +127,14 @@ export const App = () => {
         {showFooter && <AppFooter />}
         <ToastStack />
         {helpOverlay}
+        <MobileBottomNav />
       </div>
     );
   }
 
   // Lazy screens — chia chung 1 Suspense boundary, fallback hiển thị loader cổ phong
   return (
-    <div className="flex min-h-screen w-full flex-col">
+    <div className="flex min-h-screen w-full flex-col pb-16 lg:pb-0">
       {skipLink}
       <div id="main-content" className="flex-1">
         <Suspense fallback={<ScreenLoader />}>
@@ -151,6 +153,7 @@ export const App = () => {
       {showFooter && <AppFooter />}
       <ToastStack />
       {helpOverlay}
+      <MobileBottomNav />
     </div>
   );
 };

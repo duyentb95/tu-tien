@@ -17,6 +17,8 @@ import { StoryView } from './StoryView';
 import { ActionPanel } from './ActionPanel';
 // WelcomeOverlay nhẹ — eager (luôn cần check first-time)
 import { WelcomeOverlay } from '@features/tutorial/WelcomeOverlay';
+import { InteractiveTour } from '@features/tutorial/InteractiveTour';
+import { setBgmMood, moodFromState } from '@services/ambient-bgm';
 import { SceneBackground } from '@shared/components/SceneBackground';
 import { getLocation } from '@data/default-world';
 import { autoBackup } from '@services/save-manager';
@@ -111,6 +113,14 @@ export const GameplayScreen = () => {
   // Auto-trigger refreshDailyMissions on mount để check daily reset + login bonus
   const refreshDailyMissions = useGameStore((s) => s.refreshDailyMissions);
   useEffect(() => { refreshDailyMissions(); }, [refreshDailyMissions]);
+
+  // Phase 21.4: BGM ambient theo stage
+  const stage = useGameStore((s) => s.stage);
+  useEffect(() => {
+    const mood = moodFromState({ stage });
+    setBgmMood(mood);
+    return () => { setBgmMood(null); };
+  }, [stage]);
 
   // Phase 19: NotificationCenter dispatch global event 'tutien:open' → handle ở đây
   useEffect(() => {
@@ -237,7 +247,9 @@ export const GameplayScreen = () => {
           <NavButton label="Tàng Thư" icon="☷" onClick={() => setLoreBookOpen(true)} />
           <NavButton label="Đại Hội" icon="⚔" onClick={() => setTournamentOpen(true)} />
           <NavButton label="Thành Tựu" icon="★" onClick={() => setAchievementsOpen(true)} />
-          <NavButton label="Hàng Ngày" icon="📅" onClick={() => setDailyMissionsOpen(true)} />
+          <span data-tour="nav-daily">
+            <NavButton label="Hàng Ngày" icon="📅" onClick={() => setDailyMissionsOpen(true)} />
+          </span>
           <NavButton label="Chuỗi NV" icon="✦" onClick={() => setExtendedQuestsOpen(true)} />
           <NavButton label="Đạo Tâm" icon="◍" onClick={() => setCustomRulesOpen(true)} />
           <NavButton label="Lưu Trữ" icon="◭" onClick={() => setSaveManagerOpen(true)} />
@@ -247,8 +259,12 @@ export const GameplayScreen = () => {
           {/* Phase 14.2B: AI status indicator (auto-update via subscribeHealth) */}
           <AIStatusDot onClick={() => setAiStatusOpen(true)} />
           {/* Phase 15: Currency display + cửa hàng */}
-          <CurrencyDisplay onClick={() => setMonetizationOpen(true)} />
-          <NotificationCenter />
+          <span data-tour="nav-currency">
+            <CurrencyDisplay onClick={() => setMonetizationOpen(true)} />
+          </span>
+          <span data-tour="notification-bell">
+            <NotificationCenter />
+          </span>
           <NavButton
             label="Thoát"
             icon="⊗"
@@ -282,16 +298,20 @@ export const GameplayScreen = () => {
       <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-[1fr_300px]">
         <div className="order-2 flex flex-col gap-2 lg:order-1">
           <AIFallbackBanner onOpenStatus={() => setAiStatusOpen(true)} />
-          <StoryView entries={storyLog} isAiThinking={isAiThinking} aiPhase={aiPhase} playerName={player.Name} />
-          <ActionPanel
-            actions={actions}
-            choices={actionChoices}
-            disabled={isAiThinking}
-            onSelect={(action) => void submitAction(action)}
-          />
+          <div data-tour="story-view">
+            <StoryView entries={storyLog} isAiThinking={isAiThinking} aiPhase={aiPhase} playerName={player.Name} />
+          </div>
+          <div data-tour="action-panel">
+            <ActionPanel
+              actions={actions}
+              choices={actionChoices}
+              disabled={isAiThinking}
+              onSelect={(action) => void submitAction(action)}
+            />
+          </div>
         </div>
 
-        <div className="order-1 lg:order-2">
+        <div className="order-1 lg:order-2" data-tour="player-sidebar">
           <PlayerSidebar
             player={player}
             realmList={realmList}
@@ -306,6 +326,7 @@ export const GameplayScreen = () => {
 
       {/* Tutorial + Save overlays — lazy mount khi open=true */}
       <WelcomeOverlay />
+      <InteractiveTour />
       <Suspense fallback={null}>
         {handbookOpen && <HandbookModal open onClose={() => setHandbookOpen(false)} />}
         {quickLookupOpen && (

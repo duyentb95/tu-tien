@@ -340,9 +340,16 @@ const LifetimeStatsPanel = () => {
   const legendaryNow = Object.values(inventory).filter(
     (it) => (it as { rarity?: string }).rarity === 'Huyền Thoại',
   ).length;
+  const winRate = playerStats.totalKills + playerStats.totalDefeats > 0
+    ? Math.round((playerStats.totalKills / (playerStats.totalKills + playerStats.totalDefeats)) * 100)
+    : 0;
+  const topEnemy = Object.entries(playerStats.killsByEnemy ?? {})
+    .sort(([, a], [, b]) => b - a)[0];
   const rows: Array<{ icon: string; label: string; value: string | number; tone?: string }> = [
     { icon: '◷', label: 'Tổng lượt câu chuyện', value: playerStats.turnsPlayed },
     { icon: '⚔', label: 'Tổng chiến thắng', value: playerStats.totalKills, tone: 'var(--ember-400)' },
+    { icon: '✕', label: 'Tổng bại trận', value: playerStats.totalDefeats, tone: 'var(--ember-300)' },
+    { icon: '%', label: 'Tỷ lệ chiến thắng', value: `${winRate}%`, tone: winRate >= 70 ? 'var(--jade-300)' : 'var(--gold-300)' },
     { icon: '⚡', label: 'Đột phá tích luỹ', value: playerStats.realmBreaksLifetime, tone: 'var(--gold-400)' },
     { icon: '⚙', label: 'Vượt thiên kiếp', value: playerStats.tribulationsPassed, tone: 'var(--spirit-400)' },
     { icon: '✦', label: 'Tổng EP đạt được', value: playerStats.totalEpEarned.toLocaleString() },
@@ -374,6 +381,13 @@ const LifetimeStatsPanel = () => {
           </div>
         ))}
       </div>
+      {topEnemy && (
+        <div className="mt-2 rounded border border-ember-500/30 bg-ember-900/15 px-2.5 py-1.5 text-[11px]">
+          <span className="text-jade-400">★ Sát nhiều nhất: </span>
+          <strong className="text-ember-200">{topEnemy[0]}</strong>
+          <span className="ml-1 font-mono text-ember-300">×{topEnemy[1]}</span>
+        </div>
+      )}
     </div>
   );
 };
