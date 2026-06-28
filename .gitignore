@@ -29,6 +29,15 @@ yarn-error.log*
 .env.local
 .env.*.local
 
+# Firebase Functions secrets (MOMO_PHONE, ADMIN_TOKEN — KHÔNG commit)
+functions/.env.*
+functions/lib/
+functions/node_modules/
+
+# Cowork / agent local
+.agents/
+skills-lock.json
+
 # Editor
 .vscode/*
 !.vscode/extensions.json
