@@ -1686,10 +1686,26 @@ export const useGameStore = create<GameState>()(
       if (coupon.newUserOnly && get().turn > 0) {
         return { ok: false, message: 'Mã này chỉ dành cho tân thủ (chưa bắt đầu chơi).' };
       }
+      // Phase 23.UX: deviceId lock (cho recovery coupons 1-1)
+      if (coupon.lockedToDeviceId) {
+        const myDeviceId = getOrCreateDeviceId();
+        if (coupon.lockedToDeviceId !== myDeviceId) {
+          return {
+            ok: false,
+            message: 'Mã này chỉ dành cho 1 thiết bị cụ thể, không áp dụng cho bạn.',
+          };
+        }
+      }
       set((s) => {
         s.economy.redeemedCoupons.push(coupon.code);
         if (coupon.reward.tienNgoc) s.economy.tienNgoc += coupon.reward.tienNgoc;
         if (coupon.reward.actionTokens) s.economy.actionTokens += coupon.reward.actionTokens;
+        // Phase 23.UX: apply perks (cho recovery coupon hoàn lại Speed Boost...)
+        if (coupon.reward.perks) {
+          for (const perk of coupon.reward.perks) {
+            s.economy.unlockedPerks[perk] = true;
+          }
+        }
         pushHistory(s.economy, {
           kind: 'coupon',
           title: `Mã ${coupon.code}`,
@@ -1698,9 +1714,14 @@ export const useGameStore = create<GameState>()(
           status: 'done',
         });
       });
+      // Sync perk flags vào AI client nếu unlock speedBoost
+      if (coupon.reward.perks?.includes('speedBoost')) {
+        setPerkFlags({ speedBoost: true });
+      }
       const rewardParts: string[] = [];
       if (coupon.reward.tienNgoc) rewardParts.push(`+${coupon.reward.tienNgoc} Tiền Ngọc`);
       if (coupon.reward.actionTokens) rewardParts.push(`+${coupon.reward.actionTokens} Lượt`);
+      if (coupon.reward.perks?.length) rewardParts.push(`+${coupon.reward.perks.join(', ')}`);
       notify.epic('✦ Đổi mã thành công', `${coupon.description} (${rewardParts.join(', ')})`);
       trackEvent('coupon_redeemed', { code: coupon.code, source: 'local',
         tienNgoc: coupon.reward.tienNgoc ?? 0, actionTokens: coupon.reward.actionTokens ?? 0 });

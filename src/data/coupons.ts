@@ -10,10 +10,12 @@
 export interface Coupon {
   /** Mã user nhập (case-insensitive, normalize uppercase) */
   code: string;
-  /** Reward — số Tiền Ngọc + actionTokens */
+  /** Reward — số Tiền Ngọc + actionTokens + perks unlocked */
   reward: {
     tienNgoc?: number;
     actionTokens?: number;
+    /** Phase 23.UX: cho phép coupon grant perk (vd recovery khi user nạp Whale bị mất) */
+    perks?: Array<'speedBoost' | 'unlimitedCustomRules' | 'extraSaveSlots'>;
   };
   /** Mô tả hiển thị khi redeem thành công */
   description: string;
@@ -21,6 +23,8 @@ export interface Coupon {
   expiresAt?: number;
   /** Optional: chỉ user mới (chưa có turn nào) mới claim được */
   newUserOnly?: boolean;
+  /** Phase 23.UX: lock theo deviceId — chỉ device này redeem được (cho recovery 1-1) */
+  lockedToDeviceId?: string;
 }
 
 export const COUPONS: Coupon[] = [
@@ -50,6 +54,16 @@ export const COUPONS: Coupon[] = [
     code: 'MACHOI2026',
     reward: { tienNgoc: 300, actionTokens: 100 },
     description: 'Ra mắt Mặc Hội Tiên Đồ 2026 — 300 Tiền Ngọc + 100 Lượt.',
+  },
+  // ─── Phase 23.UX: Recovery coupons cho user bị mất tiền nạp do bug save ───
+  // BUG: trước hotfix, saveToLocalStorage không lưu economy → refresh = mất tiền nạp.
+  // Mỗi mã lock theo deviceId — chỉ user đúng máy mới redeem được.
+  {
+    code: 'BUNAP-DUYENTB',
+    reward: { tienNgoc: 8530, perks: ['speedBoost'] },
+    description:
+      'Hoàn lại 8530 Tiền Ngọc + Speed Boost — bù 2 lần nạp pack Whale (500k) + Micro (5k) ngày 28/06/2026.',
+    lockedToDeviceId: 'nkx4vd5vkwmqxbp8bp',
   },
 ];
 
