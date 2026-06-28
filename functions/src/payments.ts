@@ -337,9 +337,9 @@ export const rejectPayment = onCall(
 interface ListReq {
   adminToken: string;
   limit?: number;
-  /** Phase 23.UX: filter status. Default "pending" (backward compat). "all" = không filter. */
+  /** Filter status. Default "pending" (backward compat). "all" = no filter. */
   status?: "pending" | "approved" | "rejected" | "expired" | "all";
-  /** Phase 23.UX: filter theo deviceId (cho user khiếu nại tra cứu nạp của họ) */
+  /** Filter theo deviceId (cho user khiếu nại tra cứu nạp). */
   deviceId?: string;
 }
 
