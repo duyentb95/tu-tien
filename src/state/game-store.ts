@@ -102,6 +102,26 @@ import { notify } from './notifications';
 import type { PurchaseHistoryEntry } from '@gametypes/economy';
 
 /**
+ * Phase 23.UX: Suy luận category hợp lệ từ tên item.
+ * Quest reward / AI thường gen tên kiểu "Vạn Linh Túi Trữ Vật" mà không gắn category đúng.
+ * "Pháp bảo" KHÔNG có trong ItemCategory enum → fallback hợp lý theo tên.
+ */
+function inferItemCategoryFromName(name: string): import('@gametypes/item').ItemCategory {
+  const n = name.toLowerCase();
+  if (/(kiếm|đao|thương|cung|trượng|phủ|sword|blade|bow|spear|staff)/i.test(n)) return 'Vũ khí';
+  if (/(túi|trữ vật|bag|càn khôn|tu tiên đại|nang)/i.test(n)) return 'Trữ vật';
+  if (/(lệnh bài|lệnh|tín vật|huy hiệu)/i.test(n)) return 'Tín vật';
+  if (/(đan|hoàn|cao)/i.test(n)) return 'Đan dược';
+  if (/(quyết|kinh|thư|cổ thư|bí kíp)/i.test(n)) return 'Sách kỹ năng';
+  if (/(giáp|y phục|áo|bào)/i.test(n)) return 'Thân';
+  if (/(mũ|mão|khăn|nón)/i.test(n)) return 'Đầu';
+  if (/(giày|hài|ủng)/i.test(n)) return 'Chân';
+  if (/(linh chi|thảo|hoa|quả|cỏ|cây)/i.test(n)) return 'Nguyên liệu';
+  // Default: pháp bảo / phụ kiện — equippable + có thể dưỡng nếu Cực Phẩm+
+  return 'Phụ kiện';
+}
+
+/**
  * Phase 23.UX: Append entry vào purchaseHistory. Mutate trực tiếp (immer-safe).
  * Cap 100 entries — drop oldest. Newest first.
  */
@@ -2287,13 +2307,16 @@ export const useGameStore = create<GameState>()(
         applyGameEvents([{ type: 'EXP_GAIN', amount: r.exp }], get, set);
       }
       // Item reward: spawn pháp bảo qua ITEM event
+      // Phase 23.UX: heuristic chọn category theo tên — "Pháp bảo" không hợp lệ trong
+      // ItemCategory enum nên item không trang bị / dưỡng được. Map sang category hợp lệ.
       if (r.itemName && r.itemRarity) {
+        const category = inferItemCategoryFromName(r.itemName);
         applyGameEvents(
           [{
             type: 'ITEM_GAINED',
             name: r.itemName,
             rarity: r.itemRarity,
-            category: 'Pháp bảo',
+            category,
           } as GameEvent],
           get, set,
         );
@@ -3407,6 +3430,14 @@ export const useGameStore = create<GameState>()(
           s.turn = data.turn ?? 0;
           s.knowledge = { ...DEFAULT_KNOWLEDGE, ...data.knowledge };
           s.inventory = data.inventory ?? {};
+          // Phase 23.UX migration: item cũ có category='Pháp bảo' (không hợp lệ)
+          // → infer lại theo tên cho equippable + dưỡng được.
+          for (const id of Object.keys(s.inventory)) {
+            const it = s.inventory[id];
+            if (it && (it.category as string) === 'Pháp bảo') {
+              it.category = inferItemCategoryFromName(it.name);
+            }
+          }
           s.skills = data.skills ?? {};
           s.quests = data.quests ?? {};
           s.sectMembership = data.sectMembership ?? null;
@@ -3498,6 +3529,14 @@ export const useGameStore = create<GameState>()(
           s.turn = data.turn ?? 0;
           s.knowledge = { ...DEFAULT_KNOWLEDGE, ...data.knowledge };
           s.inventory = data.inventory ?? {};
+          // Phase 23.UX migration: item cũ có category='Pháp bảo' (không hợp lệ)
+          // → infer lại theo tên cho equippable + dưỡng được.
+          for (const id of Object.keys(s.inventory)) {
+            const it = s.inventory[id];
+            if (it && (it.category as string) === 'Pháp bảo') {
+              it.category = inferItemCategoryFromName(it.name);
+            }
+          }
           s.skills = data.skills ?? {};
           s.quests = data.quests ?? {};
           s.sectMembership = data.sectMembership ?? null;
