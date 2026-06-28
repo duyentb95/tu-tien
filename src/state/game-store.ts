@@ -27,6 +27,7 @@ import { getRealmInfoFromLevel } from '@core/stats/realms';
 import { recomputeFinalStats, generateItemBonuses } from '@core/stats/equipment';
 import { generateItemBonusesV2 } from '@core/items/item-budget';
 import { calculateEpReward } from '@core/scoring/ep-scoring';
+import { computeAchievementProgress, detectNewlyUnlocked } from '@core/achievements/check-unlocks';
 import { EMPTY_TRADER_SESSION } from '@gametypes/trade';
 // Phase 15: Economy
 import {
@@ -341,6 +342,8 @@ export interface GameState {
   // ─── Phase 17.1: Extended/Hidden quests ───
   /** Check unlock + step progress cho tất cả quest templates. Gọi sau mỗi event. */
   refreshExtendedQuests: () => void;
+  /** Phase 19.5: detect achievement vừa unlock → notify với action 'achievements' */
+  checkAchievementUnlocks: () => void;
   /** Claim reward của step đã hoàn thành */
   claimQuestStep: (templateId: string, stepIdx: number) => boolean;
   /** Claim final reward khi đã hoàn thành toàn bộ chuỗi */
@@ -1007,6 +1010,7 @@ export const useGameStore = create<GameState>()(
       get().incrementMissionProgress('submit_15_actions');
       // Phase 17.1: Check extended quest progress
       get().refreshExtendedQuests();
+      get().checkAchievementUnlocks();
       // Detect meditation/cultivation keyword in actionText
       if (/tu luy|bế quan|thiền|tĩnh tâm|hít thở|đả tọa/i.test(actionText)) {
         get().incrementMissionProgress('meditate_3_times');
@@ -1814,6 +1818,43 @@ export const useGameStore = create<GameState>()(
           }, 50);
         }
       });
+    },
+
+    // ─── Phase 19.5: Detect achievement vừa unlock → notify ───
+    checkAchievementUnlocks: () => {
+      const s = get();
+      if (!s.player) return;
+      const progress = computeAchievementProgress({
+        playerLevel: s.player.level,
+        playerCurrency: s.player.currency,
+        turn: s.turn,
+        realmBreaks: s.knowledge.eventHistory.filter((e) => e.kind === 'realm_break').length,
+        tribulations: s.knowledge.eventHistory.filter((e) => e.kind === 'tribulation').length,
+        beastCount: Object.keys(s.spiritBeasts).length,
+        questCompleted: Object.values(s.quests).filter((q) => q.status === 'completed').length,
+        daoLuPartnered: Object.values(s.daoLu).filter((c) => c.isPartner).length,
+        sectJoined: !!s.sectMembership,
+        locationVisited: Object.values(s.knowledge.locations).filter((l) => l.visitedByPlayer).length,
+      });
+      const newly = detectNewlyUnlocked(progress, s.economy.unlockedAchievements);
+      if (newly.length === 0) return;
+
+      set((draft) => {
+        for (const a of newly) {
+          draft.economy.unlockedAchievements.push(a.id);
+          // Auto-grant reward (currency + ep) như achievements thiết kế
+          if (a.reward.currency && draft.player) draft.player.currency += a.reward.currency;
+          if (a.reward.ep) draft.ep = (draft.ep ?? 0) + a.reward.ep;
+        }
+      });
+      // Notify ngoài set
+      for (const a of newly) {
+        const tierIcon = a.tier === 'legendary' ? '☆' : a.tier === 'gold' ? '★' : a.tier === 'silver' ? '✦' : '◆';
+        notify.epic(`${tierIcon} Thành Tựu: ${a.title}`, {
+          message: `${a.description}${a.reward.currency ? ` · +${a.reward.currency} Linh Thạch` : ''}${a.reward.ep ? ` · +${a.reward.ep} EP` : ''}`,
+          action: { target: 'achievements', label: 'Xem thành tựu' },
+        });
+      }
     },
 
     // ─── Phase 17.1: Extended/Hidden quests ───

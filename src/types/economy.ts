@@ -64,6 +64,9 @@ export interface EconomyState {
     expiresAt: number;
     status: 'pending' | 'approved' | 'expired' | 'rejected';
   };
+
+  /** Phase 19.5: ID achievement đã unlocked — track diff để notify cái mới */
+  unlockedAchievements: string[];
 }
 
 export const INITIAL_ECONOMY: EconomyState = {
@@ -77,6 +80,7 @@ export const INITIAL_ECONOMY: EconomyState = {
   redeemedCoupons: [],
   unlockedPerks: {},
   paymentIntent: null,
+  unlockedAchievements: [],
 };
 
 export const TOKEN_DAILY_CAP = 50;

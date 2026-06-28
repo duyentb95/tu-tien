@@ -44,7 +44,10 @@ export const TournamentModal = ({ open, onClose }: Props) => {
     const b = createBracket(sectMembership.sectId, playerParticipant, turn);
     b.status = 'in_progress';
     setBracket(b);
-    notify.info('Nội Môn Đại Hội', 'Tứ kết đã bắt đầu — nhấn "Diễn ra trận" để xem');
+    notify.info('Nội Môn Đại Hội', {
+      message: 'Tứ kết đã bắt đầu — nhấn "Diễn ra trận" để xem',
+      action: { target: 'tournament', label: 'Vào sàn đấu' },
+    });
   };
 
   const handleAdvance = async () => {
@@ -63,7 +66,10 @@ export const TournamentModal = ({ open, onClose }: Props) => {
         const store = useGameStore.getState();
         store.updateSettings({}); // no-op trigger
         // Apply reward via dispatch-like
-        notify.epic(`Đại Hội Kết Thúc — Hạng ${rank}`, `Thưởng: ${reward.contribution} cống hiến + ${reward.currency} linh thạch${reward.itemName ? ` + ${reward.itemName}` : ''}`);
+        notify.epic(`Đại Hội Kết Thúc — Hạng ${rank}`, {
+          message: `Thưởng: ${reward.contribution} cống hiến + ${reward.currency} linh thạch${reward.itemName ? ` + ${reward.itemName}` : ''}`,
+          action: { target: 'sect-hall', label: 'Xem cống hiến' },
+        });
         // Actually mutate state
         useGameStore.setState((s) => {
           if (s.player) s.player.currency += reward.currency;

@@ -3,6 +3,7 @@ import { Bracketed } from '@shared/components/CornerBracket';
 import { useKeyboard } from '@shared/hooks/useKeyboard';
 import { useGameStore } from '@state/game-store';
 import { ACHIEVEMENTS, DAILY_MISSIONS, type Achievement } from '@data/achievements';
+import { computeAchievementProgress, isAchievementUnlocked } from '@core/achievements/check-unlocks';
 
 interface Props { open: boolean; onClose: () => void }
 type Tab = 'achievements' | 'daily';
@@ -30,42 +31,21 @@ export const AchievementsModal = ({ open, onClose }: Props) => {
 
   useKeyboard({ Escape: onClose }, [onClose], open);
 
-  // Compute progress cho từng achievement dựa trên state hiện tại
-  const progress = useMemo(() => {
-    const realmBreaks = knowledge.eventHistory.filter((e) => e.kind === 'realm_break').length;
-    const tribulations = knowledge.eventHistory.filter((e) => e.kind === 'tribulation').length;
-    const beasts = Object.keys(spiritBeasts).length;
-    const completedQuests = Object.values(quests).filter((q) => q.status === 'completed').length;
-    const partneredDaoLu = Object.values(daoLu).filter((c) => c.isPartner).length;
-    const locations = Object.values(knowledge.locations).filter((l) => l.visitedByPlayer).length;
-    return {
-      realm_break: realmBreaks,
-      realm_count: player?.level ?? 0,
-      first_realm_break: realmBreaks,
-      first_kill: 0, // need combat history — skip cho now
-      kill_count: 0,
-      first_beast_capture: beasts,
-      beast_count: beasts,
-      first_dao_lu: partneredDaoLu,
-      sect_joined: sectMembership ? 1 : 0,
-      first_quest: completedQuests,
-      quest_count: completedQuests,
-      first_tribulation: tribulations,
-      tribulation_count: tribulations,
-      currency_total: player?.currency ?? 0,
-      ep_total: 0,
-      location_count: locations,
-      turn_count: turn,
-      item_legendary: 0, // need item rarity tracker
-    };
-  }, [player, turn, knowledge, sectMembership, spiritBeasts, quests, daoLu]);
+  // Compute progress (pure helper trong core/ — share với store action notify hook)
+  const progress = useMemo(() => computeAchievementProgress({
+    playerLevel: player?.level ?? 0,
+    playerCurrency: player?.currency ?? 0,
+    turn,
+    realmBreaks: knowledge.eventHistory.filter((e) => e.kind === 'realm_break').length,
+    tribulations: knowledge.eventHistory.filter((e) => e.kind === 'tribulation').length,
+    beastCount: Object.keys(spiritBeasts).length,
+    questCompleted: Object.values(quests).filter((q) => q.status === 'completed').length,
+    daoLuPartnered: Object.values(daoLu).filter((c) => c.isPartner).length,
+    sectJoined: !!sectMembership,
+    locationVisited: Object.values(knowledge.locations).filter((l) => l.visitedByPlayer).length,
+  }), [player, turn, knowledge, sectMembership, spiritBeasts, quests, daoLu]);
 
-  const isUnlocked = (a: Achievement): boolean => {
-    if (!a.trigger) return false;
-    const value = progress[a.trigger.kind];
-    const threshold = a.trigger.threshold ?? 1;
-    return value >= threshold;
-  };
+  const isUnlocked = (a: Achievement): boolean => isAchievementUnlocked(a, progress);
 
   const groupedByCat = useMemo(() => {
     const map: Record<string, Achievement[]> = {};
