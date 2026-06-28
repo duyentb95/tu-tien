@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Save game (existing) ───
+    match /users/{uid}/saves/{saveId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // ─── Coupons: ai cũng đọc info, claim qua Cloud Function ───
+    match /coupons/{code} {
+      allow read: if true;
+      allow write: if false;  // chỉ admin SDK (Cloud Function) ghi được
+    }
+
+    // ─── Coupon claims: client KHÔNG touch trực tiếp ───
+    match /coupon_claims/{id} {
+      allow read, write: if false;
+    }
+
+    // ─── Referrals: client đọc để check inviter, write qua Cloud Function ───
+    match /referrals/{deviceId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ─── Analytics: client write-only, không đọc/sửa/xóa ───
+    match /analytics_events/{id} {
+      allow create: if request.resource.data.keys().hasAll(['name', 'props', 'deviceId', 'serverTs']);
+      allow read, update, delete: if false;
+    }
+  }
+}
