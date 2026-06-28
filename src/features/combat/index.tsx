@@ -7,12 +7,16 @@ import type { SkillAction } from '@core/combat/session';
 import { findTemplateByEnemyName } from '@data/default-beasts';
 // Phase 12.1: Visual Combat FX overlay
 import { FloatingDamageLayer, useCombatFX, ImpactFlash } from './VisualCombatFX';
+import { SkillVFX } from './SkillVFX';
 
 export const CombatScreen = () => {
   const combat = useGameStore(selectCombat);
   const action = useGameStore((s) => s.combatPlayerAction);
   const attemptCapture = useGameStore((s) => s.attemptCaptureBeast);
   const [castFlash, setCastFlash] = useState<{ key: number; side: 'player' | 'enemy' } | null>(null);
+  // Phase 22.2: track lastest skill VFX (player + enemy sides riêng để render đè)
+  const [playerVfx, setPlayerVfx] = useState<{ key: number; element?: import('@gametypes/character').Element }>({ key: 0 });
+  const [enemyVfx, setEnemyVfx] = useState<{ key: number; element?: import('@gametypes/character').Element }>({ key: 0 });
 
   // Phase 12.1: Visual FX state — bursts, screen shake, flash
   const lastLog = combat && combat.log.length > 0 ? combat.log[combat.log.length - 1]! : null;
@@ -48,8 +52,25 @@ export const CombatScreen = () => {
 
   const handleAction = (a: SkillAction) => {
     setCastFlash({ key: Date.now(), side: 'enemy' });
+    // Phase 22.2: trigger VFX bên player → đè lên enemy panel (đánh sang)
+    if (a.kind !== 'flee') {
+      setEnemyVfx({ key: Date.now(), element: a.element });
+    }
     action(a);
   };
+
+  // Phase 22.2: detect enemy cast → render VFX bên player
+  useEffect(() => {
+    if (!combat || combat.log.length === 0) return;
+    const last = combat.log[combat.log.length - 1]!;
+    if (last.kind !== 'damage' || !last.actorId) return;
+    const isPlayerCasting = combat.combatants.find((c) => c.id === last.actorId)?.isPlayer;
+    if (isPlayerCasting === false) {
+      // Enemy cast → VFX lên player side
+      setPlayerVfx({ key: Date.now(), ...(last.element ? { element: last.element } : {}) });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [combat?.log.length]);
 
   if (!combat) {
     return (
@@ -106,6 +127,7 @@ export const CombatScreen = () => {
           className={`relative rounded-md border bg-ink-700 p-4 sm:p-5 ${isPlayerTurn ? 'anim-glow' : ''}`}
         >
           <FloatingDamageLayer bursts={bursts} side="player" />
+          <SkillVFX element={playerVfx.element} fxKey={playerVfx.key} />
           <div className="label-section mb-2">Ngươi · Cấp {player.level}</div>
           <h2 className="font-serif text-xl text-gold-200 sm:text-2xl">{player.name}</h2>
           <div className="mt-3 space-y-3 sm:mt-4">
@@ -131,6 +153,7 @@ export const CombatScreen = () => {
                 className={`relative rounded-md border bg-ink-700 p-4 sm:p-5 ${isCurrentEnemy ? 'anim-glow' : ''} ${!isAlive ? 'opacity-40' : ''}`}
               >
                 <FloatingDamageLayer bursts={bursts} side="enemy" />
+                <SkillVFX element={enemyVfx.element} fxKey={enemyVfx.key} />
                 <div className="label-section mb-2">
                   Yêu Thú · Cấp {e.level}
                   {!isAlive && <span className="ml-2 text-blood-500">[Tử]</span>}
@@ -197,14 +220,14 @@ export const CombatScreen = () => {
               ⚔ <span className="ml-1">Đánh Thường</span>
             </button>
             <button
-              onClick={() => handleAction({ kind: 'skill_basic', skillName: 'Lôi Thiểm', skillMultiplier: 1.6 })}
+              onClick={() => handleAction({ kind: 'skill_basic', skillName: 'Lôi Thiểm', skillMultiplier: 1.6, element: 'loi' })}
               disabled={!isPlayerTurn}
               className="btn-secondary text-[13px] sm:text-[14px]"
             >
               ⚡ <span className="ml-1">Lôi Thiểm</span>
             </button>
             <button
-              onClick={() => handleAction({ kind: 'skill_ultimate', skillName: 'Cửu Tiêu Lôi Trảm', skillMultiplier: 3.2 })}
+              onClick={() => handleAction({ kind: 'skill_ultimate', skillName: 'Cửu Tiêu Lôi Trảm', skillMultiplier: 3.2, element: 'loi' })}
               disabled={!isPlayerTurn}
               className="btn-primary text-[13px] sm:text-[14px]"
             >

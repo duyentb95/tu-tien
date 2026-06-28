@@ -61,6 +61,11 @@ export interface LogicEngineContext {
   fanFicSkills?: Array<{ name: string; kind: string; rarity: string; description: string }>;
   // ─── Phase 9.2: Cultivation terminology hints ───
   fanFicTerms?: Array<{ term: string; kind: string; explanation: string }>;
+  // ─── Phase 22.3: Canon pack beasts pool (AI chọn từ pool, không bịa) ───
+  canonBeasts?: Array<{ name: string; kind: string; description: string; tier?: string }>;
+  /** Phase 22.3: Canon pack name + cosmology description để AI biết world rules */
+  canonPackName?: string;
+  canonCosmologyHint?: string;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -429,14 +434,29 @@ KHÔNG viết gì ngoài JSON. KHÔNG dùng markdown wrapper.
         .join('\n')}\nVD: thay vì "kinh mạch" generic → dùng "Vĩnh Hải" nếu là Mục Thần Ký. Thay vì "vùng đất hoang" → "Đại Khư".`
     : '';
 
+  // Phase 22.3: Canon beasts pool — AI chọn yêu thú từ pool, không bịa lung tung
+  const beastsPoolBlock = ctx.canonBeasts && ctx.canonBeasts.length > 0
+    ? `[YÊU THÚ / QUÁI VẬT CANONICAL${ctx.canonPackName ? ` (${ctx.canonPackName})` : ''} — KHI SCENARIO CÓ ENCOUNTER, CHỌN TỪ POOL NÀY]\n${ctx.canonBeasts
+        .slice(0, 15)
+        .map((b) => `  · ${b.name} (${b.kind}${b.tier ? `, ${b.tier}` : ''}) — ${b.description.slice(0, 100)}`)
+        .join('\n')}\n→ Khi gen tag [COMBAT_START EnemyName|Level], EnemyName PHẢI thuộc pool trên (trừ khi player tạo open-world thì có thể tự sinh).\n→ Tránh dùng tên generic "Hắc Vụ Lang", "Yêu Thú X" nếu pool có sẵn.`
+    : '';
+
+  // Phase 22.3: Canon cosmology hint — power system uniqueness
+  const cosmologyBlock = ctx.canonCosmologyHint
+    ? `[HỆ THỐNG CẢNH GIỚI ${ctx.canonPackName ?? 'UNIVERSE'}]\n${ctx.canonCosmologyHint}`
+    : '';
+
   return [
     SYSTEM_PERSONA,
     personaBlock,
     worldBlock,
+    cosmologyBlock,       // Phase 22.3: canon cosmology
     loreContextBlock,
     itemsHintBlock,
     skillsHintBlock,
     termsHintBlock,
+    beastsPoolBlock,      // Phase 22.3: canon monster pool
     summariesBlock,       // Phase 11.1: biên niên sử (đặt trước eventsBlock để AI đọc trước context xa)
     eventsBlock,
     rulesBlock,           // Đặt rules cuối cùng = AI sẽ "nhớ" gần nhất

@@ -1115,6 +1115,28 @@ export const useGameStore = create<GameState>()(
         // Phase 9.2: Cultivation terminology
         const ffTerms = (settings as { _fanFicTerms?: Array<{ term: string; kind: string; explanation: string }> })._fanFicTerms;
 
+        // Phase 22.3: Canon pack beasts + cosmology lookup
+        let canonBeasts: Array<{ name: string; kind: string; description: string; tier?: string }> | undefined;
+        let canonPackName: string | undefined;
+        let canonCosmologyHint: string | undefined;
+        const cpId = settings.canonPackId;
+        if (cpId) {
+          try {
+            const { getCanonPack } = await import('@data/canon-packs');
+            const pack = getCanonPack(cpId);
+            if (pack) {
+              canonPackName = pack.title;
+              canonCosmologyHint = pack.cosmology.description;
+              canonBeasts = pack.signatureBeasts.map((b) => ({
+                name: b.name,
+                kind: b.kind,
+                description: b.description,
+                tier: b.basePower >= 500 ? 'boss' : b.basePower >= 100 ? 'strong' : 'common',
+              }));
+            }
+          } catch { /* canon-packs module not available — skip */ }
+        }
+
         const parsed = await generateNarrative({
           settings,
           player,
@@ -1131,6 +1153,9 @@ export const useGameStore = create<GameState>()(
           ...(ffItems ? { fanFicItems: ffItems } : {}),
           ...(ffSkills ? { fanFicSkills: ffSkills } : {}),
           ...(ffTerms ? { fanFicTerms: ffTerms } : {}),
+          ...(canonBeasts ? { canonBeasts } : {}),
+          ...(canonPackName ? { canonPackName } : {}),
+          ...(canonCosmologyHint ? { canonCosmologyHint } : {}),
           // Phase 9.3: cập nhật aiPhase để UI hiển thị state phù hợp
           onPhase: (phase) => set((st) => { st.aiPhase = phase; }),
         });

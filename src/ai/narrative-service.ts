@@ -102,6 +102,10 @@ const generateNarrativeHybrid = async (ctx: NarrativeContext): Promise<ParsedNar
     ...(ctx.fanFicSkills ? { fanFicSkills: ctx.fanFicSkills } : {}),
     // Phase 9.2: Cultivation terms
     ...(ctx.fanFicTerms ? { fanFicTerms: ctx.fanFicTerms } : {}),
+    // Phase 22.3: Canon beasts pool + cosmology
+    ...(ctx.canonBeasts ? { canonBeasts: ctx.canonBeasts } : {}),
+    ...(ctx.canonPackName ? { canonPackName: ctx.canonPackName } : {}),
+    ...(ctx.canonCosmologyHint ? { canonCosmologyHint: ctx.canonCosmologyHint } : {}),
   };
   const logicPrompt = buildLogicEnginePrompt(logicCtx);
   // Phase 8.1: Logic Engine — default Gemini (rẻ + JSON structured tốt)

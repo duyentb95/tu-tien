@@ -28,6 +28,10 @@ export interface NarrativeContext {
   fanFicSkills?: Array<{ name: string; kind: string; rarity: string; description: string }>;
   // ─── Phase 9.2: Cultivation terminology hints ───
   fanFicTerms?: Array<{ term: string; kind: string; explanation: string }>;
+  // ─── Phase 22.3: Canon pack beasts + cosmology hints (Logic Engine inject pool) ───
+  canonBeasts?: Array<{ name: string; kind: string; description: string; tier?: string }>;
+  canonPackName?: string;
+  canonCosmologyHint?: string;
   /** Phase 9.3: callback báo phase đang chạy (cho UI hiển thị state) */
   onPhase?: (phase: 'logic' | 'narrative') => void;
 }

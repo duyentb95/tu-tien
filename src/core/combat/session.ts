@@ -25,6 +25,10 @@ export interface CombatLogEntry {
   targetId?: string;
   crit?: boolean;
   dodged?: boolean;
+  /** Phase 22.2: skill cast info để render SkillVFX overlay tương ứng */
+  element?: import('@gametypes/character').Element;
+  skillName?: string;
+  actorId?: string;
 }
 
 export interface CombatState {
@@ -70,6 +74,8 @@ export interface SkillAction {
   skillMultiplier?: number;
   /** Index của target trong combatants[]. Mặc định = enemy đầu còn sống. */
   targetIdx?: number;
+  /** Phase 22.2: element của skill để render VFX overlay tương ứng */
+  element?: import('@gametypes/character').Element;
 }
 
 /**
@@ -124,8 +130,11 @@ export const executeAction = (state: CombatState, action: SkillAction): CombatSt
       text: `${actor.name} ${action.skillName ?? 'đánh thường'} nhắm ${target.name} — Né tránh!`,
       kind: 'damage',
       targetId: target.id,
+      actorId: actor.id,
       amount: 0,
       dodged: true,
+      ...(action.element ? { element: action.element } : {}),
+      ...(action.skillName ? { skillName: action.skillName } : {}),
     });
   } else {
     const critTag = result.crit ? ' (Chí mạng!)' : '';
@@ -134,8 +143,11 @@ export const executeAction = (state: CombatState, action: SkillAction): CombatSt
       text: `${actor.name} dùng ${action.skillName ?? 'Đánh Thường'} → ${target.name} mất ${result.damage} HP${critTag}`,
       kind: 'damage',
       targetId: target.id,
+      actorId: actor.id,
       amount: result.damage,
       crit: result.crit,
+      ...(action.element ? { element: action.element } : {}),
+      ...(action.skillName ? { skillName: action.skillName } : {}),
     });
   }
 
