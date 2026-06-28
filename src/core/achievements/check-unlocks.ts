@@ -22,6 +22,10 @@ export interface AchievementProgressInputs {
   daoLuPartnered: number;
   sectJoined: boolean;
   locationVisited: number;
+  /** Phase 20: lifetime stats wire 4 TODO achievement */
+  totalKills?: number;
+  totalEpEarned?: number;
+  legendaryItemsOwned?: number;
 }
 
 export type AchievementProgress = Record<AchievementTriggerKind, number>;
@@ -32,8 +36,8 @@ export const computeAchievementProgress = (
 ): AchievementProgress => ({
   first_realm_break: i.realmBreaks,
   realm_count: i.playerLevel,
-  first_kill: 0,       // TODO: combat history
-  kill_count: 0,
+  first_kill: i.totalKills ?? 0,
+  kill_count: i.totalKills ?? 0,
   first_beast_capture: i.beastCount,
   beast_count: i.beastCount,
   first_dao_lu: i.daoLuPartnered,
@@ -43,10 +47,10 @@ export const computeAchievementProgress = (
   first_tribulation: i.tribulations,
   tribulation_count: i.tribulations,
   currency_total: i.playerCurrency,
-  ep_total: 0,         // TODO: total EP earned tracker
+  ep_total: i.totalEpEarned ?? 0,
   location_count: i.locationVisited,
   turn_count: i.turn,
-  item_legendary: 0,   // TODO: item rarity tracker
+  item_legendary: i.legendaryItemsOwned ?? 0,
 });
 
 /** Check 1 achievement đã unlock chưa */

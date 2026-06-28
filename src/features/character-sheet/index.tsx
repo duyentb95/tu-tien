@@ -214,6 +214,9 @@ export const CharacterSheetScreen = () => {
               ))}
             </div>
           </div>
+
+          {/* Phase 20: Lifetime stats — Thiên Cơ Toán */}
+          <LifetimeStatsPanel />
         </Bracketed>
 
         {/* RIGHT — Equipment + Skills */}
@@ -321,6 +324,55 @@ const StatBar = ({
       </div>
       <div className="h-[3px] overflow-hidden rounded-full bg-ink-800">
         <div className="h-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Phase 20: Lifetime stats panel — "Thiên Cơ Toán"
+ * Hiển thị 8 stat tích luỹ từ khi tu sĩ khai mở linh căn.
+ */
+const LifetimeStatsPanel = () => {
+  const playerStats = useGameStore((s) => s.playerStats);
+  const economy = useGameStore((s) => s.economy);
+  const inventory = useGameStore((s) => s.inventory);
+  const legendaryNow = Object.values(inventory).filter(
+    (it) => (it as { rarity?: string }).rarity === 'Huyền Thoại',
+  ).length;
+  const rows: Array<{ icon: string; label: string; value: string | number; tone?: string }> = [
+    { icon: '◷', label: 'Tổng lượt câu chuyện', value: playerStats.turnsPlayed },
+    { icon: '⚔', label: 'Tổng chiến thắng', value: playerStats.totalKills, tone: 'var(--ember-400)' },
+    { icon: '⚡', label: 'Đột phá tích luỹ', value: playerStats.realmBreaksLifetime, tone: 'var(--gold-400)' },
+    { icon: '⚙', label: 'Vượt thiên kiếp', value: playerStats.tribulationsPassed, tone: 'var(--spirit-400)' },
+    { icon: '✦', label: 'Tổng EP đạt được', value: playerStats.totalEpEarned.toLocaleString() },
+    { icon: '◇', label: 'Linh thạch lifetime', value: playerStats.totalCurrencyEarned.toLocaleString() },
+    { icon: '☆', label: 'Pháp bảo Huyền Thoại', value: legendaryNow, tone: 'var(--spirit-400)' },
+    { icon: '💎', label: 'Tiền Ngọc hiện có', value: economy.tienNgoc.toLocaleString(), tone: 'var(--gold-400)' },
+  ];
+  return (
+    <div className="mt-6 border-t border-gold-700/15 pt-5">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="label-section">✦ Thiên Cơ Toán — Lifetime Stats</div>
+      </div>
+      <div className="grid grid-cols-1 gap-[6px] sm:grid-cols-2">
+        {rows.map((r) => (
+          <div
+            key={r.label}
+            className="flex items-center justify-between rounded border border-spirit-500/15 bg-ink-800/40 px-2.5 py-1.5"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-[14px] opacity-80">{r.icon}</span>
+              <span className="text-[11px] text-jade-300">{r.label}</span>
+            </div>
+            <span
+              className="font-mono text-[13px] font-bold"
+              style={{ color: r.tone ?? 'var(--gold-300)' }}
+            >
+              {r.value}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );

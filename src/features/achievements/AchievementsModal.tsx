@@ -27,6 +27,8 @@ export const AchievementsModal = ({ open, onClose }: Props) => {
   const spiritBeasts = useGameStore((s) => s.spiritBeasts);
   const quests = useGameStore((s) => s.quests);
   const daoLu = useGameStore((s) => s.daoLu);
+  const playerStats = useGameStore((s) => s.playerStats);
+  const inventory = useGameStore((s) => s.inventory);
   const [tab, setTab] = useState<Tab>('achievements');
 
   useKeyboard({ Escape: onClose }, [onClose], open);
@@ -43,7 +45,10 @@ export const AchievementsModal = ({ open, onClose }: Props) => {
     daoLuPartnered: Object.values(daoLu).filter((c) => c.isPartner).length,
     sectJoined: !!sectMembership,
     locationVisited: Object.values(knowledge.locations).filter((l) => l.visitedByPlayer).length,
-  }), [player, turn, knowledge, sectMembership, spiritBeasts, quests, daoLu]);
+    totalKills: playerStats.totalKills,
+    totalEpEarned: playerStats.totalEpEarned,
+    legendaryItemsOwned: Object.values(inventory).filter((it) => (it as { rarity?: string }).rarity === 'Huyền Thoại').length,
+  }), [player, turn, knowledge, sectMembership, spiritBeasts, quests, daoLu, playerStats, inventory]);
 
   const isUnlocked = (a: Achievement): boolean => isAchievementUnlocked(a, progress);
 

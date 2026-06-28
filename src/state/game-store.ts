@@ -47,6 +47,7 @@ import {
 } from '@gametypes/daily-mission';
 import { DAILY_MISSIONS_POOL, rollDailyMissions } from '@data/daily-missions-pool';
 import { INITIAL_EXTENDED_QUESTS, makeProgress } from '@gametypes/extended-quest';
+import { INITIAL_LIFETIME_STATS } from '@gametypes/player-stats';
 import { EXTENDED_QUESTS, getExtendedQuestById } from '@data/extended-quests';
 import { nourishArtifact, isArtifactEligible, ARTIFACT_GRADE_NAMES } from '@core/items/artifact';
 import { CATEGORY_TO_DEFAULT_SLOT, EQUIPPABLE_CATEGORIES } from '@gametypes/item';
@@ -245,6 +246,9 @@ export interface GameState {
 
   /** Phase 17.1: Extended/Hidden quests progress */
   extendedQuests: import('@gametypes/extended-quest').ExtendedQuestsState;
+
+  /** Phase 20: Player lifetime stats — tổng kills/EP/items qua mọi turn */
+  playerStats: import('@gametypes/player-stats').PlayerLifetimeStats;
 
   isAiThinking: boolean;
   /** Phase 9.3: phase chi tiết khi đang call AI (cho UI hiển thị state phù hợp) */
@@ -516,6 +520,7 @@ export const useGameStore = create<GameState>()(
     dailyMissions: INITIAL_DAILY_MISSIONS,
     // Phase 17.1: Extended quests
     extendedQuests: INITIAL_EXTENDED_QUESTS,
+    playerStats: INITIAL_LIFETIME_STATS,
     isAiThinking: false,
     aiPhase: 'idle' as const,
     lastError: null,
@@ -1025,6 +1030,7 @@ export const useGameStore = create<GameState>()(
           content: actionText,
         });
         s.turn += 1;
+        s.playerStats.turnsPlayed += 1;
         s.currentActions = [];
         s.currentActionChoices = [];
         s.isAiThinking = true;
@@ -1210,6 +1216,11 @@ export const useGameStore = create<GameState>()(
         const expGain = Math.round(50 * enemy.level * 1.2);
         const currencyGain = Math.round(20 * enemy.level);
         notify.success('Chiến thắng!', `+${expGain} EXP · +${currencyGain} Linh Thạch`);
+        // Phase 20: lifetime kill + currency tracker
+        set((s) => {
+          s.playerStats.totalKills += 1;
+          s.playerStats.totalCurrencyEarned += currencyGain;
+        });
         // Phase 16.3: Mission progress combat
         get().incrementMissionProgress('win_combat');
         get().incrementMissionProgress('win_2_combats');
@@ -1820,10 +1831,17 @@ export const useGameStore = create<GameState>()(
       });
     },
 
-    // ─── Phase 19.5: Detect achievement vừa unlock → notify ───
+    // ─── Phase 19.5 + 20: Detect achievement vừa unlock → notify ───
     checkAchievementUnlocks: () => {
       const s = get();
       if (!s.player) return;
+      // Phase 20: recount legendaryItemsOwned ngay (inventory mutate liên tục)
+      const legendaryNow = Object.values(s.inventory).filter(
+        (it) => (it as { rarity?: string }).rarity === 'Huyền Thoại',
+      ).length;
+      if (legendaryNow !== s.playerStats.legendaryItemsOwned) {
+        set((d) => { d.playerStats.legendaryItemsOwned = legendaryNow; });
+      }
       const progress = computeAchievementProgress({
         playerLevel: s.player.level,
         playerCurrency: s.player.currency,
@@ -1835,6 +1853,9 @@ export const useGameStore = create<GameState>()(
         daoLuPartnered: Object.values(s.daoLu).filter((c) => c.isPartner).length,
         sectJoined: !!s.sectMembership,
         locationVisited: Object.values(s.knowledge.locations).filter((l) => l.visitedByPlayer).length,
+        totalKills: s.playerStats.totalKills,
+        totalEpEarned: s.playerStats.totalEpEarned,
+        legendaryItemsOwned: legendaryNow,
       });
       const newly = detectNewlyUnlocked(progress, s.economy.unlockedAchievements);
       if (newly.length === 0) return;
@@ -2941,6 +2962,9 @@ export const useGameStore = create<GameState>()(
           if (data.extendedQuests) {
             s.extendedQuests = { ...INITIAL_EXTENDED_QUESTS, ...data.extendedQuests };
           }
+          if (data.playerStats) {
+            s.playerStats = { ...INITIAL_LIFETIME_STATS, ...data.playerStats };
+          }
           s.prevStage = s.stage;
           s.stage = 'playing';
         });
@@ -3206,6 +3230,7 @@ function applyGameEvents(
             kind: 'realm_break',
             summary: `Đột phá đến cấp ${s.player?.level ?? '?'} (${s.player?.realm ?? 'cảnh giới mới'})`,
           });
+          s.playerStats.realmBreaksLifetime += 1;
         });
         notify.epic('ĐỘT PHÁ!', {
           message: 'Cảnh giới mới khai mở. Xem chi tiết cảnh giới + chỉ số mới.',
@@ -3221,6 +3246,7 @@ function applyGameEvents(
             kind: 'tribulation',
             summary: e.reason ?? 'Thiên kiếp giáng lâm',
           });
+          s.playerStats.tribulationsPassed += 1;
           s.tribulationContext = { ...(e.reason !== undefined ? { reason: e.reason } : {}) };
           s.prevStage = s.stage;
           s.stage = 'tribulation';
@@ -3583,6 +3609,7 @@ function applyGameEvents(
 
         set((s) => {
           s.ep += result.finalEp;
+          s.playerStats.totalEpEarned += Math.max(0, result.finalEp);
           // Auto-record meaningful event nếu raw score cao (≥70 trước khi penalty)
           if (e.epScore >= 70) {
             s.knowledge.eventHistory = pushEvent(s.knowledge.eventHistory, {
