@@ -63,6 +63,7 @@ const MonetizationModal = lazy(() =>
 );
 import { CurrencyDisplay } from '@features/monetization/CurrencyDisplay';
 import { NotificationCenter } from '@features/notifications/NotificationCenter';
+import { NavDropdown } from './NavDropdown';
 import type { NotificationActionTarget } from '@state/notifications';
 // Phase 16.3: Daily missions
 const DailyMissionsModal = lazy(() =>
@@ -222,58 +223,75 @@ export const GameplayScreen = () => {
             Lượt {turn} · Độ khó {settings.difficulty}
           </p>
         </div>
-        {/* Mobile: scroll horizontal. Desktop: flex-wrap */}
-        <nav className="flex gap-1 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-x-visible sm:pb-0" style={{ scrollbarWidth: 'thin' }}>
+        {/* Phase 22.UX: Grouped nav — 4 dropdown + 3 critical button + corner widgets */}
+        <nav className="flex flex-wrap items-center gap-1.5">
+          {/* Critical (always visible) */}
           <NavButton label="Câu Chuyện" icon="◆" active onClick={() => {}} />
           <NavButton label="Bản Đồ" icon="◉" onClick={() => setStage('world_map')} />
-          <NavButton label="Nhân Vật" icon="✦" onClick={() => setStage('character')} />
-          <NavButton label="Pháp Thuật" icon="✧" onClick={() => setSkillMgmtOpen(true)} />
+          <NavButton label="Đạo Cơ" icon="✦" onClick={() => setStage('character')} />
           <NavButton label="Hành Trang" icon="☷" onClick={() => setStage('inventory')} />
-          <NavButton label="Nhiệm Vụ" icon="◇" onClick={() => setStage('quests')} />
-          <NavButton label="Tông Môn" icon="◈" onClick={() => setStage('sect_hall')} />
-          <NavButton label="Linh Thú" icon="☘" onClick={() => setStage('spirit_beasts')} />
-          <NavButton label="Động Phủ" icon="◐" onClick={() => setStage('cave_abode')} />
-          <NavButton
-            label="Bí Cảnh"
+
+          {/* Group 1: Khám phá */}
+          <NavDropdown
+            label="Khám phá"
+            icon="◐"
+            items={[
+              { label: 'Bí Cảnh', icon: '✧', onClick: () => useGameStore.getState().enterSecretRealm(Math.max(1, player.level), 'Hắc Mộ Bí Cảnh') },
+              { label: 'Combat thử', icon: '⚔', onClick: () => useGameStore.getState().startCombat('Hắc Vụ Lang', Math.max(1, player.level)) },
+              { label: 'Độ Kiếp', icon: '⚡', onClick: () => setStage('tribulation') },
+              { label: 'Động Phủ', icon: '◐', onClick: () => setStage('cave_abode') },
+            ]}
+          />
+
+          {/* Group 2: Tu Luyện */}
+          <NavDropdown
+            label="Tu Luyện"
             icon="✧"
-            onClick={() => useGameStore.getState().enterSecretRealm(Math.max(1, player.level), 'Hắc Mộ Bí Cảnh')}
+            items={[
+              { label: 'Pháp Thuật', icon: '✧', onClick: () => setSkillMgmtOpen(true) },
+              { label: 'Nhiệm Vụ', icon: '◇', onClick: () => setStage('quests') },
+              { label: 'Chuỗi Nhiệm Vụ', icon: '✦', onClick: () => setExtendedQuestsOpen(true) },
+              { label: 'Tàng Thư', icon: '☷', onClick: () => setLoreBookOpen(true) },
+              { label: 'Đạo Tâm', icon: '◍', onClick: () => setCustomRulesOpen(true) },
+            ]}
           />
-          <NavButton
-            label="Combat"
-            icon="⚔"
-            onClick={() => useGameStore.getState().startCombat('Hắc Vụ Lang', Math.max(1, player.level))}
+
+          {/* Group 3: Xã hội */}
+          <NavDropdown
+            label="Xã hội"
+            icon="◈"
+            items={[
+              { label: 'Tông Môn', icon: '◈', onClick: () => setStage('sect_hall') },
+              { label: 'Đại Hội', icon: '⚔', onClick: () => setTournamentOpen(true) },
+              { label: 'Linh Thú', icon: '☘', onClick: () => setStage('spirit_beasts') },
+            ]}
           />
-          <NavButton label="Độ Kiếp" icon="⚡" onClick={() => setStage('tribulation')} />
-          <NavButton label="Tàng Thư" icon="☷" onClick={() => setLoreBookOpen(true)} />
-          <NavButton label="Đại Hội" icon="⚔" onClick={() => setTournamentOpen(true)} />
-          <NavButton label="Thành Tựu" icon="★" onClick={() => setAchievementsOpen(true)} />
-          <span data-tour="nav-daily">
-            <NavButton label="Hàng Ngày" icon="📅" onClick={() => setDailyMissionsOpen(true)} />
-          </span>
-          <NavButton label="Chuỗi NV" icon="✦" onClick={() => setExtendedQuestsOpen(true)} />
-          <NavButton label="Đạo Tâm" icon="◍" onClick={() => setCustomRulesOpen(true)} />
-          <NavButton label="Lưu Trữ" icon="◭" onClick={() => setSaveManagerOpen(true)} />
-          <NavButton label="Tra Cứu" icon="📜" onClick={() => setQuickLookupOpen(true)} />
-          <NavButton label="Cẩm Nang" icon="?" onClick={() => setHandbookOpen(true)} />
-          <NavButton label="Phím Tắt" icon="⌨" onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', code: 'Slash', shiftKey: true }))} />
-          {/* Phase 14.2B: AI status indicator (auto-update via subscribeHealth) */}
-          <AIStatusDot onClick={() => setAiStatusOpen(true)} />
-          {/* Phase 15: Currency display + cửa hàng */}
-          <span data-tour="nav-currency">
-            <CurrencyDisplay onClick={() => setMonetizationOpen(true)} />
-          </span>
-          <span data-tour="notification-bell">
-            <NotificationCenter />
-          </span>
-          <NavButton
-            label="Thoát"
-            icon="⊗"
-            onClick={() => {
-              if (confirm('Thoát về trang chính? (Bản lưu vẫn còn trong localStorage)')) {
-                reset();
-              }
-            }}
+
+          {/* Group 4: Tiện ích */}
+          <NavDropdown
+            label="Tiện ích"
+            icon="⋯"
+            items={[
+              { label: 'Hàng Ngày', icon: '📅', onClick: () => setDailyMissionsOpen(true) },
+              { label: 'Thành Tựu', icon: '★', onClick: () => setAchievementsOpen(true) },
+              { label: 'Cẩm Nang', icon: '?', onClick: () => setHandbookOpen(true) },
+              { label: 'Tra Cứu', icon: '📜', onClick: () => setQuickLookupOpen(true) },
+              { label: 'Lưu Trữ', icon: '◭', onClick: () => setSaveManagerOpen(true) },
+              { label: 'Phím Tắt', icon: '⌨', onClick: () => window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', code: 'Slash', shiftKey: true })) },
+              { label: 'Thoát game', icon: '⊗', onClick: () => { if (confirm('Thoát về trang chính? (Bản lưu vẫn còn trong localStorage)')) reset(); } },
+            ]}
           />
+
+          {/* Corner widgets — always right edge */}
+          <div className="ml-auto flex items-center gap-1.5">
+            <AIStatusDot onClick={() => setAiStatusOpen(true)} />
+            <span data-tour="nav-currency">
+              <CurrencyDisplay onClick={() => setMonetizationOpen(true)} />
+            </span>
+            <span data-tour="notification-bell">
+              <NotificationCenter />
+            </span>
+          </div>
         </nav>
       </header>
 
