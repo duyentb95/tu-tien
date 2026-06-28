@@ -54,7 +54,8 @@ export type NotificationActionTarget =
   | 'skills'
   | 'tournament'
   | 'achievements'
-  | 'tribulation';
+  | 'tribulation'
+  | 'cultivation';
 
 export interface NotificationAction {
   target: NotificationActionTarget;

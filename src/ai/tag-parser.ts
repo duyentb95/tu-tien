@@ -82,7 +82,10 @@ export type GameEvent =
   | { type: 'EXIT_TRADE_MODE' }
   | { type: 'SELL_VALUATION'; itemName?: string; multiplier: number }
   | { type: 'BUY_NEGOTIATION'; itemName: string; multiplier: number }
-  | { type: 'OFFER_ITEM_IDEA'; name: string; description: string; rarity?: string; category?: string; price?: number };
+  | { type: 'OFFER_ITEM_IDEA'; name: string; description: string; rarity?: string; category?: string; price?: number }
+  // ─── Phase 23.5: Đại Đạo unlock + XP ───
+  | { type: 'DAO_UNLOCK'; name: string; description: string; element?: string }
+  | { type: 'DAO_XP'; name: string; amount: number };
 
 const TAG_REGEX = /\[([A-Z_]+)([+\-]?)\s*([^\]]*)\]/g;
 
@@ -519,6 +522,39 @@ export const parseGameTags = (raw: string): GameEvent[] => {
           ...(attrs.category ? { category: attrs.category } : {}),
           ...(price !== undefined && !Number.isNaN(price) ? { price } : {}),
         });
+        break;
+      }
+      // ─── Phase 23.5: Đại Đạo ───
+      // [DAO_UNLOCK Hỏa Đạo|Lửa thiêu vạn vật|hoa] hoặc [DAO_UNLOCK name="..."]
+      case 'DAO_UNLOCK': {
+        const attrs = parseKVAttrs(body);
+        if (attrs.name && attrs.description) {
+          events.push({
+            type: 'DAO_UNLOCK',
+            name: attrs.name,
+            description: attrs.description,
+            ...(attrs.element ? { element: attrs.element } : {}),
+          });
+        } else {
+          const parts = body.split('|').map((s) => s.trim()).filter(Boolean);
+          if (parts.length >= 2) {
+            events.push({
+              type: 'DAO_UNLOCK',
+              name: parts[0]!,
+              description: parts[1]!,
+              ...(parts[2] ? { element: parts[2] } : {}),
+            });
+          }
+        }
+        break;
+      }
+      // [DAO_XP Hỏa Đạo|50]
+      case 'DAO_XP': {
+        const parts = body.split('|').map((s) => s.trim());
+        const amount = parseInt(parts[1] ?? '0', 10);
+        if (parts[0] && !Number.isNaN(amount) && amount > 0) {
+          events.push({ type: 'DAO_XP', name: parts[0], amount });
+        }
         break;
       }
     }

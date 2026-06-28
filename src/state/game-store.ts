@@ -30,6 +30,10 @@ import { calculateEpReward } from '@core/scoring/ep-scoring';
 import { computeAchievementProgress, detectNewlyUnlocked } from '@core/achievements/check-unlocks';
 import { getRefineCost, rollRefine } from '@core/items/refine';
 import { addMasteryXp, MASTERY_LEVEL_NAMES } from '@core/skills/mastery';
+import { addIntentXp, inferIntentFromSkill, getIntentDamageMul } from '@core/cultivation/intent';
+import { addDaoXp, unlockDao, getDaoMul, MAX_FOCUSED_DAO } from '@core/cultivation/dai-dao';
+import { getAvailablePhapTac, getPhapTacById } from '@data/phap-tac';
+import { INITIAL_CULTIVATION, INTENT_TIER_NAMES } from '@gametypes/cultivation';
 import { EMPTY_TRADER_SESSION } from '@gametypes/trade';
 // Phase 15: Economy
 import {
@@ -255,6 +259,9 @@ export interface GameState {
   /** Phase 23.2: Skill mastery — level + xp per skill */
   skillMastery: import('@core/skills/mastery').SkillMasteryState;
 
+  /** Phase 23.3-23.7: Cultivation deep system — ý cảnh + pháp tắc + đại đạo */
+  cultivation: import('@gametypes/cultivation').CultivationState;
+
   isAiThinking: boolean;
   /** Phase 9.3: phase chi tiết khi đang call AI (cho UI hiển thị state phù hợp) */
   aiPhase: 'idle' | 'logic' | 'narrative';
@@ -362,6 +369,19 @@ export interface GameState {
   unequipSkill: (slot: import('@gametypes/character').SkillSlot) => void;
   /** Dưỡng pháp bảo: tiêu linh thạch → tăng artifactSoul → có thể level up */
   nourishArtifactAction: (itemId: string, currencyAmount: number) => void;
+
+  // ─── Phase 23.3-23.7: Cultivation ───
+  /** Phase 23.4: Refresh check pháp tắc unlock (theo player level + canon).
+   *  Push vào cultivation.laws.unlocked nếu chưa có. Trả về số mới unlock. */
+  refreshPhapTacUnlocks: () => number;
+  /** Phase 23.4: Toggle active 1 pháp tắc (max 3). */
+  togglePhapTacActive: (id: string) => { ok: boolean; message?: string };
+  /** Phase 23.5: Unlock đại đạo mới (AI sinh hoặc default). */
+  unlockDaiDao: (name: string, description: string, element?: import('@gametypes/character').Element) => boolean;
+  /** Phase 23.5: Toggle focus 1 đạo (max 3). */
+  toggleDaiDaoFocus: (daoKey: string) => { ok: boolean; message?: string };
+  /** Phase 23.6: Ngộ Đạo action — meditation insight, roll AI hoặc default pool. */
+  ngoDaoAction: () => Promise<{ ok: boolean; insight?: string; reward?: string }>;
 
   // ───── Player stat actions
   allocatePoint: (stat: 'hp' | 'atk' | 'def' | 'spd', amount: number) => void;
@@ -529,6 +549,7 @@ export const useGameStore = create<GameState>()(
     extendedQuests: INITIAL_EXTENDED_QUESTS,
     playerStats: INITIAL_LIFETIME_STATS,
     skillMastery: {},
+    cultivation: INITIAL_CULTIVATION,
     isAiThinking: false,
     aiPhase: 'idle' as const,
     lastError: null,
@@ -1164,6 +1185,13 @@ export const useGameStore = create<GameState>()(
           ...(canonBeasts ? { canonBeasts } : {}),
           ...(canonPackName ? { canonPackName } : {}),
           ...(canonCosmologyHint ? { canonCosmologyHint } : {}),
+          // Phase 23.5: player đạo state cho AI
+          playerDao: Object.entries(get().cultivation.dao.paths).slice(0, 8).map(([key, d]) => ({
+            name: d.name,
+            level: d.level,
+            description: d.description,
+            focused: get().cultivation.dao.focused.includes(key),
+          })),
           // Phase 9.3: cập nhật aiPhase để UI hiển thị state phù hợp
           onPhase: (phase) => set((st) => { st.aiPhase = phase; }),
         });
@@ -1225,13 +1253,24 @@ export const useGameStore = create<GameState>()(
       if (!combat || combat.status !== 'ongoing') return;
 
       // Phase 23.2: Skill mastery — apply damage multiplier vào skillMultiplier
+      // Phase 23.3: Ý cảnh — apply intent multiplier theo skill name
       let finalAction = action;
       if (action.kind !== 'flee' && action.skillName) {
+        let combinedMul = 1;
         const mastery = get().skillMastery[action.skillName];
-        if (mastery && mastery.level > 1 && action.skillMultiplier) {
-          const masteryMul = 1 + (mastery.level - 1) * 0.05;
-          finalAction = { ...action, skillMultiplier: action.skillMultiplier * masteryMul };
+        if (mastery && mastery.level > 1) combinedMul *= 1 + (mastery.level - 1) * 0.05;
+
+        // Intent mul
+        const intentName = inferIntentFromSkill(action.skillName);
+        const intentEntry = get().cultivation.intents[intentName];
+        if (intentEntry && intentEntry.level > 1) {
+          combinedMul *= getIntentDamageMul(intentEntry.level);
         }
+
+        if (combinedMul !== 1 && action.skillMultiplier) {
+          finalAction = { ...action, skillMultiplier: action.skillMultiplier * combinedMul };
+        }
+
         // Add XP after cast
         const xpDelta = action.kind === 'skill_ultimate' ? 15 : action.kind === 'skill_basic' ? 8 : 3;
         const r = addMasteryXp(get().skillMastery, action.skillName, xpDelta);
@@ -1241,6 +1280,18 @@ export const useGameStore = create<GameState>()(
           notify.epic(`✦ ${action.skillName} → ${tierName}`, {
             message: `Kỹ năng đã thấu hiểu sâu hơn. Sát thương tăng theo bậc mastery.`,
             action: { target: 'skills', label: 'Xem pháp thuật' },
+          });
+        }
+
+        // Phase 23.3: Intent XP — chia theo loại skill action
+        const intentXp = action.kind === 'skill_ultimate' ? 8 : action.kind === 'skill_basic' ? 4 : 2;
+        const ir = addIntentXp(get().cultivation.intents, intentName, intentXp);
+        set((s) => { s.cultivation.intents = ir.state; });
+        if (ir.leveledUp) {
+          const tierName = INTENT_TIER_NAMES[ir.newLevel] ?? `Tầng ${ir.newLevel}`;
+          notify.epic(`✦ ${intentName} → ${tierName}`, {
+            message: `Ý cảnh nâng cấp. Damage skill cùng loại +${((getIntentDamageMul(ir.newLevel) - 1) * 100).toFixed(0)}%.`,
+            action: { target: 'cultivation', label: 'Xem Đạo Tâm' },
           });
         }
       }
@@ -2172,6 +2223,158 @@ export const useGameStore = create<GameState>()(
       }
     },
 
+    // ─── Phase 23.4: Pháp Tắc refresh ───
+    refreshPhapTacUnlocks: () => {
+      const player = get().player;
+      if (!player) return 0;
+      const canonId = get().settings.canonPackId;
+      const eligible = getAvailablePhapTac(player.level ?? 1, canonId);
+      const already = new Set(get().cultivation.laws.unlocked);
+      const newOnes = eligible.filter((p) => !already.has(p.id));
+      if (newOnes.length === 0) return 0;
+      set((s) => {
+        for (const p of newOnes) s.cultivation.laws.unlocked.push(p.id);
+      });
+      for (const p of newOnes) {
+        notify.epic(`✦ Ngộ pháp tắc: ${p.name}`, {
+          message: p.description,
+          action: { target: 'cultivation', label: 'Đạo Tâm' },
+        });
+      }
+      return newOnes.length;
+    },
+
+    togglePhapTacActive: (id) => {
+      const def = getPhapTacById(id);
+      if (!def) return { ok: false, message: 'Pháp tắc không tồn tại' };
+      const cur = get().cultivation.laws;
+      if (!cur.unlocked.includes(id)) {
+        return { ok: false, message: 'Chưa ngộ pháp tắc này' };
+      }
+      const isActive = cur.active.includes(id);
+      if (!isActive && cur.active.length >= 3) {
+        return { ok: false, message: 'Tối đa 3 pháp tắc cùng lúc' };
+      }
+      set((s) => {
+        if (isActive) {
+          s.cultivation.laws.active = s.cultivation.laws.active.filter((x) => x !== id);
+        } else {
+          s.cultivation.laws.active.push(id);
+        }
+      });
+      notify.success(`${isActive ? 'Tắt' : 'Kích hoạt'} ${def.name}`, def.passive.description);
+      return { ok: true };
+    },
+
+    // ─── Phase 23.5: Đại Đạo ───
+    unlockDaiDao: (name, description, element) => {
+      const turn = get().turn ?? 0;
+      const r = unlockDao(get().cultivation.dao, name, description, turn, element);
+      if (!r.created) return false;
+      set((s) => { s.cultivation.dao = r.state; });
+      notify.epic(`✦ Ngộ Đạo: ${name}`, {
+        message: description,
+        action: { target: 'cultivation', label: 'Đạo Tâm' },
+      });
+      return true;
+    },
+
+    toggleDaiDaoFocus: (daoKey) => {
+      const cur = get().cultivation.dao;
+      if (!cur.paths[daoKey]) return { ok: false, message: 'Đạo chưa unlock' };
+      const isFocused = cur.focused.includes(daoKey);
+      if (!isFocused && cur.focused.length >= MAX_FOCUSED_DAO) {
+        return { ok: false, message: `Tối đa ${MAX_FOCUSED_DAO} đạo focus` };
+      }
+      set((s) => {
+        if (isFocused) {
+          s.cultivation.dao.focused = s.cultivation.dao.focused.filter((x) => x !== daoKey);
+        } else {
+          s.cultivation.dao.focused.push(daoKey);
+        }
+      });
+      return { ok: true };
+    },
+
+    // ─── Phase 23.6: Ngộ Đạo action ───
+    ngoDaoAction: async () => {
+      const player = get().player;
+      if (!player) return { ok: false };
+
+      // Cost: 50 linh thạch
+      if (player.currency < 50) {
+        notify.warn('Không đủ linh thạch', 'Cần 50 linh thạch để tĩnh tâm ngộ đạo');
+        return { ok: false };
+      }
+
+      const turn = get().turn ?? 0;
+      const curDao = get().cultivation.dao;
+      const focused = curDao.focused;
+
+      // Roll: 60% xp boost cho đạo focused, 25% xp boost cho random unlocked đạo,
+      // 10% pure insight (EP only), 5% unlock đạo mới từ default pool
+      const roll = Math.random();
+      set((s) => { if (s.player) s.player.currency -= 50; });
+
+      let insightText = '';
+      let rewardLabel = '';
+
+      if (roll < 0.6 && focused.length > 0) {
+        // Boost focused dao
+        const target = focused[Math.floor(Math.random() * focused.length)]!;
+        const entry = curDao.paths[target];
+        const xpGain = 30 + Math.floor(Math.random() * 50);
+        const r = addDaoXp(curDao, entry!.name, xpGain);
+        set((s) => { s.cultivation.dao = r.state; });
+        insightText = `Tĩnh tâm thiền định, cảm ngộ sâu hơn về ${entry!.name}.`;
+        rewardLabel = `+${xpGain} XP ${entry!.name}`;
+        if (r.leveledUp) {
+          notify.epic(`✦ ${entry!.name} → Cấp ${r.newLevel}`, {
+            message: `Damage element +${((getDaoMul(r.newLevel) - 1) * 100).toFixed(0)}%`,
+            action: { target: 'cultivation', label: 'Đạo Tâm' },
+          });
+        }
+      } else if (roll < 0.85 && Object.keys(curDao.paths).length > 0) {
+        // Boost random unlocked dao
+        const keys = Object.keys(curDao.paths);
+        const target = keys[Math.floor(Math.random() * keys.length)]!;
+        const entry = curDao.paths[target]!;
+        const xpGain = 15 + Math.floor(Math.random() * 25);
+        const r = addDaoXp(curDao, entry.name, xpGain);
+        set((s) => { s.cultivation.dao = r.state; });
+        insightText = `Cảm ngộ thoáng qua về ${entry.name}.`;
+        rewardLabel = `+${xpGain} XP ${entry.name}`;
+      } else if (roll < 0.95) {
+        // Pure insight: +EP
+        const epGain = 5 + Math.floor(Math.random() * 10);
+        set((s) => { s.ep = (s.ep ?? 0) + epGain; });
+        insightText = 'Đạo tâm thông suốt, EP tăng nhẹ.';
+        rewardLabel = `+${epGain} EP`;
+      } else {
+        // 5%: unlock đạo mới từ default pool (nếu chưa có)
+        const { DEFAULT_DAO_POOL } = await import('@core/cultivation/dai-dao');
+        const unowned = DEFAULT_DAO_POOL.filter((d) => !curDao.paths[d.name.toLowerCase().replace(/\s+/g, '_').replace(/đ/g, 'd')]);
+        if (unowned.length > 0) {
+          const pick = unowned[Math.floor(Math.random() * unowned.length)]!;
+          get().unlockDaiDao(pick.name, pick.description, pick.element);
+          insightText = `Đại ngộ! Cảm ngộ được ${pick.name}!`;
+          rewardLabel = `Unlock ${pick.name}`;
+        } else {
+          insightText = 'Tĩnh tâm thiền định, không có ngộ tính.';
+          rewardLabel = '+0';
+        }
+      }
+
+      set((s) => {
+        s.cultivation.recentInsights.unshift({ turn, text: insightText });
+        if (s.cultivation.recentInsights.length > 20) {
+          s.cultivation.recentInsights = s.cultivation.recentInsights.slice(0, 20);
+        }
+      });
+      notify.success('Ngộ Đạo', `${insightText} (${rewardLabel})`);
+      return { ok: true, insight: insightText, reward: rewardLabel };
+    },
+
     allocatePoint: (stat, amount) => {
       set((s) => {
         if (!s.player) return;
@@ -3075,6 +3278,10 @@ export const useGameStore = create<GameState>()(
           if (data.skillMastery && typeof data.skillMastery === 'object') {
             s.skillMastery = data.skillMastery as typeof s.skillMastery;
           }
+          // Phase 23.3-23.7: Cultivation — merge với INITIAL nếu schema mới
+          if (data.cultivation && typeof data.cultivation === 'object') {
+            s.cultivation = { ...INITIAL_CULTIVATION, ...data.cultivation };
+          }
           s.prevStage = s.stage;
           s.stage = 'playing';
         });
@@ -3873,6 +4080,25 @@ function applyGameEvents(
           });
         });
         notify.info(`Trader chào hàng · ${e.name}`, e.description.slice(0, 80));
+        break;
+      }
+      // ─── Phase 23.5: Đại Đạo unlock + XP từ AI ───
+      case 'DAO_UNLOCK': {
+        useGameStore.getState().unlockDaiDao(e.name, e.description, e.element as import('@gametypes/character').Element | undefined);
+        break;
+      }
+      case 'DAO_XP': {
+        const cur = useGameStore.getState().cultivation.dao;
+        const r = addDaoXp(cur, e.name, e.amount);
+        if (r.daoKey && cur.paths[r.daoKey]) {
+          set((s) => { s.cultivation.dao = r.state; });
+          if (r.leveledUp) {
+            notify.epic(`✦ ${e.name} → Cấp ${r.newLevel}`, {
+              message: `Damage element ×${getDaoMul(r.newLevel).toFixed(2)}`,
+              action: { target: 'cultivation', label: 'Đạo Tâm' },
+            });
+          }
+        }
         break;
       }
     }

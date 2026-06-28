@@ -66,6 +66,8 @@ export interface LogicEngineContext {
   /** Phase 22.3: Canon pack name + cosmology description để AI biết world rules */
   canonPackName?: string;
   canonCosmologyHint?: string;
+  /** Phase 23.5: Đại Đạo player đã unlock — AI có thể suggest qua tag [DAO_UNLOCK] */
+  playerDao?: Array<{ name: string; level: number; description: string; focused: boolean }>;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -447,11 +449,20 @@ KHÔNG viết gì ngoài JSON. KHÔNG dùng markdown wrapper.
     ? `[HỆ THỐNG CẢNH GIỚI ${ctx.canonPackName ?? 'UNIVERSE'}]\n${ctx.canonCosmologyHint}`
     : '';
 
+  // Phase 23.5: Đại Đạo block — AI có thể dùng tag [DAO_UNLOCK Name|Description|Element?]
+  // để sinh đạo mới linh hoạt theo cốt truyện (KHÔNG hardcode 3000 đạo).
+  const daoBlock = ctx.playerDao && ctx.playerDao.length > 0
+    ? `[ĐẠI ĐẠO PLAYER ĐÃ NGỘ]\n${ctx.playerDao
+        .map((d) => `  · ${d.name} (cấp ${d.level}${d.focused ? ', focus' : ''}) — ${d.description.slice(0, 80)}`)
+        .join('\n')}\n→ Khi player có cơ duyên ngộ đạo mới phù hợp cốt truyện (vd nhìn lửa cháy thành phố, chứng kiến cái chết, bão tố,...), dùng tag [DAO_UNLOCK Tên Đạo|Mô tả ngắn|element?] để sinh đạo mới.\n→ Ưu tiên đạo phù hợp canon ${ctx.canonPackName ?? ''}. Đạo có thể là: Hỏa/Lôi/Thủy/Phong/Thời Gian/Không Gian/Tử Vong/Sinh Mệnh/Kiếm/Đao/Sát/Huyết/Ám Hắc/Quang Minh/Luân Hồi/Nhân Quả/Vạn Vật...\n→ Hạn chế: tối đa 1 [DAO_UNLOCK] mỗi 10 turn, chỉ trong scenario rủi ro cao hoặc tone "bất ngờ".`
+    : `[ĐẠI ĐẠO]\nPlayer chưa ngộ đạo nào. Có thể dùng [DAO_UNLOCK] khi có cơ duyên thiên định lớn.`;
+
   return [
     SYSTEM_PERSONA,
     personaBlock,
     worldBlock,
     cosmologyBlock,       // Phase 22.3: canon cosmology
+    daoBlock,             // Phase 23.5: đại đạo state + suggestion
     loreContextBlock,
     itemsHintBlock,
     skillsHintBlock,

@@ -39,6 +39,9 @@ const LoreBookModal = lazy(() =>
 const CustomRulesModal = lazy(() =>
   import('@features/custom-rules').then((m) => ({ default: m.CustomRulesModal })),
 );
+const DaoTamModal = lazy(() =>
+  import('@features/cultivation/DaoTamModal').then((m) => ({ default: m.DaoTamModal })),
+);
 const TournamentModal = lazy(() =>
   import('@features/tournament').then((m) => ({ default: m.TournamentModal })),
 );
@@ -97,6 +100,7 @@ export const GameplayScreen = () => {
   const [saveManagerOpen, setSaveManagerOpen] = useState(false);
   const [loreBookOpen, setLoreBookOpen] = useState(false);
   const [customRulesOpen, setCustomRulesOpen] = useState(false);
+  const [daoTamOpen, setDaoTamOpen] = useState(false);
   const [tournamentOpen, setTournamentOpen] = useState(false);
   const [achievementsOpen, setAchievementsOpen] = useState(false);
   const [skillMgmtOpen, setSkillMgmtOpen] = useState(false);
@@ -142,6 +146,7 @@ export const GameplayScreen = () => {
         case 'tournament': setTournamentOpen(true); break;
         case 'achievements': setAchievementsOpen(true); break;
         case 'tribulation': setStage('tribulation'); break;
+        case 'cultivation': setDaoTamOpen(true); break;
       }
     };
     window.addEventListener('tutien:open', handler);
@@ -252,7 +257,7 @@ export const GameplayScreen = () => {
               { label: 'Nhiệm Vụ', icon: '◇', onClick: () => setStage('quests') },
               { label: 'Chuỗi Nhiệm Vụ', icon: '✦', onClick: () => setExtendedQuestsOpen(true) },
               { label: 'Tàng Thư', icon: '☷', onClick: () => setLoreBookOpen(true) },
-              { label: 'Đạo Tâm', icon: '◍', onClick: () => setCustomRulesOpen(true) },
+              { label: 'Đạo Tâm', icon: '◍', onClick: () => setDaoTamOpen(true) },
             ]}
           />
 
@@ -361,6 +366,7 @@ export const GameplayScreen = () => {
         {saveManagerOpen && <SaveManagerModal open onClose={() => setSaveManagerOpen(false)} />}
         {loreBookOpen && <LoreBookModal open onClose={() => setLoreBookOpen(false)} />}
         {customRulesOpen && <CustomRulesModal open onClose={() => setCustomRulesOpen(false)} />}
+        {daoTamOpen && <DaoTamModal open onClose={() => setDaoTamOpen(false)} />}
         {tournamentOpen && <TournamentModal open onClose={() => setTournamentOpen(false)} />}
         {achievementsOpen && <AchievementsModal open onClose={() => setAchievementsOpen(false)} />}
         {skillMgmtOpen && <SkillManagementModal open onClose={() => setSkillMgmtOpen(false)} />}

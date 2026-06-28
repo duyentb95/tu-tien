@@ -33,6 +33,7 @@ const TARGET_LABEL: Record<NotificationActionTarget, string> = {
   'tournament': 'Mở Đại Hội',
   'achievements': 'Mở Thành Tựu',
   'tribulation': 'Mở Độ Kiếp',
+  'cultivation': 'Mở Đạo Tâm',
 };
 
 const KIND_COLOR: Record<Notification['kind'], string> = {

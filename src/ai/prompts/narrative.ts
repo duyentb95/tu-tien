@@ -32,6 +32,8 @@ export interface NarrativeContext {
   canonBeasts?: Array<{ name: string; kind: string; description: string; tier?: string }>;
   canonPackName?: string;
   canonCosmologyHint?: string;
+  /** Phase 23.5: Đại đạo player đã ngộ — AI có thể tag [DAO_UNLOCK] / [DAO_XP] */
+  playerDao?: Array<{ name: string; level: number; description: string; focused: boolean }>;
   /** Phase 9.3: callback báo phase đang chạy (cho UI hiển thị state) */
   onPhase?: (phase: 'logic' | 'narrative') => void;
 }

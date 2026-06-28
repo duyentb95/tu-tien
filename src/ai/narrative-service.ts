@@ -106,6 +106,8 @@ const generateNarrativeHybrid = async (ctx: NarrativeContext): Promise<ParsedNar
     ...(ctx.canonBeasts ? { canonBeasts: ctx.canonBeasts } : {}),
     ...(ctx.canonPackName ? { canonPackName: ctx.canonPackName } : {}),
     ...(ctx.canonCosmologyHint ? { canonCosmologyHint: ctx.canonCosmologyHint } : {}),
+    // Phase 23.5: player đạo state
+    ...(ctx.playerDao ? { playerDao: ctx.playerDao } : {}),
   };
   const logicPrompt = buildLogicEnginePrompt(logicCtx);
   // Phase 8.1: Logic Engine — default Gemini (rẻ + JSON structured tốt)
