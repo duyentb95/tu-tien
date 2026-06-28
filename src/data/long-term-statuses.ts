@@ -132,6 +132,52 @@ export const getLongTermStatus = (id: string): LongTermStatusTemplate | undefine
   return LONG_TERM_STATUSES[id.toUpperCase()];
 };
 
+/**
+ * Bảng dịch các status_id AI hay sinh ngoài registry → tên Việt có dấu.
+ * Mở rộng khi thấy AI tag mới chưa có translation.
+ * Key MUST UPPER_SNAKE để match `e.statusId.toUpperCase()`.
+ */
+export const STATUS_ID_VN_ALIASES: Record<string, string> = {
+  // Tu luyện
+  CUONG_PHAN_KICH: 'Cuồng Phẫn Kích',
+  TAM_MA: 'Tâm Ma',
+  TAM_MA_PHAT_TAC: 'Tâm Ma Phát Tác',
+  CO_HOC_TINH: 'Cô Học Tính',
+  TINH_THAN_BAT_AN: 'Tinh Thần Bất An',
+  // Trạng thái thể chất
+  KIET_SUC: 'Kiệt Sức',
+  MET_MOI: 'Mệt Mỏi',
+  SUNG_HUYET: 'Sung Huyết',
+  CO_DOC: 'Cô Độc',
+  // Hiệu ứng tích cực
+  HUNG_PHAN: 'Hưng Phấn',
+  THAN_LUC_DANG_TRAO: 'Thần Lực Dâng Trào',
+  LINH_KHI_BAO_HOA: 'Linh Khí Bão Hòa',
+  // Tình trạng tinh thần
+  PHAN_NO: 'Phẫn Nộ',
+  SAU_KHO: 'Sầu Khổ',
+  YEU_DOI: 'Yêu Đời',
+  KHIEP_SO: 'Khiếp Sợ',
+};
+
+/**
+ * Convert SCREAMING_SNAKE_CASE → Vietnamese-friendly display.
+ * Ưu tiên alias dictionary, fallback Title Case từ underscores.
+ *   CUONG_PHAN_KICH → "Cuồng Phẫn Kích" (alias)
+ *   RANDOM_THING → "Random Thing" (title case fallback)
+ */
+export const humanizeStatusId = (id: string): string => {
+  const upper = id.toUpperCase();
+  if (STATUS_ID_VN_ALIASES[upper]) return STATUS_ID_VN_ALIASES[upper];
+  // Fallback: title case các từ
+  return upper
+    .toLowerCase()
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+    .join(' ');
+};
+
 /** All statuses array — UI list */
 export const ALL_LONG_TERM_STATUSES = Object.values(LONG_TERM_STATUSES);
 

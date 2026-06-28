@@ -54,3 +54,6 @@ skills-lock.json
 
 # Misc
 *.tsbuildinfo
+
+# Outdated build snapshots
+build-*/

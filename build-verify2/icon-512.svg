@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#0a0f0a"/>
-  <circle cx="256" cy="220" r="120" fill="none" stroke="#cda45e" stroke-width="6" opacity="0.9"/>
-  <rect x="216" y="180" width="80" height="80" fill="#cda45e" transform="rotate(45 256 220)"/>
-  <text x="256" y="400" font-family="'Noto Serif',Georgia,serif" font-size="72" fill="#e8d3a1" text-anchor="middle" font-weight="600">Mặc Đồ</text>
-  <text x="256" y="450" font-family="monospace" font-size="22" letter-spacing="8" fill="#8ba888" text-anchor="middle">TU TIÊN</text>
-</svg>

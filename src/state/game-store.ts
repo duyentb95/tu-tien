@@ -9,7 +9,7 @@ import type { MeaningfulEvent, RecentAction, CustomRule, StorySummary } from '@g
 import { SUMMARY_TRIGGER_TURNS, SUMMARY_BATCH_SIZE } from '@gametypes/memory';
 import { summarizeTurns, metaSummarize, shouldMetaSummarize } from '@ai/summary-service';
 import { pushEvent, pushAction } from '@gametypes/memory';
-import { getLongTermStatus } from '@data/long-term-statuses';
+import { getLongTermStatus, humanizeStatusId } from '@data/long-term-statuses';
 import type { Difficulty } from '@data/difficulty';
 import {
   INITIAL_AP,
@@ -3245,12 +3245,22 @@ export const useGameStore = create<GameState>()(
 
     saveToLocalStorage: () => {
       try {
-        const { player, settings, storyLog, currentActions, turn, knowledge, inventory, skills, quests, sectMembership, claimedMissions, secretRealm, spiritBeasts, activeBeastId, caveAbode, daoLu } = get();
+        // Phase 23.UX HOTFIX: trước đây thiếu economy/dailyMissions/extendedQuests/
+        // playerStats/skillMastery/cultivation → refresh = mất tiền nạp + lịch sử.
+        // Bây giờ lưu đầy đủ.
+        const {
+          player, settings, storyLog, currentActions, turn, knowledge, inventory, skills,
+          quests, sectMembership, claimedMissions, secretRealm, spiritBeasts, activeBeastId,
+          caveAbode, daoLu, economy, dailyMissions, extendedQuests, playerStats,
+          skillMastery, cultivation,
+        } = get();
         const payload = JSON.stringify({
-          version: 8,
+          version: 9, // bump version sau hotfix
           savedAt: Date.now(),
           player, settings, storyLog, currentActions, turn, knowledge, inventory, skills, quests,
           sectMembership, claimedMissions, secretRealm, spiritBeasts, activeBeastId, caveAbode, daoLu,
+          // ─── Phase 15-23: các slice trước đây bị bỏ sót ───
+          economy, dailyMissions, extendedQuests, playerStats, skillMastery, cultivation,
         });
         localStorage.setItem(SAVE_KEY, payload);
       } catch (e) {
@@ -3259,15 +3269,25 @@ export const useGameStore = create<GameState>()(
     },
 
     syncToCloud: async () => {
-      const { player, settings, storyLog, currentActions, turn, knowledge, inventory, skills, quests, sectMembership, claimedMissions, secretRealm, spiritBeasts, activeBeastId, caveAbode } = get();
+      // Phase 23.UX HOTFIX: cùng lý do — bổ sung các slice còn thiếu để cloud sync đầy đủ.
+      const {
+        player, settings, storyLog, currentActions, turn, knowledge, inventory, skills,
+        quests, sectMembership, claimedMissions, secretRealm, spiritBeasts, activeBeastId,
+        caveAbode, daoLu, economy, dailyMissions, extendedQuests, playerStats,
+        skillMastery, cultivation,
+      } = get();
       if (!player) {
         notify.warn('Không có save để sync', 'Tạo nhân vật trước');
         return false;
       }
       const result = await saveToCloud({
-        version: 7,
+        version: 9,
         savedAt: Date.now(),
-        data: { player, settings, storyLog, currentActions, turn, knowledge, inventory, skills, quests, sectMembership, claimedMissions, secretRealm, spiritBeasts, activeBeastId, caveAbode } as Record<string, unknown>,
+        data: {
+          player, settings, storyLog, currentActions, turn, knowledge, inventory, skills, quests,
+          sectMembership, claimedMissions, secretRealm, spiritBeasts, activeBeastId, caveAbode, daoLu,
+          economy, dailyMissions, extendedQuests, playerStats, skillMastery, cultivation,
+        } as Record<string, unknown>,
       });
       if (result.ok) {
         notify.epic('Sync thành công', 'Save đã upload lên cloud');
@@ -3687,25 +3707,33 @@ function applyGameEvents(
         break;
       }
       case 'STATUS_ADD': {
+        // Phase 23.UX: Ưu tiên template registered → fallback humanize (Vietnamese alias / Title Case)
+        const tmpl = getLongTermStatus(e.statusId);
+        const displayName = tmpl?.name ?? humanizeStatusId(e.statusId);
+        const icon = tmpl?.icon ?? '⚠';
         set((s) => {
           if (!s.player) return;
+          // Avoid duplicate
+          if (s.player.longTermStatuses.some((st) => st.id === e.statusId)) return;
           s.player.longTermStatuses.push({
             id: e.statusId,
-            name: e.statusId,
-            type: 'adventure_debuff',
-            description: '',
+            name: displayName,
+            type: tmpl?.severity === 'critical' || tmpl?.severity === 'severe' ? 'injury' : 'adventure_debuff',
+            description: tmpl?.description ?? '',
             ...(e.durationHours !== undefined ? { duration_hours: e.durationHours } : {}),
           });
         });
-        notify.warn(`Trạng thái: ${e.statusId}`, '');
+        notify.warn(`${icon} ${displayName}`, tmpl?.description?.slice(0, 80) ?? '');
         break;
       }
       case 'STATUS_CURE': {
+        const tmpl = getLongTermStatus(e.statusId);
+        const displayName = tmpl?.name ?? humanizeStatusId(e.statusId);
         set((s) => {
           if (!s.player) return;
           s.player.longTermStatuses = s.player.longTermStatuses.filter((st) => st.id !== e.statusId);
         });
-        notify.success(`Hết trạng thái: ${e.statusId}`, '');
+        notify.success(`Hết: ${displayName}`, '');
         break;
       }
       case 'QUEST_GIVEN': {

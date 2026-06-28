@@ -337,6 +337,10 @@ export const rejectPayment = onCall(
 interface ListReq {
   adminToken: string;
   limit?: number;
+  /** Phase 23.UX: filter status. Default "pending" (backward compat). "all" = không filter. */
+  status?: "pending" | "approved" | "rejected" | "expired" | "all";
+  /** Phase 23.UX: filter theo deviceId (cho user khiếu nại tra cứu nạp của họ) */
+  deviceId?: string;
 }
 
 export const listPendingPayments = onCall(
@@ -345,17 +349,24 @@ export const listPendingPayments = onCall(
     const data = req.data ?? ({} as ListReq);
     const token = String(data.adminToken ?? "").trim();
     const limit = Math.min(Number(data.limit ?? 50), 200);
+    const statusFilter = (data.status ?? "pending") as
+      "pending" | "approved" | "rejected" | "expired" | "all";
+    const deviceFilter = String(data.deviceId ?? "").trim();
 
     if (token !== ADMIN_TOKEN.value()) {
       throw new HttpsError("permission-denied", "Sai admin token.");
     }
 
-    const snap = await db
-      .collection("payments")
-      .where("status", "==", "pending")
-      .orderBy("createdAt", "desc")
-      .limit(limit)
-      .get();
+    let query: FirebaseFirestore.Query = db.collection("payments");
+    if (statusFilter !== "all") {
+      query = query.where("status", "==", statusFilter);
+    }
+    if (deviceFilter) {
+      query = query.where("deviceId", "==", deviceFilter);
+    }
+    query = query.orderBy("createdAt", "desc").limit(limit);
+
+    const snap = await query.get();
 
     const intents = snap.docs.map((d) => {
       const it = d.data();
@@ -366,8 +377,13 @@ export const listPendingPayments = onCall(
         amount: it.amount,
         memo: it.memo,
         description: it.description,
+        status: it.status,
         createdAt: it.createdAt?.toMillis?.() ?? 0,
         expiresAt: it.expiresAt?.toMillis?.() ?? 0,
+        approvedAt: it.approvedAt?.toMillis?.() ?? null,
+        rejectedAt: it.rejectedAt?.toMillis?.() ?? null,
+        approvedBy: it.approvedBy ?? null,
+        rejectReason: it.rejectReason ?? null,
       };
     });
 

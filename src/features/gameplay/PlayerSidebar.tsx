@@ -1,7 +1,7 @@
 import type { PlayerCharacter } from '@gametypes/character';
 import type { GameTime } from '@gametypes/world';
 import { getRealmInfoFromLevel } from '@core/stats/realms';
-import { getLongTermStatus, SEVERITY_COLOR } from '@data/long-term-statuses';
+import { getLongTermStatus, humanizeStatusId, SEVERITY_COLOR } from '@data/long-term-statuses';
 
 interface Props {
   player: PlayerCharacter;
@@ -237,6 +237,9 @@ const StatusBadges = ({ player, compact }: { player: PlayerCharacter; compact?: 
         {player.longTermStatuses.map((st) => {
           const tmpl = getLongTermStatus(st.id);
           const color = tmpl ? SEVERITY_COLOR[tmpl.severity] : 'var(--jade-500)';
+          // Phase 23.UX: name có thể là raw ID (legacy save). Detect + humanize.
+          const isRawId = !tmpl && /^[A-Z][A-Z0-9_]+$/.test(st.name);
+          const displayName = tmpl?.name ?? (isRawId ? humanizeStatusId(st.name) : st.name);
           return (
             <span
               key={st.id}
@@ -245,7 +248,7 @@ const StatusBadges = ({ player, compact }: { player: PlayerCharacter; compact?: 
               title={tmpl?.description ?? st.description}
             >
               <span aria-hidden>{tmpl?.icon ?? '⚠'}</span>
-              <span>{st.name}</span>
+              <span>{displayName}</span>
               {st.duration_hours !== undefined && st.duration_hours > 0 && (
                 <span className="text-jade-500 font-mono">{st.duration_hours}h</span>
               )}

@@ -52,6 +52,9 @@
     button.danger:hover { background: rgba(248, 113, 113, 0.1); }
     button.success { color: var(--jade); border-color: var(--jade); }
     button.success:hover { background: rgba(74, 222, 128, 0.1); }
+    button.tab-btn { padding: 6px 14px; background: transparent; color: #999; border: 1px solid #333; border-radius: 6px; }
+    button.tab-btn:hover { color: #ccc; border-color: #555; }
+    button.tab-btn.active { background: var(--gold); color: var(--ink); font-weight: bold; border-color: var(--gold); }
     .gate input { width: 100%; margin: 10px 0; }
     .config-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
     .config-row input { flex: 1; min-width: 200px; font-family: ui-monospace, monospace; font-size: 11px; }
@@ -116,8 +119,8 @@
 <div id="panel" class="panel" style="display:none;">
   <div style="display:flex; justify-content:space-between; align-items:center;">
     <div>
-      <h1>◭ Payment Approval</h1>
-      <p class="sub">Tu Tiên · pending intents (auto refresh 10s)</p>
+      <h1>◭ Payment Admin</h1>
+      <p class="sub">Tu Tiên · MoMo intents (auto refresh 10s khi tab pending)</p>
     </div>
     <div>
       <button onclick="logout()">Đăng xuất</button>
@@ -130,6 +133,25 @@
     2. Tìm giao dịch trùng <span style="color:var(--ember);">memo</span> + đúng số tiền.
     3. Bấm <span style="color:var(--jade);">Approve</span> → user tự được credit.
     Sai memo / sai tiền → <span style="color:var(--ember);">Reject</span>.
+  </div>
+
+  <!-- Phase 23.UX: filter tabs + device search để user khiếu nại tra cứu -->
+  <div style="margin: 12px 0; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+    <div style="display:flex; gap:4px;">
+      <button id="tab-pending" class="tab-btn active" onclick="setStatusFilter('pending')">Pending</button>
+      <button id="tab-approved" class="tab-btn" onclick="setStatusFilter('approved')">Approved</button>
+      <button id="tab-rejected" class="tab-btn" onclick="setStatusFilter('rejected')">Rejected</button>
+      <button id="tab-expired" class="tab-btn" onclick="setStatusFilter('expired')">Expired</button>
+      <button id="tab-all" class="tab-btn" onclick="setStatusFilter('all')">All</button>
+    </div>
+    <input
+      id="device-filter"
+      type="text"
+      placeholder="Lọc theo deviceId (cho khiếu nại)…"
+      style="flex:1; min-width:200px; padding:6px 10px; background:#1a1d24; color:#e0e0e0; border:1px solid #333; border-radius:6px; font-family:monospace; font-size:12px;"
+      onkeydown="if(event.key==='Enter') refresh()"
+    />
+    <button onclick="refresh()">Lọc</button>
   </div>
 
   <div id="status-bar"></div>
@@ -242,6 +264,18 @@ function formatRelTime(ms) {
   return `${Math.floor(m / 60)}h${m % 60}m`;
 }
 
+let currentStatusFilter = "pending";
+
+window.setStatusFilter = (status) => {
+  currentStatusFilter = status;
+  // update tab active class
+  ["pending", "approved", "rejected", "expired", "all"].forEach((s) => {
+    const btn = document.getElementById(`tab-${s}`);
+    if (btn) btn.classList.toggle("active", s === status);
+  });
+  refresh();
+};
+
 window.refresh = async () => {
   const cfg = loadCfg();
   if (!cfg) { showGate(); return; }
@@ -249,15 +283,29 @@ window.refresh = async () => {
   try {
     const fns = getFns();
     const call = httpsCallable(fns, "listPendingPayments");
-    const r = await call({ adminToken: cfg.adminToken, limit: 100 });
+    const deviceId = document.getElementById("device-filter")?.value.trim() || "";
+    const r = await call({
+      adminToken: cfg.adminToken,
+      limit: 200,
+      status: currentStatusFilter,
+      ...(deviceId ? { deviceId } : {}),
+    });
     renderTable(r.data.intents || []);
+    const filterLabel = deviceId ? ` · device ${deviceId.slice(0, 8)}…` : "";
     document.getElementById("status-bar").innerHTML =
-      `<span class="status-pill fresh">✓ ${r.data.intents?.length || 0} pending</span> · last load ${new Date().toLocaleTimeString()}`;
+      `<span class="status-pill fresh">✓ ${r.data.intents?.length || 0} ${currentStatusFilter}</span>${filterLabel} · last load ${new Date().toLocaleTimeString()}`;
   } catch (err) {
     document.getElementById("status-bar").innerHTML =
       `<span class="status-pill stale">⚠ ${err.message || err}</span>`;
     toast("Lỗi: " + (err.message || err), "err");
   }
+};
+
+const STATUS_COLOR = {
+  pending: "var(--gold)",
+  approved: "var(--jade)",
+  rejected: "var(--ember)",
+  expired: "#888",
 };
 
 function renderTable(intents) {
@@ -266,6 +314,7 @@ function renderTable(intents) {
   tbody.innerHTML = "";
   if (intents.length === 0) {
     empty.style.display = "block";
+    empty.innerHTML = `Không có intent ${currentStatusFilter}. ✓`;
     return;
   }
   empty.style.display = "none";
@@ -273,17 +322,31 @@ function renderTable(intents) {
   for (const it of intents) {
     const ageMs = now - it.createdAt;
     const remainMs = Math.max(0, it.expiresAt - now);
+    const status = it.status || "pending";
+    const statusColor = STATUS_COLOR[status] || "#999";
+    const approvedAtStr = it.approvedAt ? new Date(it.approvedAt).toLocaleString() : "";
     const tr = document.createElement("tr");
+    const lastCol = status === "pending"
+      ? `<button class="success" onclick="approve('${it.intentId}', '${it.memo}')">✓ Approve</button>
+         <button class="danger" onclick="reject('${it.intentId}', '${it.memo}')">✗ Reject</button>`
+      : status === "approved"
+        ? `<span style="color:var(--jade); font-size:11px;">${approvedAtStr || "✓ approved"}</span>`
+        : status === "rejected"
+          ? `<span style="color:var(--ember); font-size:11px;" title="${it.rejectReason || ''}">✗ ${it.rejectReason || "rejected"}</span>`
+          : `<span style="color:#888; font-size:11px;">— expired —</span>`;
     tr.innerHTML = `
-      <td><span class="memo">${it.memo}</span></td>
-      <td>${it.packId}<br><small style="color:#9ca3af;">${it.description || ''}</small></td>
+      <td>
+        <span class="memo">${it.memo}</span>
+        <br><small style="color:#666; font-family:monospace;" title="deviceId">${(it.deviceId || '').slice(0, 12)}…</small>
+      </td>
+      <td>
+        <span style="color:${statusColor}; font-weight:bold; font-size:11px; text-transform:uppercase;">●</span> ${it.packId}
+        <br><small style="color:#9ca3af;">${it.description || ''}</small>
+      </td>
       <td class="amount">${it.amount.toLocaleString()}đ</td>
       <td>${formatRelTime(ageMs)} trước</td>
-      <td>${remainMs > 0 ? formatRelTime(remainMs) : '<span class="stale">EXPIRED</span>'}</td>
-      <td class="actions">
-        <button class="success" onclick="approve('${it.intentId}', '${it.memo}')">✓ Approve</button>
-        <button class="danger" onclick="reject('${it.intentId}', '${it.memo}')">✗ Reject</button>
-      </td>
+      <td>${status === "pending" ? (remainMs > 0 ? formatRelTime(remainMs) : '<span class="stale">EXPIRED</span>') : '—'}</td>
+      <td class="actions">${lastCol}</td>
     `;
     tbody.appendChild(tr);
   }
@@ -333,7 +396,10 @@ window.reject = async (intentId, memo) => {
 if (loadCfg()) {
   showPanel();
   refresh();
-  setInterval(refresh, 10_000);
+  // Auto-refresh chỉ khi đang xem tab pending (tránh tốn read quota khi xem history)
+  setInterval(() => {
+    if (currentStatusFilter === "pending") refresh();
+  }, 10_000);
 } else {
   showGate();
 }
