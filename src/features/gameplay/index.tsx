@@ -60,6 +60,8 @@ const MonetizationModal = lazy(() =>
   import('@features/monetization/MonetizationModal').then((m) => ({ default: m.MonetizationModal })),
 );
 import { CurrencyDisplay } from '@features/monetization/CurrencyDisplay';
+import { NotificationCenter } from '@features/notifications/NotificationCenter';
+import type { NotificationActionTarget } from '@state/notifications';
 // Phase 16.3: Daily missions
 const DailyMissionsModal = lazy(() =>
   import('@features/daily-missions/DailyMissionsModal').then((m) => ({ default: m.DailyMissionsModal })),
@@ -109,6 +111,28 @@ export const GameplayScreen = () => {
   // Auto-trigger refreshDailyMissions on mount để check daily reset + login bonus
   const refreshDailyMissions = useGameStore((s) => s.refreshDailyMissions);
   useEffect(() => { refreshDailyMissions(); }, [refreshDailyMissions]);
+
+  // Phase 19: NotificationCenter dispatch global event 'tutien:open' → handle ở đây
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const target = (e as CustomEvent<NotificationActionTarget>).detail;
+      switch (target) {
+        case 'daily-missions': setDailyMissionsOpen(true); break;
+        case 'extended-quests': setExtendedQuestsOpen(true); break;
+        case 'monetization': setMonetizationOpen(true); break;
+        case 'handbook': setHandbookOpen(true); break;
+        case 'skills': setSkillMgmtOpen(true); break;
+        case 'character-sheet': setStage('character'); break;
+        case 'inventory': setStage('inventory'); break;
+        case 'world-map': setStage('world_map'); break;
+        case 'cave-abode': setStage('cave_abode'); break;
+        case 'sect-hall': setStage('sect_hall'); break;
+        case 'spirit-beasts': setStage('spirit_beasts'); break;
+      }
+    };
+    window.addEventListener('tutien:open', handler);
+    return () => window.removeEventListener('tutien:open', handler);
+  }, [setStage]);
   // Phase 12.2: Trader modal — auto-open theo traderSession state
   const traderSession = useGameStore((s) => s.traderSession);
   const [traderManuallyClosed, setTraderManuallyClosed] = useState(false);
@@ -221,6 +245,7 @@ export const GameplayScreen = () => {
           <AIStatusDot onClick={() => setAiStatusOpen(true)} />
           {/* Phase 15: Currency display + cửa hàng */}
           <CurrencyDisplay onClick={() => setMonetizationOpen(true)} />
+          <NotificationCenter />
           <NavButton
             label="Thoát"
             icon="⊗"

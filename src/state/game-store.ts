@@ -1662,10 +1662,10 @@ export const useGameStore = create<GameState>()(
             packId: intent.packId, amount: intent.amount,
             tienNgoc: res.reward.tienNgoc ?? 0, actionTokens: res.reward.actionTokens ?? 0,
           });
-          notify.epic(
-            '✦ Nạp thành công',
-            `+${res.reward.tienNgoc ?? 0} Tiền Ngọc, +${res.reward.actionTokens ?? 0} lượt. Cảm tạ tiền bối!`,
-          );
+          notify.epic('✦ Nạp thành công', {
+            message: `+${res.reward.tienNgoc ?? 0} Tiền Ngọc, +${res.reward.actionTokens ?? 0} lượt. Cảm tạ tiền bối!`,
+            action: { target: 'monetization', label: 'Mở cửa hàng' },
+          });
         } else if (res.status === 'expired' || res.status === 'rejected') {
           set((s) => { s.economy.paymentIntent = null; });
           notify.warn(
@@ -1713,7 +1713,10 @@ export const useGameStore = create<GameState>()(
         if (it) it.bonuses = newBonuses;
         if (s.player) s.player = recomputeStats(s.player, s.inventory);
       });
-      notify.epic('✦ Tinh luyện thành công', `${item.name}: chỉ số mới đã được rèn lại.`);
+      notify.epic('✦ Tinh luyện thành công', {
+        message: `${item.name}: chỉ số mới đã được rèn lại.`,
+        action: { target: 'inventory', label: 'Xem hành trang' },
+      });
       return true;
     },
 
@@ -1748,7 +1751,10 @@ export const useGameStore = create<GameState>()(
         }
         if (s.player) s.player = recomputeStats(s.player, s.inventory);
       });
-      notify.epic('✦ Thăng cấp thành công', `${item.name}: ${item.rarity} → ${newRarity}!`);
+      notify.epic('✦ Thăng cấp thành công', {
+        message: `${item.name}: ${item.rarity} → ${newRarity}!`,
+        action: { target: 'inventory', label: 'Xem hành trang' },
+      });
       return true;
     },
 
@@ -1783,10 +1789,10 @@ export const useGameStore = create<GameState>()(
       });
 
       const streakBadge = newStreak >= 7 ? `🔥${newStreak} ngày liên tiếp` : `${newStreak} ngày`;
-      notify.epic(
-        `📅 Điểm Danh — ${streakBadge}`,
-        `+${loginReward.tienNgoc} Tiền Ngọc + ${loginReward.actionTokens} Lượt. Mở Nhiệm Vụ Hàng Ngày để xem 3 mission mới.`,
-      );
+      notify.epic(`📅 Điểm Danh — ${streakBadge}`, {
+        message: `+${loginReward.tienNgoc} Tiền Ngọc + ${loginReward.actionTokens} Lượt. Mở Nhiệm Vụ Hàng Ngày để xem 3 mission mới.`,
+        action: { target: 'daily-missions', label: 'Xem nhiệm vụ' },
+      });
       trackEvent('daily_login', { streak: newStreak, tienNgocReward: loginReward.tienNgoc });
     },
 
@@ -1801,7 +1807,10 @@ export const useGameStore = create<GameState>()(
         if (mission.progress >= template.target && delta > 0) {
           // Gọi notify ngoài set (sau khi state đã update)
           setTimeout(() => {
-            notify.success(`✓ Hoàn thành: ${template.title}`, 'Mở Nhiệm Vụ Hàng Ngày để nhận thưởng.');
+            notify.success(`✓ Hoàn thành: ${template.title}`, {
+              message: 'Mở Nhiệm Vụ Hàng Ngày để nhận thưởng.',
+              action: { target: 'daily-missions', label: 'Nhận thưởng' },
+            });
           }, 50);
         }
       });
@@ -1825,7 +1834,10 @@ export const useGameStore = create<GameState>()(
               p.unlocked = true;
               p.unlockedAtTurn = state.turn;
               setTimeout(() => {
-                notify.epic(`✦ Mở khóa chuỗi: ${tpl.title}`, tpl.description.slice(0, 100));
+                notify.epic(`✦ Mở khóa chuỗi: ${tpl.title}`, {
+                  message: tpl.description.slice(0, 100),
+                  action: { target: 'extended-quests', label: 'Xem chuỗi' },
+                });
                 trackEvent('quest_started', { questId: tpl.id, hidden: tpl.hidden });
               }, 100);
             }
@@ -1848,7 +1860,10 @@ export const useGameStore = create<GameState>()(
             p.completed = true;
             p.completedAtTurn = state.turn;
             setTimeout(() => {
-              notify.epic(`✦ Hoàn thành chuỗi: ${tpl.title}`, 'Vào Nhiệm Vụ để nhận đại thưởng!');
+              notify.epic(`✦ Hoàn thành chuỗi: ${tpl.title}`, {
+                message: 'Vào Chuỗi Nhiệm Vụ để nhận đại thưởng!',
+                action: { target: 'extended-quests', label: 'Nhận đại thưởng' },
+              });
               trackEvent('quest_completed', { questId: tpl.id });
             }, 100);
           }
