@@ -297,6 +297,27 @@ export const CharacterSheetScreen = () => {
                 );
               }
               const c = RARITY_COLORS[item.rarity];
+              // Phase 23.UX: build rich tooltip với rarity + bonuses + description
+              const bonusEntries = item.bonuses
+                ? Object.entries(item.bonuses).filter(([, v]) => !!v)
+                : [];
+              const bonusStr = bonusEntries
+                .map(([k, v]) => {
+                  const labels: Record<string, string> = {
+                    hp: 'HP', atk: 'ATK', def: 'DEF', spd: 'SPD',
+                    cr: 'Bạo%', cdmg: 'Sát Bạo%', dmgAmp: 'Tăng ST%',
+                    dmgRes: 'Kháng ST%', evasion: 'Né%',
+                  };
+                  return `+${v} ${labels[k] ?? k.toUpperCase()}`;
+                })
+                .join(' · ');
+              const tooltip = [
+                `${item.name} [${item.rarity}]`,
+                item.description || '',
+                bonusStr ? `Chỉ số: ${bonusStr}` : '',
+                item.refineLevel ? `Rèn +${item.refineLevel}/12` : '',
+                '— Click để tháo —',
+              ].filter(Boolean).join('\n');
               return (
                 <button
                   key={slot}
@@ -308,26 +329,33 @@ export const CharacterSheetScreen = () => {
                     borderColor: c.border,
                     background: `linear-gradient(135deg, ${c.bg}, transparent)`,
                   }}
-                  title="Click để tháo"
+                  title={tooltip}
                 >
                   <span
                     className="h-[30px] w-[30px] flex-shrink-0 rounded"
                     style={{ background: c.bg, border: `1px solid ${c.border}` }}
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="text-[10px] uppercase tracking-wider text-jade-500">{label}</div>
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[10px] uppercase tracking-wider text-jade-500">{label}</span>
+                      {item.refineLevel ? (
+                        <span className="text-[9px] font-mono text-ember-400">+{item.refineLevel}</span>
+                      ) : null}
+                    </div>
                     <div className={`truncate text-[12px] font-medium ${c.text}`}>{item.name}</div>
+                    {bonusStr && (
+                      <div className="truncate text-[10px] font-mono text-leaf-400/90 mt-0.5">
+                        {bonusStr}
+                      </div>
+                    )}
                   </div>
                 </button>
               );
             })}
           </div>
 
-          <div className="label-gold mb-3.5 mt-6 flex items-center justify-between">
-            <span>Kỹ Năng ({learnedSkillObjects.length})</span>
-            <span className="text-[10px] normal-case tracking-normal italic text-jade-500/80">
-              Hover xem mô tả
-            </span>
+          <div className="label-gold mb-3.5 mt-6">
+            Kỹ Năng ({learnedSkillObjects.length})
           </div>
           {learnedSkillObjects.length === 0 ? (
             <p className="py-4 text-center text-[12px] italic text-jade-700">
@@ -358,10 +386,20 @@ export const CharacterSheetScreen = () => {
                         {sk.rarity}
                       </span>
                     </div>
-                    {sk.description && (
-                      <p className="px-2.5 pb-2 pt-0 text-[11px] italic text-jade-400 leading-snug border-t border-current/10">
-                        {sk.description}
-                      </p>
+                    <p className="px-2.5 pb-2 pt-1.5 text-[11px] italic text-jade-400 leading-snug border-t border-current/10">
+                      {sk.description ||
+                        (sk.kind === 'combat_ultimate'
+                          ? 'Tuyệt kĩ chiến đấu — damage cực mạnh, dùng khi đối phương sắp gục.'
+                          : sk.kind === 'combat_basic'
+                          ? 'Chiêu cơ bản — gây damage ổn định, cooldown ngắn.'
+                          : 'Pháp thuật phụ trợ — buff bản thân, debuff địch, hồi máu, hoặc khám phá.')}
+                    </p>
+                    {sk.passive_effects && sk.passive_effects.length > 0 && (
+                      <div className="px-2.5 pb-2 text-[10px] text-spirit-300">
+                        {sk.passive_effects.map((p, i) => (
+                          <div key={i}>✦ {p.description ?? `${p.type}: ${p.value}`}</div>
+                        ))}
+                      </div>
                     )}
                     {/* Phase 23.UX: quick stats — cost/cooldown từ Skill type chuẩn */}
                     {(sk.cost !== undefined || sk.cooldown !== undefined) && (
