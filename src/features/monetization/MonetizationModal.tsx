@@ -10,14 +10,29 @@ interface Props {
   onClose: () => void;
 }
 
-type TabKey = 'store' | 'exchange' | 'referral' | 'coupon';
+type TabKey = 'store' | 'exchange' | 'referral' | 'coupon' | 'history';
 
 const TABS: Array<{ key: TabKey; label: string; icon: string }> = [
   { key: 'store', label: 'Cửa Hàng', icon: '◭' },
   { key: 'exchange', label: 'Tiêu Tiền Ngọc', icon: '⚒' },
   { key: 'referral', label: 'Giới Thiệu Bạn', icon: '✦' },
   { key: 'coupon', label: 'Mã Khuyến Mãi', icon: '◍' },
+  { key: 'history', label: 'Lịch Sử', icon: '☰' },
 ];
+
+const KIND_LABEL: Record<string, { label: string; color: string }> = {
+  topup:    { label: 'Nạp MoMo',     color: 'text-jade-300' },
+  mock:     { label: 'Nạp (mock)',   color: 'text-jade-500' },
+  coupon:   { label: 'Mã khuyến mãi', color: 'text-spirit-300' },
+  referral: { label: 'Giới thiệu',   color: 'text-gold-300' },
+  exchange: { label: 'Tiêu',         color: 'text-ember-300' },
+};
+
+const formatTime = (ms: number): string => {
+  const d = new Date(ms);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 
 /**
  * Phase 15.3: Monetization Hub — 4-tab modal.
@@ -424,6 +439,82 @@ export const MonetizationModal = ({ open, onClose }: Props) => {
                 </div>
               </div>
             )}
+
+            {/* TAB: Lịch Sử — Phase 23.UX */}
+            {tab === 'history' && (() => {
+              const history = economy.purchaseHistory ?? [];
+              const totalIn = history.filter((h) => h.delta > 0).reduce((s, h) => s + h.delta, 0);
+              const totalOut = -history.filter((h) => h.delta < 0).reduce((s, h) => s + h.delta, 0);
+              const totalVnd = history
+                .filter((h) => h.kind === 'topup' && h.amountVnd)
+                .reduce((s, h) => s + (h.amountVnd ?? 0), 0);
+              return (
+                <div className="space-y-3">
+                  {/* Summary cards */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded border border-jade-700/30 bg-jade-900/15 p-2.5 text-center">
+                      <div className="text-[10px] uppercase text-jade-500 tracking-widest">Tổng nạp</div>
+                      <div className="font-mono text-sm text-jade-200">{formatVnd(totalVnd)}</div>
+                    </div>
+                    <div className="rounded border border-gold-700/30 bg-gold-900/15 p-2.5 text-center">
+                      <div className="text-[10px] uppercase text-gold-500 tracking-widest">Đã nhận TN</div>
+                      <div className="font-mono text-sm text-gold-200">+{totalIn.toLocaleString()} 💎</div>
+                    </div>
+                    <div className="rounded border border-ember-700/30 bg-ember-900/15 p-2.5 text-center">
+                      <div className="text-[10px] uppercase text-ember-500 tracking-widest">Đã tiêu TN</div>
+                      <div className="font-mono text-sm text-ember-200">-{totalOut.toLocaleString()} 💎</div>
+                    </div>
+                  </div>
+
+                  {/* Notice */}
+                  <div className="rounded border border-spirit-700/20 bg-spirit-900/10 px-2.5 py-1.5 text-[11px] italic text-jade-400">
+                    Lịch sử lưu tại thiết bị (100 giao dịch gần nhất). Xóa save → mất lịch sử. Nếu có khiếu nại nạp MoMo không thành công, gửi <strong className="text-spirit-300">memo + ảnh chuyển khoản</strong> cho admin.
+                  </div>
+
+                  {/* List */}
+                  {history.length === 0 ? (
+                    <div className="rounded border border-gold-700/20 bg-ink-900/40 p-6 text-center">
+                      <div className="text-3xl mb-2 text-jade-700">📜</div>
+                      <p className="text-[12px] text-jade-400">
+                        Chưa có giao dịch nào. Nạp MoMo / đổi mã / mua perks để xem ghi nhận ở đây.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="max-h-[480px] overflow-y-auto rounded border border-gold-700/20 bg-ink-900/30">
+                      <table className="w-full text-[12px]">
+                        <thead className="sticky top-0 bg-ink-800 text-[10px] uppercase tracking-widest text-jade-500">
+                          <tr>
+                            <th className="px-2 py-1.5 text-left">Thời gian</th>
+                            <th className="px-2 py-1.5 text-left">Loại</th>
+                            <th className="px-2 py-1.5 text-left">Nội dung</th>
+                            <th className="px-2 py-1.5 text-right">Tiền Ngọc</th>
+                            <th className="px-2 py-1.5 text-right">VND</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {history.map((h) => {
+                            const meta = KIND_LABEL[h.kind] ?? { label: h.kind, color: 'text-jade-400' };
+                            return (
+                              <tr key={h.id} className="border-t border-gold-700/10 hover:bg-ink-800/40">
+                                <td className="px-2 py-1.5 font-mono text-jade-400 whitespace-nowrap">{formatTime(h.at)}</td>
+                                <td className={`px-2 py-1.5 whitespace-nowrap ${meta.color}`}>{meta.label}</td>
+                                <td className="px-2 py-1.5 text-gold-300" title={h.refId ?? ''}>{h.title}</td>
+                                <td className={`px-2 py-1.5 text-right font-mono whitespace-nowrap ${h.delta > 0 ? 'text-leaf-400' : h.delta < 0 ? 'text-ember-400' : 'text-jade-500'}`}>
+                                  {h.delta > 0 ? '+' : ''}{h.delta.toLocaleString()}
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono text-jade-300 whitespace-nowrap">
+                                  {h.amountVnd ? formatVnd(h.amountVnd) : '—'}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </Bracketed>
       </div>

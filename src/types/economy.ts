@@ -67,6 +67,29 @@ export interface EconomyState {
 
   /** Phase 19.5: ID achievement đã unlocked — track diff để notify cái mới */
   unlockedAchievements: string[];
+
+  /** Phase 23.UX: Lịch sử giao dịch — nạp Tiên Ngọc + redeem coupon + spend exchange.
+   *  Newest first. Capped 100 entries. */
+  purchaseHistory?: PurchaseHistoryEntry[];
+}
+
+export interface PurchaseHistoryEntry {
+  /** Unique ID — timestamp + random suffix */
+  id: string;
+  /** Unix ms timestamp */
+  at: number;
+  /** Loại giao dịch */
+  kind: 'topup' | 'exchange' | 'coupon' | 'referral' | 'mock';
+  /** Mô tả ngắn (vd "Nạp 100k", "Đổi 5 Token", "Mã TANTHU") */
+  title: string;
+  /** Số Tiên Ngọc delta (+ nạp/earn, - tiêu) */
+  delta: number;
+  /** Optional VND amount (chỉ cho topup) */
+  amountVnd?: number;
+  /** Optional payment intent ID hoặc coupon code để trace */
+  refId?: string;
+  /** Status — pending/done/failed */
+  status?: 'pending' | 'done' | 'failed';
 }
 
 export const INITIAL_ECONOMY: EconomyState = {

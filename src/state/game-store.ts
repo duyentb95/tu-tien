@@ -99,6 +99,32 @@ import {
   type SkillAction,
 } from '@core/combat/session';
 import { notify } from './notifications';
+import type { PurchaseHistoryEntry } from '@gametypes/economy';
+
+/**
+ * Phase 23.UX: Append entry vào purchaseHistory. Mutate trực tiếp (immer-safe).
+ * Cap 100 entries — drop oldest. Newest first.
+ */
+function pushHistory(
+  economy: { purchaseHistory?: PurchaseHistoryEntry[] },
+  entry: Omit<PurchaseHistoryEntry, 'id' | 'at'> & Partial<Pick<PurchaseHistoryEntry, 'at'>>,
+): void {
+  if (!economy.purchaseHistory) economy.purchaseHistory = [];
+  const full: PurchaseHistoryEntry = {
+    id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    at: entry.at ?? Date.now(),
+    kind: entry.kind,
+    title: entry.title,
+    delta: entry.delta,
+    ...(entry.amountVnd !== undefined ? { amountVnd: entry.amountVnd } : {}),
+    ...(entry.refId !== undefined ? { refId: entry.refId } : {}),
+    ...(entry.status !== undefined ? { status: entry.status } : {}),
+  };
+  economy.purchaseHistory.unshift(full);
+  if (economy.purchaseHistory.length > 100) {
+    economy.purchaseHistory = economy.purchaseHistory.slice(0, 100);
+  }
+}
 
 export type GameStage =
   | 'initial'
@@ -1593,6 +1619,13 @@ export const useGameStore = create<GameState>()(
           case 'genesis_reroll_credit': /* future: track credit */ break;
           case 'item_upgrade_credit': /* future: track credit */ break;
         }
+        pushHistory(s.economy, {
+          kind: 'exchange',
+          title: `Đổi: ${option.label}`,
+          delta: -cost,
+          refId: effectId,
+          status: 'done',
+        });
       });
       if (effectId.startsWith('topup_')) {
         notify.success(`+ Lượt Hành Động`, option.label);
@@ -1623,6 +1656,13 @@ export const useGameStore = create<GameState>()(
             s.economy.redeemedCoupons.push(normalizedCode);
             if (res.reward!.tienNgoc) s.economy.tienNgoc += res.reward!.tienNgoc;
             if (res.reward!.actionTokens) s.economy.actionTokens += res.reward!.actionTokens;
+            pushHistory(s.economy, {
+              kind: 'coupon',
+              title: `Mã ${normalizedCode}`,
+              delta: res.reward!.tienNgoc ?? 0,
+              refId: normalizedCode,
+              status: 'done',
+            });
           });
           notify.epic('✦ Đổi mã thành công', res.message);
           trackEvent('coupon_redeemed', { code: normalizedCode, source: 'remote',
@@ -1650,6 +1690,13 @@ export const useGameStore = create<GameState>()(
         s.economy.redeemedCoupons.push(coupon.code);
         if (coupon.reward.tienNgoc) s.economy.tienNgoc += coupon.reward.tienNgoc;
         if (coupon.reward.actionTokens) s.economy.actionTokens += coupon.reward.actionTokens;
+        pushHistory(s.economy, {
+          kind: 'coupon',
+          title: `Mã ${coupon.code}`,
+          delta: coupon.reward.tienNgoc ?? 0,
+          refId: coupon.code,
+          status: 'done',
+        });
       });
       const rewardParts: string[] = [];
       if (coupon.reward.tienNgoc) rewardParts.push(`+${coupon.reward.tienNgoc} Tiền Ngọc`);
@@ -1688,6 +1735,13 @@ export const useGameStore = create<GameState>()(
             s.economy.referredBy = trimmed;
             s.economy.tienNgoc += res.inviteeReward!.tienNgoc;
             s.economy.actionTokens += res.inviteeReward!.actionTokens;
+            pushHistory(s.economy, {
+              kind: 'referral',
+              title: `Giới thiệu ${trimmed}`,
+              delta: res.inviteeReward!.tienNgoc,
+              refId: trimmed,
+              status: 'done',
+            });
           });
           notify.epic('✦ Cảm tạ tiền bối', res.message);
           trackEvent('referral_applied', { code: trimmed, source: 'remote' });
@@ -1703,6 +1757,13 @@ export const useGameStore = create<GameState>()(
         s.economy.referredBy = trimmed;
         s.economy.tienNgoc += 100;
         s.economy.actionTokens += 30;
+        pushHistory(s.economy, {
+          kind: 'referral',
+          title: `Giới thiệu ${trimmed}`,
+          delta: 100,
+          refId: trimmed,
+          status: 'done',
+        });
       });
       notify.epic('✦ Cảm tạ tiền bối', `Mã "${trimmed}" — nhận 100 Tiền Ngọc + 30 Lượt!`);
       trackEvent('referral_applied', { code: trimmed, source: 'local' });
@@ -1718,6 +1779,14 @@ export const useGameStore = create<GameState>()(
       const total = pack.amount + pack.bonus;
       set((s) => {
         s.economy.tienNgoc += total;
+        pushHistory(s.economy, {
+          kind: 'mock',
+          title: `[Mock] Pack ${pack.amount}+${pack.bonus} TN`,
+          delta: total,
+          amountVnd: pack.priceVnd,
+          refId: packId,
+          status: 'done',
+        });
       });
       trackEvent('pack_purchase_complete', { packId, priceVnd: pack.priceVnd, total, mock: true });
       notify.epic(
@@ -1782,6 +1851,15 @@ export const useGameStore = create<GameState>()(
             for (const perk of res.reward!.perks ?? []) {
               if (perk === 'speed_boost') s.economy.unlockedPerks.speedBoost = true;
             }
+            // Phase 23.UX: log topup vào history
+            pushHistory(s.economy, {
+              kind: 'topup',
+              title: `Nạp MoMo · pack ${intent.packId}`,
+              delta: res.reward!.tienNgoc ?? 0,
+              amountVnd: intent.amount,
+              refId: intent.intentId,
+              status: 'done',
+            });
             s.economy.paymentIntent = null;  // Clear sau khi credit
           });
           trackEvent('pack_purchase_complete', {
