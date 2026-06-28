@@ -5,6 +5,42 @@ Versioning theo [SemVer](https://semver.org/lang/vi/).
 
 ---
 
+## [1.9.0] — 2026-06-28
+
+### Added — Phase 19 + 20 + 21 (NotificationCenter + Stats + UX polish)
+
+**Phase 19 — Notification Center:**
+- `src/features/notifications/NotificationCenter.tsx`: bell icon nav button + dropdown 360px lưu rolling 50 notification gần nhất, badge unreadCount.
+- `notify.*` API extend optional `action: { target, label }` — click button trong dropdown dispatch global event `tutien:open` → mở modal/screen tương ứng.
+- 14 target enum: daily-missions, extended-quests, monetization, inventory, handbook, character-sheet, world-map, cave-abode, sect-hall, spirit-beasts, skills, tournament, achievements, tribulation.
+- 13 notification quan trọng đã wire action button (điểm danh / mission claim / quest unlock / payment / item upgrade / cống hiến / đột phá / độ kiếp / tournament / achievement).
+- Auto-mark read sau 500ms mở dropdown; relative timestamp (vừa xong / X phút / X giờ / X ngày).
+- Backward-compat 100% — code cũ `notify.success('title', 'message')` vẫn chạy.
+
+**Phase 20 — PlayerLifetimeStats tracker:**
+- `src/types/player-stats.ts`: 9 field accumulator (totalKills, totalDefeats, totalEpEarned, totalCurrencyEarned, turnsPlayed, legendaryItemsOwned, tribulationsPassed, realmBreaksLifetime, killsByEnemy).
+- Wire vào combat win/lose/fled, submitAction tick, REALM_BREAK + TRIBULATION tag, calculateEpReward.
+- `src/core/achievements/check-unlocks.ts`: pure helper compute progress + detect newly unlocked + share giữa UI và store. Wire nốt 4 TODO achievement (first_kill / kill_count / ep_total / item_legendary).
+- `LifetimeStatsPanel` trong CharacterSheet: "**✦ Thiên Cơ Toán**" 10-row grid (turn, kills, defeats, win rate %, breaks, tribulations, EP total, currency lifetime, legendary count, Tiền Ngọc) + top enemy "Sát nhiều nhất: X ×N".
+
+**Phase 21 — UX/UI/audio polish (6 stream):**
+- **21.0** Notification persist `localStorage['tu-tien:notif-history-v1']` — history + unreadCount cross-session.
+- **21.1** Daily login calendar 7-day visual trong DailyMissionsModal — grid 7 ô, today highlight (gold pulse), claimed (✓ jade), bonus 3+7 (✦/🎁 spirit).
+- **21.2** Combat detail tracker — totalDefeats + killsByEnemy map + win rate % + top enemy display.
+- **21.3** Interactive Tour với spotlight highlight — 6-step wizard sau WelcomeOverlay, 4-panel dim + gold ring pulse + auto-skip step nếu element không exist. Persist `interactive-tour-v1` chạy 1 lần.
+- **21.4** Ambient BGM procedural (`services/ambient-bgm.ts`) — 4 mood (village pentatonic / wilderness dorian / combat sawtooth / sect sine), Web Audio API synthesize không cần MP3, auto-switch theo stage, persist mute + volume.
+- **21.5** MobileBottomNav 5-tab (Story / Map / Char / Inv / More) — `lg:hidden` <1024px, touch 56px, safe-area-inset iOS, "More" bottom-sheet 6 quick action.
+
+### Changed
+- `EconomyState.unlockedAchievements: string[]` — track diff để chỉ notify cái mới khi unlock.
+- AchievementsModal refactor dùng pure helper `computeAchievementProgress` từ core/ (chống drift logic với store).
+
+### Tests
+- `tests/core/achievements-check-unlocks.test.ts` — 6 case (baseline / unlock threshold / detectNewlyUnlocked diff).
+- **99/99 test pass** (thêm 6 mới).
+
+---
+
 ## [1.8.0] — 2026-06-28
 
 ### Added — Phase 18 (MoMo Personal QR Payment + Admin Approval)

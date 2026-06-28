@@ -6,8 +6,8 @@
  * Khi có thay đổi material → bump APP_VERSION và update lastUpdated.
  */
 
-export const APP_VERSION = '0.6.0';
-export const APP_BUILD_DATE = '2026-06-26';
+export const APP_VERSION = '1.9.0';
+export const APP_BUILD_DATE = '2026-06-28';
 
 export interface LegalPage {
   id: 'privacy' | 'tos' | 'about';
