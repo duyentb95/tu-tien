@@ -4,6 +4,7 @@ import { Bracketed } from '@shared/components/CornerBracket';
 import { ItemIcon } from '@shared/components/ItemIcon';
 import { EQUIPPABLE_CATEGORIES, type Rarity, type ItemCategory } from '@gametypes/item';
 import { isArtifactEligible, ARTIFACT_GRADE_NAMES, ARTIFACT_SOUL_THRESHOLD } from '@core/items/artifact';
+import { getRefineCost, getRefineSuccessRate } from '@core/items/refine';
 
 const RARITY_CONFIG: Record<Rarity, { border: string; bg: string; text: string; dot: string }> = {
   'Thường':      { border: 'rgba(217,211,194,.4)', bg: 'rgba(217,211,194,.05)', text: 'text-rarity-common', dot: '#d9d3c2' },
@@ -36,6 +37,7 @@ export const InventoryScreen = () => {
   // Phase 16.2: Item upgrade actions
   const rerollItemStats = useGameStore((s) => s.rerollItemStats);
   const upgradeItemRarity = useGameStore((s) => s.upgradeItemRarity);
+  const refineItem = useGameStore((s) => s.refineItem);
   const tienNgoc = useGameStore((s) => s.economy.tienNgoc);
   const equippedItems = player?.equippedItems;
   const [activeFilter, setActiveFilter] = useState<'all' | ItemCategory>('all');
@@ -335,6 +337,50 @@ export const InventoryScreen = () => {
                   </div>
                 </div>
               )}
+              {/* Phase 23.1: Rèn luyện +N */}
+              {selected.bonuses && Object.keys(selected.bonuses).length > 0 && (() => {
+                const curLv = selected.refineLevel ?? 0;
+                const cost = curLv < 12 ? getRefineCost(curLv) : null;
+                const rate = curLv < 12 ? Math.round(getRefineSuccessRate(curLv) * 100) : 0;
+                const canAfford = !cost ||
+                  ((player?.currency ?? 0) >= cost.linhThach &&
+                   (!cost.tienNgoc || tienNgoc >= cost.tienNgoc));
+                return (
+                  <div className="mt-3 rounded border border-ember-500/30 bg-ember-900/10 p-3">
+                    <div className="label-section mb-2 flex items-center justify-between">
+                      <span>✦ Rèn Luyện <span className="text-gold-400">+{curLv}/12</span></span>
+                      {curLv < 12 && (
+                        <span className="text-[10px] italic text-jade-500">
+                          Tỷ lệ thành công {rate}%
+                        </span>
+                      )}
+                    </div>
+                    {curLv >= 12 ? (
+                      <div className="text-center text-[11px] italic text-gold-300">
+                        ✦ Đỉnh cấp — không thể rèn thêm
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          if (!cost) return;
+                          const costMsg = cost.tienNgoc
+                            ? `${cost.linhThach.toLocaleString()} linh thạch + ${cost.tienNgoc} 💎 (thiên hỏa)`
+                            : `${cost.linhThach.toLocaleString()} linh thạch`;
+                          if (!confirm(`Rèn ${selected.name} +${curLv} → +${curLv + 1}? Tốn ${costMsg}. Tỷ lệ ${rate}%${curLv >= 9 ? ' (fail có thể hạ bậc)' : ''}.`)) return;
+                          const r = refineItem(selected.id);
+                          if (!r.ok) alert(r.message);
+                        }}
+                        disabled={!canAfford}
+                        className="w-full rounded border border-ember-500/50 bg-ember-900/30 px-2 py-1.5 text-[11px] font-bold uppercase tracking-widest text-ember-300 hover:bg-ember-900/50 disabled:cursor-not-allowed disabled:opacity-40"
+                        title={!canAfford ? `Cần ${cost?.linhThach.toLocaleString()} linh thạch${cost?.tienNgoc ? ` + ${cost.tienNgoc} 💎` : ''}` : 'Rèn +1'}
+                      >
+                        Rèn → +{curLv + 1} · {cost?.linhThach.toLocaleString()} 💠
+                        {cost?.tienNgoc ? ` + ${cost.tienNgoc} 💎` : ''}
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
               <button
                 onClick={() => {
                   if (confirm(`Vứt bỏ ${selected.name}?`)) discardItem(selected.id);

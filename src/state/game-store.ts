@@ -28,6 +28,8 @@ import { recomputeFinalStats, generateItemBonuses } from '@core/stats/equipment'
 import { generateItemBonusesV2 } from '@core/items/item-budget';
 import { calculateEpReward } from '@core/scoring/ep-scoring';
 import { computeAchievementProgress, detectNewlyUnlocked } from '@core/achievements/check-unlocks';
+import { getRefineCost, rollRefine } from '@core/items/refine';
+import { addMasteryXp, MASTERY_LEVEL_NAMES } from '@core/skills/mastery';
 import { EMPTY_TRADER_SESSION } from '@gametypes/trade';
 // Phase 15: Economy
 import {
@@ -250,6 +252,9 @@ export interface GameState {
   /** Phase 20: Player lifetime stats — tổng kills/EP/items qua mọi turn */
   playerStats: import('@gametypes/player-stats').PlayerLifetimeStats;
 
+  /** Phase 23.2: Skill mastery — level + xp per skill */
+  skillMastery: import('@core/skills/mastery').SkillMasteryState;
+
   isAiThinking: boolean;
   /** Phase 9.3: phase chi tiết khi đang call AI (cho UI hiển thị state phù hợp) */
   aiPhase: 'idle' | 'logic' | 'narrative';
@@ -332,6 +337,8 @@ export interface GameState {
   cancelMomoPayment: () => void;
   /** Phase 16.2: Re-roll stats item (50 TN). Giữ rarity + slot count, random distribute lại. */
   rerollItemStats: (itemId: string) => boolean;
+  /** Phase 23.1: Rèn luyện item +N. Trừ linh thạch + (lv 6+) Tiền Ngọc, roll success/fail. */
+  refineItem: (itemId: string) => { ok: boolean; message: string };
   /** Phase 16.2: Upgrade item rarity 1 tier (200 TN). Stats tự re-roll theo budget mới. */
   upgradeItemRarity: (itemId: string) => boolean;
 
@@ -521,6 +528,7 @@ export const useGameStore = create<GameState>()(
     // Phase 17.1: Extended quests
     extendedQuests: INITIAL_EXTENDED_QUESTS,
     playerStats: INITIAL_LIFETIME_STATS,
+    skillMastery: {},
     isAiThinking: false,
     aiPhase: 'idle' as const,
     lastError: null,
@@ -1216,7 +1224,28 @@ export const useGameStore = create<GameState>()(
       const { combat } = get();
       if (!combat || combat.status !== 'ongoing') return;
 
-      let state = executeAction(combat, action);
+      // Phase 23.2: Skill mastery — apply damage multiplier vào skillMultiplier
+      let finalAction = action;
+      if (action.kind !== 'flee' && action.skillName) {
+        const mastery = get().skillMastery[action.skillName];
+        if (mastery && mastery.level > 1 && action.skillMultiplier) {
+          const masteryMul = 1 + (mastery.level - 1) * 0.05;
+          finalAction = { ...action, skillMultiplier: action.skillMultiplier * masteryMul };
+        }
+        // Add XP after cast
+        const xpDelta = action.kind === 'skill_ultimate' ? 15 : action.kind === 'skill_basic' ? 8 : 3;
+        const r = addMasteryXp(get().skillMastery, action.skillName, xpDelta);
+        set((s) => { s.skillMastery = r.state; });
+        if (r.leveledUp) {
+          const tierName = MASTERY_LEVEL_NAMES[r.newLevel] ?? `Lv ${r.newLevel}`;
+          notify.epic(`✦ ${action.skillName} → ${tierName}`, {
+            message: `Kỹ năng đã thấu hiểu sâu hơn. Sát thương tăng theo bậc mastery.`,
+            action: { target: 'skills', label: 'Xem pháp thuật' },
+          });
+        }
+      }
+
+      let state = executeAction(combat, finalAction);
 
       // Auto-run enemy turns đến khi tới lượt player hoặc end
       while (
@@ -1764,6 +1793,53 @@ export const useGameStore = create<GameState>()(
         action: { target: 'inventory', label: 'Xem hành trang' },
       });
       return true;
+    },
+
+    // Phase 23.1: Rèn luyện item +N
+    refineItem: (itemId) => {
+      const item = get().inventory[itemId];
+      const player = get().player;
+      if (!item || !player) return { ok: false, message: 'Vật phẩm không tồn tại.' };
+      if (!item.bonuses || Object.keys(item.bonuses).length === 0) {
+        return { ok: false, message: 'Chỉ vật phẩm có chỉ số mới rèn được.' };
+      }
+      const curLv = item.refineLevel ?? 0;
+      if (curLv >= 12) {
+        return { ok: false, message: '✦ Đã đạt đỉnh +12 — không thể rèn thêm.' };
+      }
+      const cost = getRefineCost(curLv);
+      if (player.currency < cost.linhThach) {
+        return { ok: false, message: `Cần ${cost.linhThach.toLocaleString()} linh thạch, ngươi chỉ có ${player.currency.toLocaleString()}.` };
+      }
+      if (cost.tienNgoc && get().economy.tienNgoc < cost.tienNgoc) {
+        return { ok: false, message: `Cần ${cost.tienNgoc} Tiền Ngọc (thiên hỏa), ngươi không đủ.` };
+      }
+      // Trừ cost
+      set((s) => {
+        if (s.player) s.player.currency -= cost.linhThach;
+        if (cost.tienNgoc) s.economy.tienNgoc -= cost.tienNgoc;
+      });
+      const result = rollRefine(curLv);
+      set((s) => {
+        const it = s.inventory[itemId];
+        if (it) it.refineLevel = result.newLevel;
+        if (s.player) s.player = recomputeStats(s.player, s.inventory);
+      });
+      if (result.success) {
+        notify.epic(`✦ Rèn thành công +${result.newLevel}`, {
+          message: `${item.name} đột phá ${result.newLevel}/12. Chỉ số +${result.newLevel * 5}%.`,
+          action: { target: 'inventory', label: 'Xem hành trang' },
+        });
+        return { ok: true, message: `Rèn thành công! ${item.name} → +${result.newLevel}` };
+      }
+      if (result.downgraded) {
+        notify.warn(`⚠ Rèn thất bại — Hạ bậc`, {
+          message: `${item.name} bị hạ xuống +${result.newLevel}.`,
+        });
+        return { ok: true, message: `Thất bại, bị hạ xuống +${result.newLevel}.` };
+      }
+      notify.warn('Rèn thất bại', `${item.name} giữ nguyên +${curLv}.`);
+      return { ok: true, message: `Thất bại, giữ nguyên +${curLv}.` };
     },
 
     upgradeItemRarity: (itemId) => {
@@ -2995,6 +3071,9 @@ export const useGameStore = create<GameState>()(
           }
           if (data.playerStats) {
             s.playerStats = { ...INITIAL_LIFETIME_STATS, ...data.playerStats };
+          }
+          if (data.skillMastery && typeof data.skillMastery === 'object') {
+            s.skillMastery = data.skillMastery as typeof s.skillMastery;
           }
           s.prevStage = s.stage;
           s.stage = 'playing';

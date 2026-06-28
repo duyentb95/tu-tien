@@ -1,8 +1,11 @@
 import type { PlayerCharacter, FinalStats } from '@gametypes/character';
 import type { Item } from '@gametypes/item';
+import { getRefineMultiplier } from '@core/items/refine';
 
 /**
  * Tính tổng bonus từ tất cả item đã trang bị.
+ * Phase 23.1: nhân thêm refine multiplier (1.05x per refine level).
+ *
  * @param equippedItems player.equippedItems (slot → itemId)
  * @param inventory store.inventory dictionary
  */
@@ -16,16 +19,17 @@ export const calculateEquipmentBonuses = (
     if (!itemId) continue;
     const item = inventory[itemId];
     if (!item?.bonuses) continue;
+    const mul = getRefineMultiplier(item.refineLevel ?? 0);
 
-    total.hp += item.bonuses.hp ?? 0;
-    total.atk += item.bonuses.atk ?? 0;
-    total.def += item.bonuses.def ?? 0;
-    total.spd += item.bonuses.spd ?? 0;
-    total.cr += item.bonuses.cr ?? 0;
-    total.cdmg += item.bonuses.cdmg ?? 0;
-    total.dmgAmp += item.bonuses.dmgAmp ?? 0;
-    total.dmgRes += item.bonuses.dmgRes ?? 0;
-    total.evasion += item.bonuses.evasion ?? 0;
+    total.hp += Math.round((item.bonuses.hp ?? 0) * mul);
+    total.atk += Math.round((item.bonuses.atk ?? 0) * mul);
+    total.def += Math.round((item.bonuses.def ?? 0) * mul);
+    total.spd += Math.round((item.bonuses.spd ?? 0) * mul);
+    total.cr += Math.round((item.bonuses.cr ?? 0) * mul);
+    total.cdmg += Math.round((item.bonuses.cdmg ?? 0) * mul);
+    total.dmgAmp += Math.round((item.bonuses.dmgAmp ?? 0) * mul);
+    total.dmgRes += Math.round((item.bonuses.dmgRes ?? 0) * mul);
+    total.evasion += Math.round((item.bonuses.evasion ?? 0) * mul);
   }
 
   return total;

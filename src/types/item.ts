@@ -53,6 +53,10 @@ export interface Item {
   artifactLevel?: number;
   artifactSoul?: number; // pháp bảo tinh hồn, dưỡng để lên cấp
 
+  /** Phase 23.1: Rèn luyện — số bậc đã rèn (0-12). Mỗi bậc +5% stats hiện tại.
+   * Display: "Trường Kiếm +5" như game tu tiên truyền thống. */
+  refineLevel?: number;
+
   /** Cho phép trang bị vào slot nào (null = không trang bị được) */
   equipSlot?: import('./character').EquipmentSlot | null;
 

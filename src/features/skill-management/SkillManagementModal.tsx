@@ -3,6 +3,7 @@ import { useGameStore } from '@state/game-store';
 import { Bracketed } from '@shared/components/CornerBracket';
 import type { Skill, SkillKind } from '@gametypes/skill';
 import type { SkillSlot } from '@gametypes/character';
+import { getXpToNextLevel } from '@core/skills/mastery';
 
 interface Props {
   open: boolean;
@@ -52,6 +53,7 @@ export const SkillManagementModal = ({ open, onClose }: Props) => {
   const skills = useGameStore((s) => s.skills);
   const equipSkill = useGameStore((s) => s.equipSkill);
   const unequipSkill = useGameStore((s) => s.unequipSkill);
+  const skillMastery = useGameStore((s) => s.skillMastery);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filterKind, setFilterKind] = useState<'all' | SkillKind>('all');
@@ -173,6 +175,7 @@ export const SkillManagementModal = ({ open, onClose }: Props) => {
                     const slot = skillToSlot.get(sk.id);
                     const c = getRarityColor(sk.rarity);
                     const isSelected = selectedId === sk.id;
+                    const mastery = skillMastery[sk.name];
                     return (
                       <button
                         key={sk.id}
@@ -188,7 +191,20 @@ export const SkillManagementModal = ({ open, onClose }: Props) => {
                           <div className={`truncate text-[13px] font-medium ${c.text}`}>{sk.name}</div>
                           <div className="text-[10px] uppercase tracking-wider text-jade-500">
                             {KIND_LABEL[sk.kind]}
+                            {mastery && (
+                              <span className="ml-1.5 text-spirit-300">
+                                · {mastery.level >= 9 ? '★ Đại Thành' : `Lv ${mastery.level}`}
+                              </span>
+                            )}
                           </div>
+                          {mastery && mastery.level < 9 && (
+                            <div className="mt-0.5 h-[2px] overflow-hidden rounded-full bg-ink-800">
+                              <div
+                                className="h-full bg-gradient-to-r from-spirit-500 to-gold-500"
+                                style={{ width: `${Math.min(100, (mastery.xp / getXpToNextLevel(mastery.level)) * 100)}%` }}
+                              />
+                            </div>
+                          )}
                         </div>
                         {slot && (
                           <span className="rounded-sm border border-gold-500/40 px-1 py-0.5 text-[8px] font-bold uppercase tracking-widest text-gold-400">
