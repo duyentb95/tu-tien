@@ -13,34 +13,71 @@ Toàn bộ optional — nếu không deploy, client tự fallback localStorage (
 
 ---
 
-## 1. Setup Firebase project
+## 0. ⚠️ PREFLIGHT BẮT BUỘC trước khi deploy
+
+Functions **v2** (SDK firebase-functions ^7) cần các điều kiện sau, **không có là deploy treo hoặc fail im lặng**:
+
+1. **Firebase Blaze plan (pay-as-you-go)** — v2 functions chạy trên Cloud Run, KHÔNG support Spark free plan.
+   - Upgrade tại https://console.firebase.google.com/project/tu-tien-cbff0/usage/details → chọn Blaze.
+   - Set budget alert $5/tháng để khỏi sốc bill (functions free tier 2M invocations/tháng).
+
+2. **Enable 4 Google Cloud APIs** (mở Console → APIs Library, search & Enable):
+   - Cloud Functions API
+   - Cloud Build API
+   - Artifact Registry API
+   - Cloud Run Admin API
+
+3. **`firebase login` đã chạy** — kiểm tra: `firebase login:list` phải in email.
+
+4. **Project đúng** — `firebase use` phải in `tu-tien-cbff0`.
+
+Bỏ qua bất kỳ bước nào → deploy đứng (không in lỗi) hoặc 403.
+
+---
+
+## 1. Init một lần (nếu chưa có functions/)
 
 ```bash
-# Cài Firebase CLI nếu chưa có
 npm install -g firebase-tools
 firebase login
-
-# Init project trong thư mục riêng (KHÔNG init vào root tu-tien để tránh đụng .gitignore)
-mkdir tu-tien-backend && cd tu-tien-backend
-firebase init functions
-# Chọn: existing project (tu-tien), TypeScript, ESLint No
+firebase use --add  # chọn tu-tien-cbff0
 ```
 
-## 2. Copy function code
+Repo này đã có sẵn `functions/` + `firebase.json` → **SKIP** init.
+
+## 2. Update code khi sửa backend logic
+
+Source of truth: `proxy/coupon-referral-function.ts` → copy vào `functions/src/index.ts`:
 
 ```bash
-cp /Users/admin/Documents/Projects/game/tu-tien/proxy/coupon-referral-function.ts \
-   functions/src/index.ts
-cd functions
-npm install firebase-admin firebase-functions
+cp proxy/coupon-referral-function.ts functions/src/index.ts
+cd functions && npm install   # idempotent
+npm run lint && npm run build # verify trước khi deploy
+cd ..
 ```
 
 ## 3. Deploy
 
+⚠️ **CHẠY TỪ ROOT REPO**, không `cd functions` trước:
+
 ```bash
-firebase deploy --only functions
-# Output: validateCoupon, validateReferral, registerReferralCode endpoints ready
+cd /Users/admin/Documents/Projects/game/tu-tien   # về root
+firebase deploy --only functions --debug          # --debug để thấy step nào treo
 ```
+
+Lần đầu deploy ~3-8 phút (CLI build container, push lên Artifact Registry, deploy Cloud Run). Lần sau ~1-2 phút.
+
+### Troubleshooting — deploy đứng / fail
+
+| Triệu chứng | Nguyên nhân | Fix |
+|---|---|---|
+| Treo ở "loading functions" > 2 phút | Spark plan, chưa enable APIs | Làm bước 0 preflight |
+| `Error: HTTP Error: 403` | Service account thiếu permission | Console → IAM → cấp `Cloud Functions Admin` cho user |
+| `cd: no such file: functions` | Đang chạy từ `functions/` rồi | `cd ..` về root trước |
+| Lint fail 95 errors | Source dùng style cũ | `cp proxy/coupon-referral-function.ts functions/src/index.ts` (đã chuẩn Google style sau hotfix `f52ce41`) |
+| `Property 'region' does not exist` | Code dùng v1 syntax | Đã fix ở `f52ce41` — pull lại main |
+| Build OK nhưng functions không hiện trong Console | Region khác default | Check `https://console.firebase.google.com/project/tu-tien-cbff0/functions` → đổi dropdown region thành `asia-southeast1` |
+| `Permission denied to enable service` | User thiếu quyền billing | Owner của project phải enable APIs lần đầu |
 
 URL endpoints (region `asia-southeast1`):
 ```
