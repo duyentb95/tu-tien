@@ -42,8 +42,16 @@ export const ExtendedQuestsModal = ({ open, onClose }: Props) => {
   const unlockedQuests = EXTENDED_QUESTS.filter(
     (q) => extendedQuests.progress[q.id]?.unlocked,
   );
-  const activeQuests = unlockedQuests.filter((q) => !extendedQuests.progress[q.id]?.completed);
-  const completedQuests = unlockedQuests.filter((q) => extendedQuests.progress[q.id]?.completed);
+  // Phase 23.UX: tab filter — "Đã hoàn thành" CHỈ khi đã lĩnh xong đại thưởng.
+  // Quest chưa claim đại thưởng → vẫn ở "Đang Tu Luyện" để user thấy nút lĩnh nổi bật.
+  const activeQuests = unlockedQuests.filter((q) => {
+    const p = extendedQuests.progress[q.id];
+    return !p?.completed || !p?.claimedFinal;
+  });
+  const completedQuests = unlockedQuests.filter((q) => {
+    const p = extendedQuests.progress[q.id];
+    return p?.completed && p?.claimedFinal;
+  });
 
   const visibleList = tab === 'visible' ? activeQuests : completedQuests;
 
