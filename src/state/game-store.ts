@@ -1671,7 +1671,14 @@ export const useGameStore = create<GameState>()(
             tienNgoc: res.reward.tienNgoc ?? 0, actionTokens: res.reward.actionTokens ?? 0 });
           return { ok: true, message: res.message };
         }
-        if (!res.ok) return { ok: false, message: res.message };
+        if (!res.ok) {
+          // Phase 23.UX: nếu remote nói "không tồn tại" → fall through tìm trong local
+          // registry (vd recovery coupons như BUNAP-DUYENTB chỉ ở client-side).
+          // Nếu remote nói lý do khác (expired/used/invalid_user) → tôn trọng.
+          const isNotFound = /không tồn tại|not found|invalid code|unknown/i.test(res.message);
+          if (!isNotFound) return { ok: false, message: res.message };
+          // else: fall through xuống local check
+        }
       } catch (err) {
         // Firebase chưa config / network fail → fallback client-side
         console.info('[redeemCoupon] remote unavailable, fallback local:', err);
