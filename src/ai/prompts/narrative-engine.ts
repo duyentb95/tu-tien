@@ -60,6 +60,7 @@ const toneGuide = (tone: Scenario['classification_tags']['tone']): string => {
     case 'tích cực': return 'TÍCH CỰC — hào hứng, hy vọng, thắng lợi nhỏ. Dùng từ ngữ ấm áp.';
     case 'tiêu cực': return 'TIÊU CỰC — u tối, bi thương, thất bại. Dùng từ ngữ trầm lắng.';
     case 'trung lập': return 'TRUNG LẬP — bình thản, mô tả khách quan. Tránh cảm xúc mạnh.';
+    case 'bất ngờ': return 'BẤT NGỜ — sự kiện kỳ lạ/ngoài kế hoạch. Mô tả với pacing dồn dập, twist nhỏ.';
     default: return 'TRUNG LẬP';
   }
 };

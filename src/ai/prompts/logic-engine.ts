@@ -67,11 +67,18 @@ export interface LogicEngineContext {
 // Zod schema — bắt buộc AI trả đúng shape
 // ─────────────────────────────────────────────────────────────
 
+const VALID_TONES = ['tích cực', 'tiêu cực', 'trung lập', 'bất ngờ'] as const;
+type ToneEnum = typeof VALID_TONES[number];
+
 export const ClassificationTagsSchema = z.object({
   /** Độ dài narrative AI sẽ viết: 'ngắn' < 100 từ, 'trung bình' 100-200, 'dài' 200+ */
   length: z.enum(['ngắn', 'trung bình', 'dài']),
-  /** Sắc thái: tích cực = win/đột phá, tiêu cực = thất bại/bị thương, trung lập = info/dialogue */
-  tone: z.enum(['tích cực', 'tiêu cực', 'trung lập']),
+  /** Sắc thái: tích cực = win, tiêu cực = thất bại, trung lập = info, bất ngờ = sự kiện kỳ lạ.
+   * Preprocess: coerce enum lạ → 'trung lập' để AI flexibility không crash app. */
+  tone: z.preprocess(
+    (v) => (VALID_TONES.includes(v as ToneEnum) ? v : 'trung lập'),
+    z.enum(VALID_TONES),
+  ) as z.ZodType<ToneEnum>,
   /** NSFW: chỉ 'nsfw' khi settings.isNsfwMode bật + scenario có yếu tố 18+ */
   rating: z.enum(['sfw', 'nsfw']),
 });
