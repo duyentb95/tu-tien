@@ -15,7 +15,10 @@ export type NotificationActionTarget =
   | 'cave-abode'
   | 'sect-hall'
   | 'spirit-beasts'
-  | 'skills';
+  | 'skills'
+  | 'tournament'
+  | 'achievements'
+  | 'tribulation';
 
 export interface NotificationAction {
   target: NotificationActionTarget;

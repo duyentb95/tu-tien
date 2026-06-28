@@ -2184,7 +2184,9 @@ export const useGameStore = create<GameState>()(
           }
         }
       });
-      notify.success(`+${amount} Cống Hiến`, '');
+      notify.success(`+${amount} Cống Hiến`, {
+        action: { target: 'sect-hall', label: 'Xem Tông Môn' },
+      });
 
       // Notify rank up tách riêng sau set vì cần check thay đổi
       const after = get().sectMembership;
@@ -3164,7 +3166,10 @@ function applyGameEvents(
             summary: `Đột phá đến cấp ${s.player?.level ?? '?'} (${s.player?.realm ?? 'cảnh giới mới'})`,
           });
         });
-        notify.epic('ĐỘT PHÁ!', 'Cảnh giới mới khai mở');
+        notify.epic('ĐỘT PHÁ!', {
+          message: 'Cảnh giới mới khai mở. Xem chi tiết cảnh giới + chỉ số mới.',
+          action: { target: 'character-sheet', label: 'Xem Đạo Cơ' },
+        });
         break;
       }
       case 'TRIBULATION': {
@@ -3179,7 +3184,10 @@ function applyGameEvents(
           s.prevStage = s.stage;
           s.stage = 'tribulation';
         });
-        notify.warn('Độ kiếp đến!', e.reason ?? 'Thiên kiếp giáng lâm');
+        notify.warn('Độ kiếp đến!', {
+          message: e.reason ?? 'Thiên kiếp giáng lâm — vào Độ Kiếp ngay!',
+          action: { target: 'tribulation', label: 'Độ kiếp ngay' },
+        });
         break;
       }
       case 'COMBAT_START': {

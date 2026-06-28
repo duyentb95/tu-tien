@@ -128,6 +128,9 @@ export const GameplayScreen = () => {
         case 'cave-abode': setStage('cave_abode'); break;
         case 'sect-hall': setStage('sect_hall'); break;
         case 'spirit-beasts': setStage('spirit_beasts'); break;
+        case 'tournament': setTournamentOpen(true); break;
+        case 'achievements': setAchievementsOpen(true); break;
+        case 'tribulation': setStage('tribulation'); break;
       }
     };
     window.addEventListener('tutien:open', handler);

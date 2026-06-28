@@ -48,34 +48,45 @@ interface PaymentReward {
 
 // Pack registry — SYNC với src/data/store-packs.ts (CURRENCY_PACKS).
 // Server-side authoritative, client KHÔNG quyết định reward (chống spoof).
+// Phase 19: thêm 2 gói micro + buff TN 1.5-2x toàn bảng cho user dễ tiếp cận.
 const PACK_REGISTRY: Record<
   string,
   {amount: number; reward: PaymentReward; description: string}
 > = {
+  pack_micro: {
+    amount: 5000,
+    reward: {tienNgoc: 30},
+    description: "Micro — 30 Tiền Ngọc",
+  },
+  pack_mini: {
+    amount: 10000,
+    reward: {tienNgoc: 80},
+    description: "Mini — 80 Tiền Ngọc (+14% bonus)",
+  },
   pack_starter: {
     amount: 20000,
-    reward: {tienNgoc: 100},
-    description: "Khởi đầu — 100 Tiền Ngọc",
+    reward: {tienNgoc: 200},
+    description: "Khởi đầu — 200 Tiền Ngọc",
   },
   pack_standard_small: {
     amount: 50000,
-    reward: {tienNgoc: 330},
-    description: "Standard nhỏ — 330 Tiền Ngọc (+10%)",
+    reward: {tienNgoc: 560},
+    description: "Standard nhỏ — 560 Tiền Ngọc (+12%)",
   },
   pack_standard_large: {
     amount: 100000,
-    reward: {tienNgoc: 800},
-    description: "Standard lớn — 800 Tiền Ngọc (+14%)",
+    reward: {tienNgoc: 1250},
+    description: "Standard lớn — 1250 Tiền Ngọc (+14%)",
   },
   pack_premium: {
     amount: 200000,
-    reward: {tienNgoc: 1800, perks: ["speed_boost"]},
-    description: "Premium — 1800 TN + Speed Boost",
+    reward: {tienNgoc: 2900, perks: ["speed_boost"]},
+    description: "Premium — 2900 TN + Speed Boost",
   },
   pack_whale: {
     amount: 500000,
-    reward: {tienNgoc: 5000, perks: ["speed_boost"]},
-    description: "Whale — 5000 TN + Speed Boost",
+    reward: {tienNgoc: 8500, perks: ["speed_boost"]},
+    description: "Whale — 8500 TN + Speed Boost",
   },
 };
 
