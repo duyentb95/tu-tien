@@ -65,7 +65,7 @@ Nếu đăng nhập Firebase (sẽ có ở phiên bản sau), tiến trình sync
     category: 'cultivation',
     content: `Tu tiên chia thành các **cảnh giới lớn**, mỗi cảnh giới có 10 tầng nhỏ.
 
-Cảnh giới mặc định: **Luyện Khí → Trúc Cơ → Kim Đan → Nguyên Anh → Hóa Thần → Luyện Hư → Đại Thừa → Phi Thăng**.
+Cảnh giới mặc định: **Luyện Khí → Trúc Cơ → Kim Đan → Nguyên Thần → Hóa Thần → Luyện Hư → Hợp Thể → Đại Thừa → Độ Kiếp → Phi Thăng**. Nếu chọn canon pack (Mục Thần Ký, Tru Tiên, Đấu Phá Thương Khung...), hệ thống cảnh giới override theo truyện.
 
 Mỗi 10 cấp = 1 đại đột phá, kích hoạt **Độ Kiếp** (lôi kiếp). Vượt thành công = tu vi đại tăng. Vượt thất bại = trọng thương hoặc tử vong.
 

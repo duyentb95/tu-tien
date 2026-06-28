@@ -41,18 +41,60 @@ export const MonetizationModal = ({ open, onClose }: Props) => {
   const [tab, setTab] = useState<TabKey>('store');
   const [couponInput, setCouponInput] = useState('');
   const [referralInput, setReferralInput] = useState('');
+  // Phase 22.UX: loading + inline feedback state cho coupon/referral
+  const [couponBusy, setCouponBusy] = useState(false);
+  const [couponMsg, setCouponMsg] = useState<{ kind: 'ok' | 'err' | 'warn'; text: string } | null>(null);
+  const [referralBusy, setReferralBusy] = useState(false);
+  const [referralMsg, setReferralMsg] = useState<{ kind: 'ok' | 'err' | 'warn'; text: string } | null>(null);
 
   if (!open) return null;
 
   const handleCoupon = async () => {
-    if (!couponInput.trim()) return;
-    const r = await redeemCoupon(couponInput);
-    if (r.ok) setCouponInput('');
+    const code = couponInput.trim();
+    if (!code) {
+      setCouponMsg({ kind: 'warn', text: 'Vui lòng nhập mã trước khi đổi.' });
+      return;
+    }
+    setCouponBusy(true);
+    setCouponMsg(null);
+    try {
+      const r = await redeemCoupon(code);
+      if (r.ok) {
+        setCouponInput('');
+        setCouponMsg({ kind: 'ok', text: r.message ?? `✓ Đổi thành công mã ${code.toUpperCase()}!` });
+      } else {
+        // Detect "đã sử dụng" → warn vàng, else err đỏ
+        const isUsed = /đã sử dụng|đã đổi|đã được/i.test(r.message);
+        setCouponMsg({ kind: isUsed ? 'warn' : 'err', text: r.message ?? 'Mã không hợp lệ hoặc đã hết hạn.' });
+      }
+    } catch (err) {
+      setCouponMsg({ kind: 'err', text: `Lỗi mạng — ${(err as Error).message || 'thử lại sau'}` });
+    } finally {
+      setCouponBusy(false);
+    }
   };
   const handleReferral = async () => {
-    if (!referralInput.trim()) return;
-    const r = await applyReferral(referralInput);
-    if (r.ok) setReferralInput('');
+    const code = referralInput.trim();
+    if (!code) {
+      setReferralMsg({ kind: 'warn', text: 'Vui lòng nhập mã giới thiệu.' });
+      return;
+    }
+    setReferralBusy(true);
+    setReferralMsg(null);
+    try {
+      const r = await applyReferral(code);
+      if (r.ok) {
+        setReferralInput('');
+        setReferralMsg({ kind: 'ok', text: r.message ?? '✓ Đã áp dụng mã giới thiệu!' });
+      } else {
+        const isUsed = /đã sử dụng|đã áp dụng/i.test(r.message);
+        setReferralMsg({ kind: isUsed ? 'warn' : 'err', text: r.message ?? 'Mã không hợp lệ.' });
+      }
+    } catch (err) {
+      setReferralMsg({ kind: 'err', text: `Lỗi mạng — ${(err as Error).message || 'thử lại sau'}` });
+    } finally {
+      setReferralBusy(false);
+    }
   };
   const handleCopyReferral = () => {
     navigator.clipboard.writeText(economy.referralCode);
@@ -273,18 +315,45 @@ export const MonetizationModal = ({ open, onClose }: Props) => {
                       Đã qua giai đoạn tân thủ. Mã giới thiệu chỉ áp dụng được lúc mới bắt đầu.
                     </div>
                   ) : (
-                    <div className="flex gap-2">
-                      <input
-                        value={referralInput}
-                        onChange={(e) => setReferralInput(e.target.value.toUpperCase())}
-                        placeholder="VD: ABC12XYZ"
-                        className="flex-1 rounded-sm border border-gold-700/40 bg-ink-800 px-3 py-2 font-mono text-sm text-gold-100 uppercase tracking-widest placeholder:text-jade-700 focus:border-gold-500 focus:outline-none"
-                        maxLength={12}
-                      />
-                      <button onClick={handleReferral} className="rounded border border-gold-500/40 bg-gold-900/30 px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-gold-200 hover:bg-gold-900/50">
-                        Áp dụng
-                      </button>
-                    </div>
+                    <>
+                      <div className="flex gap-2">
+                        <input
+                          value={referralInput}
+                          onChange={(e) => setReferralInput(e.target.value.toUpperCase())}
+                          onKeyDown={(e) => e.key === 'Enter' && !referralBusy && handleReferral()}
+                          placeholder="VD: ABC12XYZ"
+                          disabled={referralBusy}
+                          className="flex-1 rounded-sm border border-gold-700/40 bg-ink-800 px-3 py-2 font-mono text-sm text-gold-100 uppercase tracking-widest placeholder:text-jade-700 focus:border-gold-500 focus:outline-none disabled:opacity-50"
+                          maxLength={12}
+                        />
+                        <button
+                          onClick={handleReferral}
+                          disabled={referralBusy || !referralInput.trim()}
+                          className="min-w-[110px] rounded border border-gold-500/40 bg-gold-900/30 px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-gold-200 hover:bg-gold-900/50 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center gap-1.5"
+                        >
+                          {referralBusy ? (
+                            <>
+                              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-gold-300 border-t-transparent" />
+                              Đang gửi…
+                            </>
+                          ) : 'Áp dụng'}
+                        </button>
+                      </div>
+                      {referralMsg && (
+                        <div
+                          className={`mt-2 rounded border px-2.5 py-1.5 text-[11px] ${
+                            referralMsg.kind === 'ok'
+                              ? 'border-jade-500/50 bg-jade-900/20 text-jade-200'
+                              : referralMsg.kind === 'warn'
+                              ? 'border-ember-500/40 bg-ember-900/15 text-ember-200'
+                              : 'border-ember-500/60 bg-ember-900/25 text-ember-100'
+                          }`}
+                        >
+                          {referralMsg.kind === 'ok' ? '✓ ' : referralMsg.kind === 'warn' ? '⚠ ' : '✗ '}
+                          {referralMsg.text}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -302,15 +371,39 @@ export const MonetizationModal = ({ open, onClose }: Props) => {
                     <input
                       value={couponInput}
                       onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                      onKeyDown={(e) => e.key === 'Enter' && handleCoupon()}
-                      placeholder="VD: MACHOI2026"
-                      className="flex-1 rounded-sm border border-gold-700/40 bg-ink-800 px-3 py-2 font-mono text-sm text-gold-100 uppercase tracking-widest placeholder:text-jade-700 focus:border-gold-500 focus:outline-none"
+                      onKeyDown={(e) => e.key === 'Enter' && !couponBusy && handleCoupon()}
+                      placeholder="VD: TANTHU"
+                      disabled={couponBusy}
+                      className="flex-1 rounded-sm border border-gold-700/40 bg-ink-800 px-3 py-2 font-mono text-sm text-gold-100 uppercase tracking-widest placeholder:text-jade-700 focus:border-gold-500 focus:outline-none disabled:opacity-50"
                       maxLength={20}
                     />
-                    <button onClick={handleCoupon} className="rounded border border-spirit-500/40 bg-spirit-900/30 px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-spirit-200 hover:bg-spirit-900/50">
-                      Đổi thưởng
+                    <button
+                      onClick={handleCoupon}
+                      disabled={couponBusy || !couponInput.trim()}
+                      className="min-w-[120px] rounded border border-spirit-500/40 bg-spirit-900/30 px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-spirit-200 hover:bg-spirit-900/50 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      {couponBusy ? (
+                        <>
+                          <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-spirit-300 border-t-transparent" />
+                          Đang đổi…
+                        </>
+                      ) : 'Đổi thưởng'}
                     </button>
                   </div>
+                  {couponMsg && (
+                    <div
+                      className={`mt-2 rounded border px-2.5 py-1.5 text-[12px] ${
+                        couponMsg.kind === 'ok'
+                          ? 'border-jade-500/50 bg-jade-900/20 text-jade-100'
+                          : couponMsg.kind === 'warn'
+                          ? 'border-ember-500/40 bg-ember-900/15 text-ember-100'
+                          : 'border-ember-500/60 bg-ember-900/25 text-ember-100'
+                      }`}
+                    >
+                      {couponMsg.kind === 'ok' ? '✓ ' : couponMsg.kind === 'warn' ? '⚠ ' : '✗ '}
+                      {couponMsg.text}
+                    </div>
+                  )}
                 </div>
 
                 {economy.redeemedCoupons.length > 0 && (

@@ -391,3 +391,32 @@
   30%, 50%, 70% { transform: translateX(-4px); }
   40%, 60%  { transform: translateX(4px); }
 }
+
+/* ─── Phase 22.2: Skill VFX element animations ─── */
+@layer utilities {
+  .fx-slash       { stroke-dasharray: 240; stroke-dashoffset: 240; animation: fx-slash 0.4s ease-out forwards; }
+  .fx-burst       { transform-origin: 100px 100px; animation: fx-burst 0.5s ease-out forwards; }
+  .fx-burst-core  { animation: fx-burst-core 0.5s ease-out forwards; }
+  .fx-bolt        { stroke-dasharray: 400; stroke-dashoffset: 400; animation: fx-bolt 0.5s ease-out forwards; }
+  .fx-wave        { stroke-dasharray: 250; stroke-dashoffset: 250; animation: fx-wave 0.6s ease-out forwards; }
+  .fx-freeze      { transform-origin: 100px 100px; opacity: 0; animation: fx-freeze 0.6s ease-out forwards; }
+  .fx-vine        { stroke-dasharray: 300; stroke-dashoffset: 300; animation: fx-vine 0.7s ease-out forwards; }
+  .fx-crack       { stroke-dasharray: 250; stroke-dashoffset: 250; animation: fx-crack 0.4s ease-out forwards; }
+  .fx-gust        { stroke-dasharray: 250; stroke-dashoffset: 250; animation: fx-gust 0.5s ease-out forwards; }
+  .fx-glow        { transform-origin: 100px 100px; opacity: 0; animation: fx-glow 0.7s ease-out forwards; }
+  .fx-ripple      { transform-origin: 100px 100px; opacity: 0; animation: fx-ripple 0.6s ease-out forwards; }
+  .fx-element-label { opacity: 0; animation: fx-element-label 0.7s ease-out forwards; }
+}
+
+@keyframes fx-slash       { 0% { stroke-dashoffset: 240; opacity: 0; } 30% { opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+@keyframes fx-burst       { 0% { transform: scale(0); opacity: 0; } 30% { opacity: 1; } 100% { transform: scale(1.4); opacity: 0; } }
+@keyframes fx-burst-core  { 0% { transform: scale(0); opacity: 1; } 100% { transform: scale(2); opacity: 0; transform-origin: 100px 100px; } }
+@keyframes fx-bolt        { 0% { stroke-dashoffset: 400; opacity: 0; } 30% { opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+@keyframes fx-wave        { 0% { stroke-dashoffset: 250; opacity: 0; } 30% { opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+@keyframes fx-freeze      { 0% { transform: scale(0) rotate(0); opacity: 0; } 50% { opacity: 1; transform: scale(1) rotate(45deg); } 100% { opacity: 0; transform: scale(1.1) rotate(90deg); } }
+@keyframes fx-vine        { 0% { stroke-dashoffset: 300; opacity: 0; } 30% { opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+@keyframes fx-crack       { 0% { stroke-dashoffset: 250; opacity: 0; } 30% { opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+@keyframes fx-gust        { 0% { stroke-dashoffset: 250; opacity: 0; transform: translateX(-20px); } 30% { opacity: 0.8; } 100% { stroke-dashoffset: 0; opacity: 0; transform: translateX(20px); } }
+@keyframes fx-glow        { 0% { opacity: 0; transform: scale(0.6); } 40% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0; transform: scale(1.5); } }
+@keyframes fx-ripple      { 0% { opacity: 0; transform: scale(0.4); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.6); } }
+@keyframes fx-element-label { 0% { opacity: 0; transform: translateY(-6px) translateX(-50%); } 30% { opacity: 1; transform: translateY(0) translateX(-50%); } 80% { opacity: 1; transform: translateY(0) translateX(-50%); } 100% { opacity: 0; transform: translateY(-6px) translateX(-50%); } }

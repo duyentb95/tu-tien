@@ -24,8 +24,8 @@ describe('getRealmInfoFromLevel', () => {
     expect(getRealmInfoFromLevel(25)).toEqual({ realmName: 'Kim Đan', realmTier: 5 });
   });
 
-  it('cấp 100 → Tiên Nhân Tầng 10 (cảnh giới cuối default)', () => {
-    expect(getRealmInfoFromLevel(100)).toEqual({ realmName: 'Tiên Nhân', realmTier: 10 });
+  it('cấp 100 → Phi Thăng Tầng 10 (cảnh giới cuối default)', () => {
+    expect(getRealmInfoFromLevel(100)).toEqual({ realmName: 'Phi Thăng', realmTier: 10 });
   });
 
   it('cấp 101 → Vô Định Cảnh Tầng 1 (vượt cấp)', () => {

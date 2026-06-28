@@ -1,18 +1,21 @@
 /**
- * Default realm progression — fallback nếu AI chưa gen `realmProgressionList`.
+ * Default realm progression — fallback khi không có canon pack override.
+ * Tu tiên thường thức 10 cảnh giới phổ biến VN/TQ.
  * Mỗi cảnh giới chia 10 tầng → vượt quá đẩy vào "Vô Định Cảnh".
+ *
+ * Phase 22.1: chuẩn hoá theo spec — Nguyên Thần (thay Nguyên Anh) + Phi Thăng (thay Tiên Nhân).
  */
 export const DEFAULT_REALMS = [
   'Luyện Khí',
   'Trúc Cơ',
   'Kim Đan',
-  'Nguyên Anh',
+  'Nguyên Thần',
   'Hóa Thần',
   'Luyện Hư',
   'Hợp Thể',
   'Đại Thừa',
   'Độ Kiếp',
-  'Tiên Nhân',
+  'Phi Thăng',
 ] as const;
 
 export type DefaultRealm = (typeof DEFAULT_REALMS)[number];
