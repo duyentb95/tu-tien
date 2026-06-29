@@ -467,8 +467,13 @@ export const MonetizationModal = ({ open, onClose }: Props) => {
                   </div>
 
                   {/* Notice */}
-                  <div className="rounded border border-spirit-700/20 bg-spirit-900/10 px-2.5 py-1.5 text-[11px] italic text-jade-400">
-                    Lịch sử lưu tại thiết bị (100 giao dịch gần nhất). Xóa save → mất lịch sử. Nếu có khiếu nại nạp MoMo không thành công, gửi <strong className="text-spirit-300">memo + ảnh chuyển khoản</strong> cho admin.
+                  <div className="rounded border border-spirit-700/20 bg-spirit-900/10 px-2.5 py-1.5 text-[11px] italic text-jade-400 space-y-1">
+                    <p>
+                      <strong className="text-spirit-300">Lưu ý:</strong> tab này lưu 100 giao dịch gần nhất tại thiết bị. localStorage <strong>KHÔNG mất khi update game</strong> — chỉ mất nếu Sếp xóa save/clear browser data.
+                    </p>
+                    <p>
+                      Giao dịch <strong>trước khi tab Lịch Sử ra mắt (v1.10.0)</strong> sẽ không hiện ở đây. Để xem nạp MoMo cũ: vào <strong>Admin Panel</strong> filter theo deviceId. Khiếu nại: gửi <strong className="text-spirit-300">memo + ảnh chuyển khoản</strong>.
+                    </p>
                   </div>
 
                   {/* List */}

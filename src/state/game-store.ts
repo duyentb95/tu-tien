@@ -3566,6 +3566,10 @@ export const useGameStore = create<GameState>()(
           economy, dailyMissions, extendedQuests, playerStats, skillMastery, cultivation, skillDeep,
         });
         localStorage.setItem(SAVE_KEY, payload);
+        // Phase 24.UX: emit event cho SaveIndicator component
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('tutien:save', { detail: { ts: Date.now() } }));
+        }
       } catch (e) {
         console.warn('[saveToLocalStorage]', e);
       }

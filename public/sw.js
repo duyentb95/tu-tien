@@ -19,7 +19,7 @@
  * IMPORTANT: bump CACHE_VERSION mỗi khi có breaking change SW logic.
  */
 
-const CACHE_VERSION = 'mac-do-v4';   // v4: HTML network-first (fix stale chunk hash)
+const CACHE_VERSION = 'mac-do-v5';   // v5: bump cho v1.10.0 release — force fresh cache
 const FONT_CACHE = 'mac-do-fonts-v1';
 
 const PRECACHE_URLS = ['/manifest.webmanifest', '/icon-192.svg', '/icon-512.svg'];

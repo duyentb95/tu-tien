@@ -69,6 +69,7 @@ const MonetizationModal = lazy(() =>
 );
 import { CurrencyDisplay } from '@features/monetization/CurrencyDisplay';
 import { NotificationCenter } from '@features/notifications/NotificationCenter';
+import { SaveIndicator } from '@shared/components/SaveIndicator';
 import { NavDropdown } from './NavDropdown';
 import type { NotificationActionTarget } from '@state/notifications';
 // Phase 16.3: Daily missions
@@ -372,6 +373,8 @@ export const GameplayScreen = () => {
         {loreBookOpen && <LoreBookModal open onClose={() => setLoreBookOpen(false)} />}
         {customRulesOpen && <CustomRulesModal open onClose={() => setCustomRulesOpen(false)} />}
         {daoTamOpen && <DaoTamModal open onClose={() => setDaoTamOpen(false)} />}
+        <SaveIndicator />
+
         {tournamentOpen && <TournamentModal open onClose={() => setTournamentOpen(false)} />}
         {achievementsOpen && <AchievementsModal open onClose={() => setAchievementsOpen(false)} />}
         {skillMgmtOpen && <SkillManagementModal open onClose={() => setSkillMgmtOpen(false)} />}
