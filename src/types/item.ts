@@ -61,17 +61,23 @@ export interface Item {
   equipSlot?: import('./character').EquipmentSlot | null;
 
   /** Stat bonuses khi trang bị — flat bonuses cộng vào base */
-  bonuses?: {
-    hp?: number;
-    atk?: number;
-    def?: number;
-    spd?: number;
-    cr?: number;       // % crit rate
-    cdmg?: number;     // % crit damage
-    dmgAmp?: number;   // % damage amplification
-    dmgRes?: number;   // % damage resistance
-    evasion?: number;  // %
-  };
+  bonuses?: ItemBonuses;
+
+  /** Phase 24.B: ID của artifact set — match với ARTIFACT_SETS registry để compute set bonus */
+  artifactSetId?: string;
+}
+
+/** Phase 24.B: standalone type để reuse trong artifact-sets registry + compute */
+export interface ItemBonuses {
+  hp?: number;
+  atk?: number;
+  def?: number;
+  spd?: number;
+  cr?: number;       // % crit rate
+  cdmg?: number;     // % crit damage
+  dmgAmp?: number;   // % damage amplification
+  dmgRes?: number;   // % damage resistance
+  evasion?: number;  // %
 }
 
 /** Equipment-eligible categories — items ngoài list này không equip được */

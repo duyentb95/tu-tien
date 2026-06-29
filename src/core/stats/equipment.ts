@@ -1,6 +1,7 @@
 import type { PlayerCharacter, FinalStats } from '@gametypes/character';
 import type { Item } from '@gametypes/item';
 import { getRefineMultiplier } from '@core/items/refine';
+import { computeActiveSetBonuses } from '@data/artifact-sets';
 
 /**
  * Tính tổng bonus từ tất cả item đã trang bị.
@@ -36,7 +37,7 @@ export const calculateEquipmentBonuses = (
 };
 
 /**
- * Recompute finalStats từ baseStats + allocatedPoints + equipment bonuses.
+ * Recompute finalStats từ baseStats + allocatedPoints + equipment bonuses + artifact set bonuses.
  * Pure function — return char mới.
  */
 export const recomputeFinalStats = (
@@ -46,10 +47,28 @@ export const recomputeFinalStats = (
   const ap = player.allocatedPoints;
   const bonuses = calculateEquipmentBonuses(player.equippedItems, inventory);
 
-  const baseHp = player.baseStats.baseHp + ap.hp * 30 + bonuses.hp;
-  const baseAtk = player.baseStats.baseAtk + ap.atk * 3 + bonuses.atk;
-  const baseDef = player.baseStats.baseDef + ap.def * 2 + bonuses.def;
-  const baseSpd = player.baseStats.baseSpd + ap.spd * 2 + bonuses.spd;
+  // Phase 24.B: Artifact set bonus stacking
+  const equippedSetIds = Object.values(player.equippedItems)
+    .map((id) => (id ? inventory[id]?.artifactSetId : undefined));
+  const activeSets = computeActiveSetBonuses(equippedSetIds);
+  let setHp = 0, setAtk = 0, setDef = 0, setSpd = 0;
+  let setCr = 0, setCdmg = 0, setDmgAmp = 0, setDmgRes = 0, setEvasion = 0;
+  for (const s of activeSets) {
+    setHp += s.bonus.hp ?? 0;
+    setAtk += s.bonus.atk ?? 0;
+    setDef += s.bonus.def ?? 0;
+    setSpd += s.bonus.spd ?? 0;
+    setCr += s.bonus.cr ?? 0;
+    setCdmg += s.bonus.cdmg ?? 0;
+    setDmgAmp += s.bonus.dmgAmp ?? 0;
+    setDmgRes += s.bonus.dmgRes ?? 0;
+    setEvasion += s.bonus.evasion ?? 0;
+  }
+
+  const baseHp = player.baseStats.baseHp + ap.hp * 30 + bonuses.hp + setHp;
+  const baseAtk = player.baseStats.baseAtk + ap.atk * 3 + bonuses.atk + setAtk;
+  const baseDef = player.baseStats.baseDef + ap.def * 2 + bonuses.def + setDef;
+  const baseSpd = player.baseStats.baseSpd + ap.spd * 2 + bonuses.spd + setSpd;
 
   const finalStats: FinalStats = {
     maxhp: baseHp,
@@ -57,11 +76,11 @@ export const recomputeFinalStats = (
     atk: baseAtk,
     def: baseDef,
     spd: baseSpd,
-    cr: player.baseStats.baseCr + bonuses.cr,
-    cdmg: player.baseStats.baseCdmg + bonuses.cdmg,
-    dmgAmp: player.baseStats.baseDmgAmp + bonuses.dmgAmp,
-    dmgRes: player.baseStats.baseDmgRes + bonuses.dmgRes,
-    evasion: player.baseStats.baseEvasion + bonuses.evasion,
+    cr: player.baseStats.baseCr + bonuses.cr + setCr,
+    cdmg: player.baseStats.baseCdmg + bonuses.cdmg + setCdmg,
+    dmgAmp: player.baseStats.baseDmgAmp + bonuses.dmgAmp + setDmgAmp,
+    dmgRes: player.baseStats.baseDmgRes + bonuses.dmgRes + setDmgRes,
+    evasion: player.baseStats.baseEvasion + bonuses.evasion + setEvasion,
   };
 
   return { ...player, finalStats };

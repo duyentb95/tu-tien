@@ -172,35 +172,64 @@ export const CombatScreen = () => {
         </div>
       </div>
 
-      {/* Combat log */}
+      {/* Phase 24.E: Combat log inline narrative — group skill + damage cùng turn thành 1 prose */}
       <Bracketed className="mt-5 rounded-md border bg-ink-700 p-4">
         <div className="label-section mb-2">Nhật Ký Chiến Đấu</div>
-        <div className="max-h-48 space-y-1 overflow-y-auto pr-2 font-mono text-[12.5px]">
-          {combat.log.slice(-8).reverse().map((entry, i) => (
-            <div
-              key={i}
-              className="border-l-2 pl-2"
-              style={{
-                borderColor:
-                  entry.kind === 'damage'
-                    ? entry.crit
-                      ? 'var(--ember-500)'
-                      : 'var(--gold-700)'
-                    : entry.kind === 'end'
-                      ? 'var(--spirit-500)'
-                      : 'var(--jade-700)',
-                color:
-                  entry.kind === 'end'
-                    ? 'var(--spirit-200)'
-                    : entry.kind === 'damage' && entry.crit
-                      ? 'var(--ember-200)'
-                      : 'var(--gold-300)',
-              }}
-            >
-              <span className="mr-2 text-jade-700">T{entry.turn}</span>
-              {entry.text}
-            </div>
-          ))}
+        <div className="max-h-48 space-y-2 overflow-y-auto pr-2 text-[12.5px]">
+          {(() => {
+            // Group log entries: skill + damage cùng actor + cùng turn → 1 prose line
+            const recent = combat.log.slice(-12);
+            const grouped: Array<{ turn: number; prose: string; isCrit?: boolean; kind: string }> = [];
+            for (let i = 0; i < recent.length; i++) {
+              const e = recent[i]!;
+              // Skill cast → kèm damage entry sau đó
+              if (e.kind === 'skill' && i + 1 < recent.length && recent[i + 1]!.kind === 'damage') {
+                const dmg = recent[i + 1]!;
+                const actorName = e.actorId === combat.combatants[0]?.id ? 'Ngươi' : (combat.combatants.find((c) => c.id === e.actorId)?.name ?? 'Đối thủ');
+                const targetName = dmg.targetId === combat.combatants[0]?.id ? 'ngươi' : (combat.combatants.find((c) => c.id === dmg.targetId)?.name ?? 'đối thủ');
+                const target = combat.combatants.find((c) => c.id === dmg.targetId);
+                const remainHp = target ? `${target.finalStats.hp}/${target.finalStats.maxhp}` : '';
+                const critStr = dmg.crit ? ' **BẠO KÍCH!**' : '';
+                grouped.push({
+                  turn: e.turn,
+                  prose: `${actorName} dùng <strong>${e.skillName ?? 'kĩ năng'}</strong> → gây <strong>${dmg.amount}</strong> dmg lên ${targetName}.${critStr} (HP ${remainHp})`,
+                  isCrit: dmg.crit,
+                  kind: 'skill_damage',
+                });
+                i++; // skip next damage entry
+                continue;
+              }
+              // Standalone entries
+              if (e.kind === 'damage' && e.dodged) {
+                grouped.push({ turn: e.turn, prose: `${e.text} <em>(né tránh)</em>`, kind: 'dodge' });
+              } else {
+                grouped.push({ turn: e.turn, prose: e.text, isCrit: e.crit, kind: e.kind });
+              }
+            }
+            return grouped.slice(-8).reverse().map((g, i) => (
+              <div
+                key={i}
+                className="border-l-2 pl-2 py-0.5 font-serif leading-snug"
+                style={{
+                  borderColor:
+                    g.kind === 'skill_damage' && g.isCrit ? 'var(--ember-500)' :
+                    g.kind === 'skill_damage' ? 'var(--gold-500)' :
+                    g.kind === 'damage' ? 'var(--gold-700)' :
+                    g.kind === 'end' ? 'var(--spirit-500)' :
+                    g.kind === 'dodge' ? 'var(--jade-500)' :
+                    'var(--jade-700)',
+                  color:
+                    g.kind === 'end' ? 'var(--spirit-200)' :
+                    g.isCrit ? 'var(--ember-200)' :
+                    g.kind === 'dodge' ? 'var(--jade-400)' :
+                    'var(--gold-300)',
+                }}
+              >
+                <span className="mr-2 text-jade-700 font-mono text-[10px]">T{g.turn}</span>
+                <span dangerouslySetInnerHTML={{ __html: g.prose }} />
+              </div>
+            ));
+          })()}
         </div>
       </Bracketed>
 

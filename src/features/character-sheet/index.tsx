@@ -11,6 +11,7 @@ import {
   ELEMENT_DISPLAY,
 } from '@core/cultivation/spiritual-roots';
 import type { Rarity } from '@gametypes/item';
+import { computeActiveSetBonuses } from '@data/artifact-sets';
 
 /** Phase 23.UX: gợi ý cách tu luyện theo công pháp hiện tại */
 const getTechniqueHint = (name: string): string => {
@@ -283,17 +284,27 @@ export const CharacterSheetScreen = () => {
         {/* RIGHT — Equipment + Skills */}
         <Bracketed className="rounded-md border bg-ink-700 p-5">
           <div className="label-gold mb-4">Trang Bị</div>
+
+          {/* Phase 24.B: Active Set Bonuses */}
+          <ActiveSetBonusPanel />
+
           <div className="grid grid-cols-2 gap-[9px]">
             {equipped.map(({ slot, label, item }) => {
               if (!item) {
+                // Phase 24.E: Tap-to-equip — click empty slot → open inventory để pick item
                 return (
-                  <div key={slot} className="slot-empty">
-                    <span className="h-[30px] w-[30px] flex-shrink-0 rounded bg-ink-800/50" />
+                  <button
+                    key={slot}
+                    onClick={() => setStage('inventory')}
+                    className="slot-empty cursor-pointer hover:bg-gold-900/10 hover:border-gold-700/30 transition"
+                    title="Click để mở Hành Trang và trang bị"
+                  >
+                    <span className="h-[30px] w-[30px] flex-shrink-0 rounded bg-ink-800/50 flex items-center justify-center text-jade-700 text-xs">+</span>
                     <div className="min-w-0">
                       <div className="text-[10px] uppercase tracking-wider text-jade-500">{label}</div>
-                      <div className="text-[11px] text-jade-700">Trống</div>
+                      <div className="text-[11px] text-jade-700">Trống · tap để chọn</div>
                     </div>
-                  </div>
+                  </button>
                 );
               }
               const c = RARITY_COLORS[item.rarity];
@@ -318,11 +329,18 @@ export const CharacterSheetScreen = () => {
                 item.refineLevel ? `Rèn +${item.refineLevel}/12` : '',
                 '— Click để tháo —',
               ].filter(Boolean).join('\n');
+              // Phase 24.B: Soul-bind warning — artifact lv 3+ mất tinh hồn khi unequip
+              const artLevel = item.artifactLevel ?? 1;
+              const showSoulBind = artLevel >= 3;
               return (
                 <button
                   key={slot}
                   onClick={() => {
-                    if (confirm(`Tháo ${item.name}?`)) unequipItem(slot);
+                    const msg = showSoulBind
+                      ? `⚠ ${item.name} là pháp bảo cấp ${artLevel} (${['', 'Phàm Khí', 'Linh Khí', 'Pháp Khí', 'Bảo Khí', 'Tiên Khí'][artLevel]}).\n\n` +
+                        `Tháo ra sẽ KHÔNG mất tinh hồn (Phase 24.B grace) — nhưng artifact bonus stats sẽ giảm tạm thời. Bạn vẫn muốn tháo?`
+                      : `Tháo ${item.name}?`;
+                    if (confirm(msg)) unequipItem(slot);
                   }}
                   className="slot text-left transition-transform hover:scale-[1.02]"
                   style={{
@@ -463,6 +481,31 @@ const StatBar = ({
  * Phase 20: Lifetime stats panel — "Thiên Cơ Toán"
  * Hiển thị 8 stat tích luỹ từ khi tu sĩ khai mở linh căn.
  */
+/**
+ * Phase 24.B: Active set bonus panel — hiển thị set đang active dựa trên equipped items.
+ */
+const ActiveSetBonusPanel = () => {
+  const player = useGameStore((s) => s.player);
+  const inventory = useGameStore(selectInventory);
+  if (!player) return null;
+  const equippedSetIds = Object.values(player.equippedItems)
+    .map((id) => (id ? inventory[id]?.artifactSetId : undefined));
+  const sets = computeActiveSetBonuses(equippedSetIds);
+  if (sets.length === 0) return null;
+  return (
+    <div className="mb-3 rounded border border-gold-500/30 bg-gold-900/15 p-2.5">
+      <div className="text-[10px] uppercase tracking-widest text-gold-400 mb-1.5">✦ Set Active</div>
+      {sets.map((s) => (
+        <div key={s.setId} className="text-[11px] mb-1 last:mb-0">
+          <span className="text-gold-200 font-serif font-bold">{s.setName}</span>
+          <span className="text-gold-400 ml-1">({s.pieces}/4)</span>
+          <p className="text-[10.5px] text-jade-300 italic mt-0.5">{s.bonusDescription}</p>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const LifetimeStatsPanel = () => {
   const playerStats = useGameStore((s) => s.playerStats);
   const economy = useGameStore((s) => s.economy);

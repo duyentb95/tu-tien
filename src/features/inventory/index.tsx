@@ -55,6 +55,18 @@ export const InventoryScreen = () => {
   const equippedItems = player?.equippedItems;
   const [activeFilter, setActiveFilter] = useState<'all' | ItemCategory>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Phase 24.E: view mode toggle (grid card / list compact), persist
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    if (typeof window === 'undefined') return 'grid';
+    return (localStorage.getItem('inv-view-mode-v1') as 'grid' | 'list') ?? 'grid';
+  });
+  const toggleViewMode = () => {
+    setViewMode((prev) => {
+      const next = prev === 'grid' ? 'list' : 'grid';
+      try { localStorage.setItem('inv-view-mode-v1', next); } catch { /* ignore */ }
+      return next;
+    });
+  };
 
   const items = useMemo(() => Object.values(inventory), [inventory]);
   const filtered = useMemo(
@@ -126,10 +138,19 @@ export const InventoryScreen = () => {
         </Bracketed>
 
         <Bracketed className="rounded-md border bg-ink-700 p-4">
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex items-center justify-between gap-2">
             <div className="label-gold">Thẻ Vật Phẩm ({filtered.length})</div>
-            <div className="text-[11px] text-jade-500">
-              Trọng lượng <span className="font-mono text-gold-300">{items.length} / 120</span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={toggleViewMode}
+                className="text-[10.5px] uppercase tracking-widest px-2 py-1 border border-gold-700/40 rounded text-gold-300 hover:bg-gold-900/20"
+                title={viewMode === 'grid' ? 'Chuyển sang danh sách' : 'Chuyển sang lưới'}
+              >
+                {viewMode === 'grid' ? '☷ Danh sách' : '▦ Lưới'}
+              </button>
+              <div className="text-[11px] text-jade-500">
+                Trọng lượng <span className="font-mono text-gold-300">{items.length} / 120</span>
+              </div>
             </div>
           </div>
           {filtered.length === 0 ? (
@@ -138,7 +159,7 @@ export const InventoryScreen = () => {
                 ? 'Túi trống rỗng. Hãy phiêu lưu để nhặt được vật phẩm…'
                 : 'Không có vật phẩm thuộc phân loại này.'}
             </p>
-          ) : (
+          ) : viewMode === 'grid' ? (
             <div
               className="grid gap-[10px] overflow-y-auto pr-1"
               style={{
@@ -173,6 +194,33 @@ export const InventoryScreen = () => {
                         <span className="font-mono text-gold-300">×{it.quantity}</span>
                       )}
                     </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            /* Phase 24.E: List view — compact row table với icon + name + rarity + qty */
+            <div className="overflow-y-auto pr-1" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+              {filtered.map((it) => {
+                const c = RARITY_CONFIG[it.rarity];
+                const isSelected = it.id === (selected?.id ?? '');
+                return (
+                  <button
+                    key={it.id}
+                    onClick={() => setSelectedId(it.id)}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 border-l-2 hover:bg-ink-900/40 text-left transition"
+                    style={{
+                      borderColor: isSelected ? c.dot : 'transparent',
+                      background: isSelected ? `${c.bg}` : 'transparent',
+                    }}
+                  >
+                    <span className="h-5 w-5 flex-shrink-0 rounded-sm border" style={{ borderColor: c.border, background: c.bg }} />
+                    <span className={`flex-1 truncate text-[12.5px] ${c.text}`}>{it.name}</span>
+                    <span className="text-[10px] text-jade-500 whitespace-nowrap">{it.rarity}</span>
+                    {(it.quantity ?? 1) > 1 && (
+                      <span className="font-mono text-[10px] text-gold-400">×{it.quantity}</span>
+                    )}
+                    {it.refineLevel ? <span className="text-[10px] text-ember-400 font-mono">+{it.refineLevel}</span> : null}
                   </button>
                 );
               })}
