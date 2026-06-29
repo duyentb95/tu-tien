@@ -366,16 +366,51 @@ export const SectHallScreen = () => {
                   )}
                 </div>
 
-                {!isMine && !membership && (
-                  <button
-                    onClick={() => {
-                      if (joinSect(sect.id)) setTab('overview');
-                    }}
-                    className="btn-primary mt-4 w-full text-[13px]"
-                  >
-                    Gia Nhập
-                  </button>
-                )}
+                {!isMine && !membership && (() => {
+                  // Phase 24.UX: Pre-check requirements để show disabled + lý do
+                  const req = sect.joinRequirements;
+                  const reasons: string[] = [];
+                  if (req.levelMin && player && player.level < req.levelMin) {
+                    reasons.push(`Cần cấp ${req.levelMin} (hiện ${player.level})`);
+                  }
+                  if (req.elementsRequired && player?.spiritualRoot) {
+                    const has = player.spiritualRoot.elements.some((e) => req.elementsRequired!.includes(e));
+                    if (!has) reasons.push(`Linh căn cần: ${req.elementsRequired.map((e) => ELEMENT_DISPLAY[e].name).join('/')}`);
+                  }
+                  if (req.bannedElements && player?.spiritualRoot) {
+                    const banned = player.spiritualRoot.elements.some((e) => req.bannedElements!.includes(e));
+                    if (banned) reasons.push(`Cấm linh căn: ${req.bannedElements.map((e) => ELEMENT_DISPLAY[e].name).join('/')}`);
+                  }
+                  if (req.minSpiritualRootMultiplier && player?.spiritualRoot) {
+                    if (player.spiritualRoot.cultivationMultiplier < req.minSpiritualRootMultiplier) {
+                      reasons.push(`Hệ số tu luyện ≥ ×${req.minSpiritualRootMultiplier} (hiện ×${player.spiritualRoot.cultivationMultiplier.toFixed(1)})`);
+                    }
+                  }
+                  const canJoin = reasons.length === 0;
+                  return (
+                    <>
+                      <button
+                        onClick={() => {
+                          const ok = joinSect(sect.id);
+                          if (ok) setTab('overview');
+                          // notify đã warn từ store nếu fail
+                        }}
+                        disabled={!canJoin}
+                        className="btn-primary mt-4 w-full text-[13px] disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={canJoin ? 'Gia nhập tông môn' : `Không đủ điều kiện:\n${reasons.join('\n')}`}
+                      >
+                        {canJoin ? 'Gia Nhập' : '✕ Chưa đủ điều kiện'}
+                      </button>
+                      {!canJoin && (
+                        <ul className="mt-2 text-[11px] text-ember-400 space-y-0.5">
+                          {reasons.map((r, i) => (
+                            <li key={i}>· {r}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
+                  );
+                })()}
                 {!isMine && membership && (
                   <p className="mt-4 text-center text-[11px] text-jade-600">
                     Phản môn {getSect(membership.sectId)?.name} trước để gia nhập tông môn này
