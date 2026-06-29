@@ -1451,6 +1451,7 @@ export const useGameStore = create<GameState>()(
       } else {
         notify.info('Không thể sử dụng', `${item.name} không phải đan dược.`);
       }
+      get().saveToLocalStorage();
     },
 
     discardItem: (itemId) => {
@@ -1469,6 +1470,7 @@ export const useGameStore = create<GameState>()(
           s.player = recomputeStats(s.player, s.inventory);
         }
       });
+      get().saveToLocalStorage();
     },
 
     equipItem: (itemId, explicitSlot) => {
@@ -1488,6 +1490,8 @@ export const useGameStore = create<GameState>()(
 
         notify.success(`Trang bị: ${item.name}`, `→ ${slot}${prev ? ' (đổi)' : ''}`);
       });
+      // Phase 23.UX HOTFIX: persist sau equip — trước đây bị quên → refresh = mất
+      get().saveToLocalStorage();
     },
 
     unequipItem: (slot) => {
@@ -1500,6 +1504,8 @@ export const useGameStore = create<GameState>()(
         s.player = recomputeStats(s.player, s.inventory);
         if (item) notify.info(`Tháo: ${item.name}`, '');
       });
+      // Phase 23.UX HOTFIX: persist sau unequip
+      get().saveToLocalStorage();
     },
 
     equipSkill: (skillId, slot) => {
@@ -1541,6 +1547,7 @@ export const useGameStore = create<GameState>()(
         s.player.equippedSkills[slot] = skillId;
         notify.success(`Trang bị: ${skill.name}`, `→ ${slot}`);
       });
+      get().saveToLocalStorage();
     },
 
     unequipSkill: (slot) => {
@@ -1552,6 +1559,7 @@ export const useGameStore = create<GameState>()(
         s.player.equippedSkills[slot] = null;
         if (skill) notify.info(`Gỡ kỹ năng: ${skill.name}`, '');
       });
+      get().saveToLocalStorage();
     },
 
     // ─── Phase 15: Economy actions ───
@@ -2546,6 +2554,7 @@ export const useGameStore = create<GameState>()(
         s.player = recomputeStats(s.player, s.inventory);
       });
       notify.success('Phân phối điểm', `+${amount} ${stat.toUpperCase()}`);
+      get().saveToLocalStorage();
     },
 
     travelTo: async (locationId) => {
@@ -3557,6 +3566,66 @@ export const useGameStore = create<GameState>()(
     },
   })),
 );
+
+// ─────────────────────────────────────────────────────────────────────
+// PHASE 23.UX — AUTO-SAVE SUBSCRIPTION (debounced 250ms)
+// ─────────────────────────────────────────────────────────────────────
+// Trước đây phải rải get().saveToLocalStorage() ở ~40 actions.
+// Pattern mới: subscribe vào store, debounce 250ms, save khi persistent
+// slice đổi. Bao phủ tất cả mutation kể cả những action chưa từng wire
+// save thủ công (sect/secret-realm/beast/cave/cultivation/quest/mission...).
+//
+// Skip khi: stage === 'initial' (chưa có player), hoặc isAiThinking
+// (đang fetch — submitAction sẽ save manual sau khi response hoàn tất).
+{
+  let saveTimer: ReturnType<typeof setTimeout> | null = null;
+  // Lưu reference các slice cần watch — nếu chỉ 1 trong đó đổi thì save.
+  // Selector trả tuple — so sánh shallow để tránh save khi chỉ stage/ephemeral đổi.
+  type PersistSnapshot = readonly [
+    GameState['player'],
+    GameState['inventory'],
+    GameState['skills'],
+    GameState['knowledge'],
+    GameState['quests'],
+    GameState['sectMembership'],
+    GameState['claimedMissions'],
+    GameState['secretRealm'],
+    GameState['spiritBeasts'],
+    GameState['activeBeastId'],
+    GameState['caveAbode'],
+    GameState['daoLu'],
+    GameState['economy'],
+    GameState['dailyMissions'],
+    GameState['extendedQuests'],
+    GameState['playerStats'],
+    GameState['skillMastery'],
+    GameState['cultivation'],
+    GameState['settings'],
+    GameState['storyLog'],
+    GameState['currentActions'],
+    GameState['turn'],
+  ];
+  let lastSnap: PersistSnapshot | null = null;
+  const getSnap = (s: GameState): PersistSnapshot => [
+    s.player, s.inventory, s.skills, s.knowledge, s.quests,
+    s.sectMembership, s.claimedMissions, s.secretRealm, s.spiritBeasts,
+    s.activeBeastId, s.caveAbode, s.daoLu, s.economy, s.dailyMissions,
+    s.extendedQuests, s.playerStats, s.skillMastery, s.cultivation,
+    s.settings, s.storyLog, s.currentActions, s.turn,
+  ];
+  useGameStore.subscribe((state) => {
+    if (state.stage === 'initial' || !state.player) return;
+    const snap = getSnap(state);
+    // Shallow compare — nếu mọi reference y nguyên (chỉ stage/ephemeral đổi) → skip
+    if (lastSnap && lastSnap.every((v, i) => v === snap[i])) return;
+    lastSnap = snap;
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      try { useGameStore.getState().saveToLocalStorage(); }
+      catch (e) { console.warn('[auto-save]', e); }
+    }, 250);
+  });
+}
 
 // ─────────────────────────────────────────────────────────────────────
 // PHASE 11.1 — 2-TIER SUMMARY BACKGROUND TRIGGER
