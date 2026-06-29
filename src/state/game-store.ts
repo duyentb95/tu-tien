@@ -34,6 +34,11 @@ import { addIntentXp, inferIntentFromSkill, getIntentDamageMul } from '@core/cul
 import { addDaoXp, unlockDao, getDaoMul, MAX_FOCUSED_DAO } from '@core/cultivation/dai-dao';
 import { getAvailablePhapTac, getPhapTacById } from '@data/phap-tac';
 import { INITIAL_CULTIVATION, INTENT_TIER_NAMES } from '@gametypes/cultivation';
+import { INITIAL_SKILL_DEEP, INITIAL_TALENT_STATE, MAX_RUNE_SLOTS_PER_SKILL } from '@gametypes/skill-deep';
+import type { TalentBranch, SkillRuneSlots } from '@gametypes/skill-deep';
+import { computeFinalSkillEffect, detectActiveCombos } from '@core/skills/skill-deep';
+import { TALENT_NODES, getTalentResetCost } from '@data/talent-nodes';
+import { getRuneById } from '@data/runes';
 import { EMPTY_TRADER_SESSION } from '@gametypes/trade';
 // Phase 15: Economy
 import {
@@ -308,6 +313,9 @@ export interface GameState {
   /** Phase 23.3-23.7: Cultivation deep system — ý cảnh + pháp tắc + đại đạo */
   cultivation: import('@gametypes/cultivation').CultivationState;
 
+  /** Phase 24.A: Skill Deep — talent tree + rune slots + rune inventory */
+  skillDeep: import('@gametypes/skill-deep').SkillDeepState;
+
   isAiThinking: boolean;
   /** Phase 9.3: phase chi tiết khi đang call AI (cho UI hiển thị state phù hợp) */
   aiPhase: 'idle' | 'logic' | 'narrative';
@@ -430,6 +438,18 @@ export interface GameState {
   toggleDaiDaoFocus: (daoKey: string) => { ok: boolean; message?: string };
   /** Phase 23.6: Ngộ Đạo action — meditation insight, roll AI hoặc default pool. */
   ngoDaoAction: () => Promise<{ ok: boolean; insight?: string; reward?: string }>;
+
+  // ─── Phase 24.A: Skill Deep — Talent + Combo + Rune ───
+  /** Chọn talent branch tại tier (3/4/5). Skill phải có mastery >= tier. */
+  chooseTalent: (skillId: string, tier: 3 | 4 | 5, branch: TalentBranch) => { ok: boolean; message: string };
+  /** Reset toàn bộ talent của 1 skill — tốn Tiên Ngọc geometric theo resetCount. */
+  resetTalents: (skillId: string) => { ok: boolean; message: string };
+  /** Craft rune mới — tốn linh thạch + nguyên liệu inventory. Tăng quantity nếu đã có. */
+  craftRune: (runeDefId: string) => { ok: boolean; message: string };
+  /** Attach rune từ inventory vào skill slot (0-2). Trả rune cũ về inventory. */
+  attachRune: (skillId: string, slotIdx: 0 | 1 | 2, runeDefId: string) => { ok: boolean; message: string };
+  /** Detach rune ở slot → trả về inventory. */
+  detachRune: (skillId: string, slotIdx: 0 | 1 | 2) => { ok: boolean; message: string };
 
   // ───── Player stat actions
   allocatePoint: (stat: 'hp' | 'atk' | 'def' | 'spd', amount: number) => void;
@@ -598,6 +618,7 @@ export const useGameStore = create<GameState>()(
     playerStats: INITIAL_LIFETIME_STATS,
     skillMastery: {},
     cultivation: INITIAL_CULTIVATION,
+    skillDeep: INITIAL_SKILL_DEEP,
     isAiThinking: false,
     aiPhase: 'idle' as const,
     lastError: null,
@@ -1302,6 +1323,7 @@ export const useGameStore = create<GameState>()(
 
       // Phase 23.2: Skill mastery — apply damage multiplier vào skillMultiplier
       // Phase 23.3: Ý cảnh — apply intent multiplier theo skill name
+      // Phase 24.A: Skill Deep — talent + rune + combo stack
       let finalAction = action;
       if (action.kind !== 'flee' && action.skillName) {
         let combinedMul = 1;
@@ -1314,6 +1336,37 @@ export const useGameStore = create<GameState>()(
         if (intentEntry && intentEntry.level > 1) {
           combinedMul *= getIntentDamageMul(intentEntry.level);
         }
+
+        // Phase 24.A: stack talent + rune + combo
+        const masteryLv = mastery?.level ?? 1;
+        const playerSt = get().player;
+        const equippedSkillNames = playerSt
+          ? Object.values(playerSt.equippedSkills)
+              .filter((id): id is string => !!id)
+              .map((id) => get().skills[id]?.name ?? '')
+              .filter(Boolean)
+          : [];
+        const enemyCombatant = combat.combatants.find((c) => !c.isPlayer);
+        const enemyHpPct = enemyCombatant
+          ? enemyCombatant.finalStats.hp / Math.max(1, enemyCombatant.finalStats.maxhp)
+          : undefined;
+        const skillDeepEffect = computeFinalSkillEffect(
+          action.skillName,
+          action.skillName,
+          masteryLv,
+          get().skillDeep.talents[action.skillName],
+          get().skillDeep.runeSlots[action.skillName],
+          equippedSkillNames,
+          enemyHpPct,
+        );
+        if (skillDeepEffect.damageBonus > 0) {
+          combinedMul *= 1 + skillDeepEffect.damageBonus;
+        }
+        // Cache active combo names cho UI (ephemeral)
+        const activeCombos = detectActiveCombos(equippedSkillNames);
+        set((s) => {
+          s.skillDeep.lastActiveCombos = activeCombos.map((c) => c.id);
+        });
 
         if (combinedMul !== 1 && action.skillMultiplier) {
           finalAction = { ...action, skillMultiplier: action.skillMultiplier * combinedMul };
@@ -2545,6 +2598,163 @@ export const useGameStore = create<GameState>()(
       return { ok: true, insight: insightText, reward: rewardLabel };
     },
 
+    // ─── Phase 24.A: Skill Deep — Talent ───
+    chooseTalent: (skillId, tier, branch) => {
+      const mastery = get().skillMastery[skillId];
+      const masteryLv = mastery?.level ?? 1;
+      if (masteryLv < tier) {
+        return { ok: false, message: `Cần mastery cấp ${tier} (hiện ${masteryLv}).` };
+      }
+      const node = TALENT_NODES[tier][branch];
+      const cur = get().skillDeep.talents[skillId] ?? INITIAL_TALENT_STATE;
+      if (cur[`t${tier}` as 't3' | 't4' | 't5']) {
+        return { ok: false, message: 'Tier này đã chọn rồi. Cần Reset để chọn lại.' };
+      }
+      set((s) => {
+        if (!s.skillDeep.talents[skillId]) {
+          s.skillDeep.talents[skillId] = { ...INITIAL_TALENT_STATE };
+        }
+        s.skillDeep.talents[skillId]![`t${tier}` as 't3' | 't4' | 't5'] = branch;
+      });
+      notify.epic(`✦ Talent: ${node.name}`, {
+        message: node.description,
+        action: { target: 'skills', label: 'Xem pháp thuật' },
+      });
+      return { ok: true, message: `Đã chọn ${node.name}` };
+    },
+
+    resetTalents: (skillId) => {
+      const cur = get().skillDeep.talents[skillId];
+      if (!cur || (!cur.t3 && !cur.t4 && !cur.t5)) {
+        return { ok: false, message: 'Skill này chưa có talent nào để reset.' };
+      }
+      const cost = getTalentResetCost(cur.resetCount);
+      if (!get().spendTienNgoc(cost, `Reset talent skill ${skillId}`)) {
+        return { ok: false, message: `Cần ${cost} Tiên Ngọc.` };
+      }
+      set((s) => {
+        s.skillDeep.talents[skillId] = {
+          t3: null, t4: null, t5: null,
+          resetCount: cur.resetCount + 1,
+        };
+      });
+      notify.success('Reset talent', `Đã reset, có thể chọn lại 3 tier. Lần reset kế: ${getTalentResetCost(cur.resetCount + 1)} TN.`);
+      return { ok: true, message: 'Reset thành công' };
+    },
+
+    // ─── Phase 24.A: Rune ───
+    craftRune: (runeDefId) => {
+      const def = getRuneById(runeDefId);
+      if (!def) return { ok: false, message: 'Rune không tồn tại.' };
+      const player = get().player;
+      if (!player) return { ok: false, message: 'Chưa có nhân vật.' };
+      // Check linh thạch
+      if (player.currency < def.craftCost.linhThach) {
+        return { ok: false, message: `Cần ${def.craftCost.linhThach.toLocaleString()} linh thạch (có ${player.currency.toLocaleString()}).` };
+      }
+      // Check Tiên Ngọc nếu tier >= 4
+      if (def.craftCost.tienNgoc && get().economy.tienNgoc < def.craftCost.tienNgoc) {
+        return { ok: false, message: `Cần ${def.craftCost.tienNgoc} Tiên Ngọc.` };
+      }
+      // Check materials trong inventory
+      if (def.craftCost.materials) {
+        for (const m of def.craftCost.materials) {
+          const owned = Object.values(get().inventory)
+            .filter((it) => it.name === m.name)
+            .reduce((sum, it) => sum + (it.quantity ?? 1), 0);
+          if (owned < m.count) {
+            return { ok: false, message: `Thiếu nguyên liệu: ${m.name} ×${m.count} (có ${owned}).` };
+          }
+        }
+      }
+      // Spend
+      set((s) => {
+        if (!s.player) return;
+        s.player.currency -= def.craftCost.linhThach;
+        if (def.craftCost.tienNgoc) s.economy.tienNgoc -= def.craftCost.tienNgoc;
+        // Consume materials
+        if (def.craftCost.materials) {
+          for (const m of def.craftCost.materials) {
+            let remaining = m.count;
+            for (const id of Object.keys(s.inventory)) {
+              if (remaining <= 0) break;
+              const it = s.inventory[id];
+              if (it && it.name === m.name) {
+                const q = it.quantity ?? 1;
+                if (q <= remaining) {
+                  remaining -= q;
+                  delete s.inventory[id];
+                  if (s.player) s.player.inventory = s.player.inventory.filter((x) => x !== id);
+                } else {
+                  it.quantity = q - remaining;
+                  remaining = 0;
+                }
+              }
+            }
+          }
+        }
+        // Add rune to inventory
+        const cur = s.skillDeep.runeInventory[runeDefId];
+        if (cur) cur.quantity += 1;
+        else s.skillDeep.runeInventory[runeDefId] = { defId: runeDefId, quantity: 1 };
+      });
+      notify.epic(`✦ Luyện rune: ${def.name}`, {
+        message: def.description,
+        action: { target: 'skills', label: 'Xem pháp thuật' },
+      });
+      return { ok: true, message: `Đã luyện ${def.name}` };
+    },
+
+    attachRune: (skillId, slotIdx, runeDefId) => {
+      const inv = get().skillDeep.runeInventory[runeDefId];
+      if (!inv || inv.quantity < 1) {
+        return { ok: false, message: 'Không có rune này trong kho.' };
+      }
+      if (slotIdx < 0 || slotIdx >= MAX_RUNE_SLOTS_PER_SKILL) {
+        return { ok: false, message: 'Slot không hợp lệ.' };
+      }
+      set((s) => {
+        const cur = s.skillDeep.runeSlots[skillId] ?? [null, null, null] as SkillRuneSlots;
+        const old = cur[slotIdx];
+        // Trả rune cũ về inventory
+        if (old) {
+          const oldInv = s.skillDeep.runeInventory[old];
+          if (oldInv) oldInv.quantity += 1;
+          else s.skillDeep.runeInventory[old] = { defId: old, quantity: 1 };
+        }
+        // Lấy rune mới khỏi inventory
+        const newInv = s.skillDeep.runeInventory[runeDefId];
+        if (newInv) newInv.quantity -= 1;
+        // Gắn
+        const updated: SkillRuneSlots = [...cur] as SkillRuneSlots;
+        updated[slotIdx] = runeDefId;
+        s.skillDeep.runeSlots[skillId] = updated;
+      });
+      const def = getRuneById(runeDefId);
+      notify.success(`Gắn rune ${def?.name ?? runeDefId}`, `Slot ${slotIdx + 1}`);
+      return { ok: true, message: 'Đã gắn' };
+    },
+
+    detachRune: (skillId, slotIdx) => {
+      const slots = get().skillDeep.runeSlots[skillId];
+      if (!slots) return { ok: false, message: 'Skill này chưa có rune.' };
+      const id = slots[slotIdx];
+      if (!id) return { ok: false, message: 'Slot này trống.' };
+      set((s) => {
+        const cur = s.skillDeep.runeSlots[skillId];
+        if (!cur) return;
+        const updated: SkillRuneSlots = [...cur] as SkillRuneSlots;
+        updated[slotIdx] = null;
+        s.skillDeep.runeSlots[skillId] = updated;
+        const inv = s.skillDeep.runeInventory[id];
+        if (inv) inv.quantity += 1;
+        else s.skillDeep.runeInventory[id] = { defId: id, quantity: 1 };
+      });
+      const def = getRuneById(id);
+      notify.info(`Gỡ rune ${def?.name ?? id}`, '');
+      return { ok: true, message: 'Đã gỡ' };
+    },
+
     allocatePoint: (stat, amount) => {
       set((s) => {
         if (!s.player) return;
@@ -3345,7 +3555,7 @@ export const useGameStore = create<GameState>()(
           player, settings, storyLog, currentActions, turn, knowledge, inventory, skills,
           quests, sectMembership, claimedMissions, secretRealm, spiritBeasts, activeBeastId,
           caveAbode, daoLu, economy, dailyMissions, extendedQuests, playerStats,
-          skillMastery, cultivation,
+          skillMastery, cultivation, skillDeep,
         } = get();
         const payload = JSON.stringify({
           version: 9, // bump version sau hotfix
@@ -3353,7 +3563,7 @@ export const useGameStore = create<GameState>()(
           player, settings, storyLog, currentActions, turn, knowledge, inventory, skills, quests,
           sectMembership, claimedMissions, secretRealm, spiritBeasts, activeBeastId, caveAbode, daoLu,
           // ─── Phase 15-23: các slice trước đây bị bỏ sót ───
-          economy, dailyMissions, extendedQuests, playerStats, skillMastery, cultivation,
+          economy, dailyMissions, extendedQuests, playerStats, skillMastery, cultivation, skillDeep,
         });
         localStorage.setItem(SAVE_KEY, payload);
       } catch (e) {
@@ -3367,7 +3577,7 @@ export const useGameStore = create<GameState>()(
         player, settings, storyLog, currentActions, turn, knowledge, inventory, skills,
         quests, sectMembership, claimedMissions, secretRealm, spiritBeasts, activeBeastId,
         caveAbode, daoLu, economy, dailyMissions, extendedQuests, playerStats,
-        skillMastery, cultivation,
+        skillMastery, cultivation, skillDeep,
       } = get();
       if (!player) {
         notify.warn('Không có save để sync', 'Tạo nhân vật trước');
@@ -3379,7 +3589,7 @@ export const useGameStore = create<GameState>()(
         data: {
           player, settings, storyLog, currentActions, turn, knowledge, inventory, skills, quests,
           sectMembership, claimedMissions, secretRealm, spiritBeasts, activeBeastId, caveAbode, daoLu,
-          economy, dailyMissions, extendedQuests, playerStats, skillMastery, cultivation,
+          economy, dailyMissions, extendedQuests, playerStats, skillMastery, cultivation, skillDeep,
         } as Record<string, unknown>,
       });
       if (result.ok) {
@@ -3480,6 +3690,10 @@ export const useGameStore = create<GameState>()(
           // Phase 23.3-23.7: Cultivation — merge với INITIAL nếu schema mới
           if (data.cultivation && typeof data.cultivation === 'object') {
             s.cultivation = { ...INITIAL_CULTIVATION, ...data.cultivation };
+          }
+          // Phase 24.A: Skill Deep — merge với INITIAL
+          if (data.skillDeep && typeof data.skillDeep === 'object') {
+            s.skillDeep = { ...INITIAL_SKILL_DEEP, ...data.skillDeep };
           }
           s.prevStage = s.stage;
           s.stage = 'playing';
@@ -3600,6 +3814,7 @@ export const useGameStore = create<GameState>()(
     GameState['playerStats'],
     GameState['skillMastery'],
     GameState['cultivation'],
+    GameState['skillDeep'],
     GameState['settings'],
     GameState['storyLog'],
     GameState['currentActions'],
@@ -3610,7 +3825,7 @@ export const useGameStore = create<GameState>()(
     s.player, s.inventory, s.skills, s.knowledge, s.quests,
     s.sectMembership, s.claimedMissions, s.secretRealm, s.spiritBeasts,
     s.activeBeastId, s.caveAbode, s.daoLu, s.economy, s.dailyMissions,
-    s.extendedQuests, s.playerStats, s.skillMastery, s.cultivation,
+    s.extendedQuests, s.playerStats, s.skillMastery, s.cultivation, s.skillDeep,
     s.settings, s.storyLog, s.currentActions, s.turn,
   ];
   useGameStore.subscribe((state) => {

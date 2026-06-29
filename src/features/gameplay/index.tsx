@@ -51,6 +51,9 @@ const AchievementsModal = lazy(() =>
 const SkillManagementModal = lazy(() =>
   import('@features/skill-management/SkillManagementModal').then((m) => ({ default: m.SkillManagementModal })),
 );
+const SkillDeepModal = lazy(() =>
+  import('@features/skill-management/SkillDeepModal').then((m) => ({ default: m.SkillDeepModal })),
+);
 const TraderModal = lazy(() =>
   import('@features/trader/TraderModal').then((m) => ({ default: m.TraderModal })),
 );
@@ -104,6 +107,7 @@ export const GameplayScreen = () => {
   const [tournamentOpen, setTournamentOpen] = useState(false);
   const [achievementsOpen, setAchievementsOpen] = useState(false);
   const [skillMgmtOpen, setSkillMgmtOpen] = useState(false);
+  const [skillDeepOpen, setSkillDeepOpen] = useState(false);
   // Phase 14.2B: AI Status modal
   const [aiStatusOpen, setAiStatusOpen] = useState(false);
   // Phase 15: Monetization modal
@@ -254,6 +258,7 @@ export const GameplayScreen = () => {
             icon="✧"
             items={[
               { label: 'Pháp Thuật', icon: '✧', onClick: () => setSkillMgmtOpen(true) },
+              { label: 'Tài Năng · Rune · Combo', icon: '✺', onClick: () => setSkillDeepOpen(true) },
               { label: 'Nhiệm Vụ', icon: '◇', onClick: () => setStage('quests') },
               { label: 'Chuỗi Nhiệm Vụ', icon: '✦', onClick: () => setExtendedQuestsOpen(true) },
               { label: 'Tàng Thư', icon: '☷', onClick: () => setLoreBookOpen(true) },
@@ -370,6 +375,7 @@ export const GameplayScreen = () => {
         {tournamentOpen && <TournamentModal open onClose={() => setTournamentOpen(false)} />}
         {achievementsOpen && <AchievementsModal open onClose={() => setAchievementsOpen(false)} />}
         {skillMgmtOpen && <SkillManagementModal open onClose={() => setSkillMgmtOpen(false)} />}
+        {skillDeepOpen && <SkillDeepModal open onClose={() => setSkillDeepOpen(false)} />}
         {traderOpen && (
           <TraderModal open onClose={() => setTraderManuallyClosed(true)} />
         )}
