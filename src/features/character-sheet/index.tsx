@@ -66,7 +66,20 @@ export const CharacterSheetScreen = () => {
 
   const learnedSkillObjects = useMemo(() => {
     if (!player) return [];
-    return player.learnedSkills.map((id) => skills[id]).filter(Boolean);
+    // Phase 24.UX2: dedupe skills theo tên normalize — AI có thể tạo nhiều entries cùng tên
+    // do canon defaultStartingTechnique + skill tag tạo trùng (vd "Bá Thể Tam Đan Công" + " (Sơ Khai)").
+    const seen = new Set<string>();
+    const out: typeof skills[string][] = [];
+    for (const id of player.learnedSkills) {
+      const sk = skills[id];
+      if (!sk) continue;
+      // Bỏ suffix ngoặc "(Sơ Khai)" / "(Hoàn Mỹ)" / "(Đại Thành)" để group cùng nhóm
+      const key = sk.name.trim().toLowerCase().replace(/\s*\([^)]*\)\s*$/, '');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(sk);
+    }
+    return out;
   }, [player, skills]);
 
   if (!player) {

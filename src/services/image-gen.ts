@@ -201,7 +201,9 @@ export const buildItemPrompt = (params: {
   category: string;
   rarity?: string;
 }): string => {
-  const categoryEn = translateCategory(params.category);
+  // Phase 24.UX2: detect weapon subtype từ tên item Việt → fix bug "Gậy Mộc" hiện icon kiếm
+  const subtypeEn = detectItemSubtype(params.name);
+  const categoryEn = subtypeEn ?? translateCategory(params.category);
   const rarityEn = params.rarity ? translateRarity(params.rarity) : '';
   return [
     'Item icon for fantasy cultivation game',
@@ -212,6 +214,50 @@ export const buildItemPrompt = (params: {
     'highly detailed, ornate design, mystical glow',
     'no text, no watermark, square format',
   ].filter(Boolean).join(', ');
+};
+
+/**
+ * Phase 24.UX2: Detect subtype chi tiết từ tên item.
+ * "Gậy Mộc" → wooden staff (KHÔNG phải sword), "Đao" → saber, etc.
+ */
+const detectItemSubtype = (name: string): string | null => {
+  const n = name.toLowerCase();
+  // Vũ khí
+  if (n.includes('gậy') || n.includes('trượng')) {
+    return 'wooden magical staff with carved runes, long shaft';
+  }
+  if (n.includes('kiếm')) return 'straight chinese sword (jian) with tassel';
+  if (n.includes('đao')) return 'curved chinese saber (dao)';
+  if (n.includes('thương') || n.includes('mâu') || n.includes('giáo')) return 'long spear with red tassel';
+  if (n.includes('cung')) return 'ornate longbow with arrows';
+  if (n.includes('phủ') || n.includes('búa')) return 'battle axe';
+  if (n.includes('phiến') || n.includes('quạt')) return 'folding fan weapon';
+  if (n.includes('liêm')) return 'crescent moon sickle';
+  if (n.includes('roi')) return 'segmented chain whip';
+  if (n.includes('tiêu')) return 'throwing dart with feather';
+  // Pháp bảo
+  if (n.includes('kỳ') || n.includes('cờ')) return 'mystical war banner flag on staff';
+  if (n.includes('ấn')) return 'imperial jade seal';
+  if (n.includes('kính') || n.includes('gương')) return 'bronze mystical mirror';
+  if (n.includes('chuông')) return 'ancient bronze bell with chains';
+  if (n.includes('đỉnh') || n.includes('lư')) return 'sacred bronze cauldron with smoke';
+  if (n.includes('nhẫn')) return 'magical jade ring';
+  if (n.includes('linh') && (n.includes('bài') || n.includes('thẻ'))) return 'jade token tablet';
+  // Thân / phòng cụ
+  if (n.includes('giáp') || n.includes('khôi')) return 'mystical battle armor breastplate';
+  if (n.includes('bào') || /\by\b/.test(n)) return 'flowing taoist robe';
+  if (n.includes('mũ') || n.includes('quan')) return 'jade crown headpiece';
+  if (n.includes('hài') || n.includes('giày')) return 'flying cloud boots';
+  // Đan / dược
+  if (n.includes('đan') || n.includes('hoàn') || n.includes('viên')) return 'glowing pill in jade vial';
+  if (n.includes('thảo') || n.includes('dược') || n.includes('linh chi') || n.includes('hoa')) return 'mystical herb plant with glow';
+  // Sách / kinh / quyển
+  if (n.includes('kinh') || n.includes('quyển') || n.includes('sách') || n.includes('phổ')) return 'ancient bamboo scroll manual';
+  // Phù — talisman
+  if (n.includes('phù') || n.includes('bùa')) return 'glowing yellow paper talisman with red runes';
+  // Linh thạch
+  if (n.includes('thạch') || n.includes('ngọc') || n.includes('tinh thạch')) return 'glowing spirit crystal stone';
+  return null;
 };
 
 // ─────────────────────────────────────────────────────────────

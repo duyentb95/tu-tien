@@ -43,6 +43,27 @@ const getRarityColor = (rarity?: string) =>
   RARITY_COLOR[rarity ?? 'Thường'] ?? RARITY_COLOR['Thường']!;
 
 /**
+ * Phase 24.UX2: Fallback description khi skill thiếu mô tả.
+ * AI có thể tạo skill qua tag mà bỏ trống `description` → hiển thị template
+ * generic theo kind + rarity thay vì "(Không có mô tả)".
+ */
+const fallbackSkillDescription = (sk: Skill): string => {
+  const rarityHint =
+    sk.rarity === 'Huyền Thoại' ? 'Tuyệt học truyền thuyết, ' :
+    sk.rarity === 'Siêu Phẩm' ? 'Thần thông tinh diệu, ' :
+    sk.rarity === 'Cực Phẩm' ? 'Đại pháp cao thâm, ' :
+    sk.rarity === 'Hiếm' ? 'Bí kíp ít gặp, ' :
+    'Pháp thuật cơ bản, ';
+  if (sk.kind === 'combat_ultimate') {
+    return `${rarityHint}tuyệt kỹ chiến đấu — damage cao, cooldown dài. Tu luyện bằng cách thi triển trong combat để tăng tinh thông + mở khóa biến hóa cao hơn.`;
+  }
+  if (sk.kind === 'combat_basic') {
+    return `${rarityHint}chiêu thức chiến đấu thường — damage vừa, cooldown ngắn. Sử dụng liên tục trong combat sẽ tăng tinh thông + giảm tiêu hao linh khí.`;
+  }
+  return `${rarityHint}pháp thuật phụ trợ — dùng để buff bản thân, debuff địch, hồi máu, hoặc khám phá môi trường. Trang bị vào slot Phiêu Lưu để kích hoạt khi cần.`;
+};
+
+/**
  * Phase 9.6: 3-column skill management
  * Trái = Kho tiềm thức (all learned)
  * Giữa = Đang dùng (6 slot)
@@ -58,12 +79,20 @@ export const SkillManagementModal = ({ open, onClose }: Props) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filterKind, setFilterKind] = useState<'all' | SkillKind>('all');
 
-  // Tất cả skill đã học
+  // Tất cả skill đã học (Phase 24.UX2: dedupe theo tên normalize)
   const learnedSkills = useMemo<Skill[]>(() => {
     if (!player) return [];
-    return player.learnedSkills
-      .map((id) => skills[id])
-      .filter((s): s is Skill => Boolean(s));
+    const seen = new Set<string>();
+    const out: Skill[] = [];
+    for (const id of player.learnedSkills) {
+      const sk = skills[id];
+      if (!sk) continue;
+      const key = sk.name.trim().toLowerCase().replace(/\s*\([^)]*\)\s*$/, '');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(sk);
+    }
+    return out;
   }, [player, skills]);
 
   const filteredLearned = useMemo(() => {
@@ -312,10 +341,10 @@ export const SkillManagementModal = ({ open, onClose }: Props) => {
                       </div>
                     </div>
 
-                    {/* Description */}
+                    {/* Description — Phase 24.UX2: fallback theo kind nếu thiếu */}
                     <div className="rounded border border-gold-700/20 bg-ink-700/40 p-2.5">
                       <p className="text-[13px] leading-relaxed text-jade-200">
-                        {selectedSkill.description || '(Không có mô tả)'}
+                        {selectedSkill.description?.trim() || fallbackSkillDescription(selectedSkill)}
                       </p>
                     </div>
 
