@@ -5,6 +5,79 @@ Versioning theo [SemVer](https://semver.org/lang/vi/).
 
 ---
 
+## [1.10.0] — 2026-06-29
+
+### Added — Phase 23.3-23.7 (Cultivation Deep) + Phase 23.UX (Hotfix + UX)
+
+**Phase 23.3 — Ý Cảnh (Weapon Intent):**
+- `src/types/cultivation.ts`: unified `WeaponIntentState/PhapTacDef/DaiDaoEntry/CultivationState` + `INTENT_TIER_NAMES` (9 tầng: Sơ Khởi → Vô Thượng).
+- `src/core/cultivation/intent.ts`: 5 weapon intents × 9 cấp, XP curve [50, 150, 400, 1000, 2500, 6000, 14000, 30000], damage mul 1.0 → 1.4. `inferIntentFromSkill` regex match.
+- Wire vào `combatPlayerAction`: intent XP +2/4/8 theo loại skill, damage stack với mastery.
+
+**Phase 23.4 — Pháp Tắc (10 default laws):**
+- `src/data/phap-tac.ts`: Sinh Tử (lv 70) · Thời-Không (75) · Luân Hồi (80) · Nhân Quả (80) · Hỗn Độn (85) · Bất Diệt (85) · Đạo Lý (90) · Yêu Đạo · Thần Đạo · Quỷ Đạo.
+- Actions `refreshPhapTacUnlocks()` + `togglePhapTacActive(id)` — active max 3.
+
+**Phase 23.5 — Đại Đạo (AI-Generated, không hardcode 3000):**
+- AI sinh qua tag `[DAO_UNLOCK Name|Description|element?]` + `[DAO_XP Name|amount]`. Tag-parser + dispatcher wired.
+- `src/core/cultivation/dai-dao.ts`: DEFAULT_DAO_POOL 8 fallback. `daoSlug()` NFD-safe với `đ/Đ` pre-replace. XP curve [100, 300, 700, 1500, 3000, 6000, 12000, 25000]. Focus max 3.
+- Logic Engine prompt extend `daoBlock` instruct AI gen khi player có cơ duyên.
+
+**Phase 23.6 — Ngộ Đạo Action:**
+- Button "🧘 Tĩnh Tâm Ngộ Đạo" (50 linh thạch). Roll 60% boost focused đạo, 25% random đạo, 10% +EP, 5% unlock đạo mới.
+
+**Phase 23.7 — Đạo Tâm Modal 5-tab:**
+- `src/features/cultivation/DaoTamModal.tsx`: Ý Cảnh · Pháp Tắc · Đại Đạo · Ngộ Đạo · Quy Tắc. Notification target `'cultivation'` mở modal trực tiếp. 20 cultivation tests pass.
+
+**Phase 23.UX — Hotfixes + UX:**
+
+- **Inventory:** Vietnamese friendly labels 9 stat (Công Kích / Phòng Ngự / Sinh Mệnh / Thân Pháp / Bạo Kích...). Description fallback theo category. 3 button Tinh Luyện có khối giải thích riêng (Đổi Chỉ Số gamble · Thăng Phẩm Cấp · Rèn +N với cảnh báo lv 9+).
+
+- **CharacterSheet:** Linh Căn panel show mô tả full + tip tu luyện + button **↻ Tẩy Linh Căn · 💎 500** (random lại). Công Pháp panel có hint công dụng + EXP/turn mul + cảnh giới. Kỹ Năng panel description luôn show (fallback theo kind) + passive_effects + cost/cooldown. Trang bị slot inline bonuses + refine level + rich multi-line tooltip.
+
+- **MonetizationModal tab "Lịch Sử":** 3 summary card (Tổng VND nạp · Đã nhận TN · Đã tiêu TN) + bảng 100 giao dịch (timestamp · kind · TN delta · VND). `EconomyState.purchaseHistory[]` + `pushHistory()` wire vào 5 flow (topup MoMo, mock, exchange, coupon, referral).
+
+- **Notification:** Long-term status `CUONG_PHAN_KICH` → "Cuồng Phẫn Kích" via `STATUS_ID_VN_ALIASES` (16 alias common) + `humanizeStatusId()` Title Case fallback. UI sidebar re-humanize legacy save.
+
+- **Admin Panel:** 5 tab filter (Pending · Approved · Rejected · Expired · All) + ô search deviceId. Backend `listPendingPayments` nhận status + deviceId. Status pill màu + approvedAt + rejectReason. Auto-refresh chỉ tab Pending. Firestore indexes mới: `(deviceId, createdAt)` + `(deviceId, status, createdAt)`.
+
+- **Extended Quests:** Tab filter rõ nghĩa — "Đã Hoàn Thành" chỉ khi `completed && claimedFinal`. Quest hoàn step nhưng chưa lĩnh đại thưởng → vẫn ở "Đang Tu Luyện" để user thấy nút Lĩnh Thưởng.
+
+- **Recovery Coupon System:** `Coupon.reward.perks?` + `Coupon.lockedToDeviceId?`. Coupon đầu tiên `BUNAP-DUYENTB` recovery 8530 TN + Speed Boost cho deviceId nkx4vd5vkwmqxbp8bp. `redeemCoupon` fall through xuống local registry khi remote nói "không tồn tại".
+
+### Fixed — Critical Bug Fixes
+
+**🚨 Save Persistence (root cause của ~5 báo cáo trong session):**
+- `saveToLocalStorage` thiếu 6 slice từ Phase 15+: `economy / dailyMissions / extendedQuests / playerStats / skillMastery / cultivation`. Refresh = mất Tiên Ngọc nạp + claim quest reset + login streak reset + ý cảnh reset.
+- **Fix:** Bump save version 8 → 9, lưu đầy đủ 22 slice. Cùng cho `syncToCloud`.
+- **Auto-save subscription:** module-level `useGameStore.subscribe()` với debounce 250ms + shallow snapshot compare → mọi mutation tự lưu. Bao phủ ~40 actions trước đây thiếu save manual (sect/secret-realm/beast/cave/cultivation/quest/mission/economy). Future-proof.
+
+**Equip / Skill / Allocate không persist:**
+- `equipItem`, `unequipItem`, `equipSkill`, `unequipSkill`, `allocatePoint`, `useItem`, `discardItem` đã wire `get().saveToLocalStorage()` manual (defense in depth).
+
+**Item category 'Pháp bảo' không hợp lệ:**
+- Quest reward hardcode `category: 'Pháp bảo'` không trong `ItemCategory` enum → item không trang bị / dưỡng được.
+- **Fix:** Helper `inferItemCategoryFromName()` heuristic theo từ khóa. Migration on load: item cũ tự convert.
+
+### Changed
+
+- App version `1.9.0` → `1.10.0` (`legal-content.ts` + `package.json`).
+- Save schema version `8` → `9` (backward-compat).
+
+### Files
+
+**Mới:** `src/types/cultivation.ts`, `src/core/cultivation/intent.ts`, `src/core/cultivation/dai-dao.ts`, `src/data/phap-tac.ts`, `src/features/cultivation/DaoTamModal.tsx`, `tests/core/cultivation.test.ts`, `ROADMAP.md`.
+
+**Sửa:** game-store.ts (cultivation slice + 7 actions + auto-save subscribe + pushHistory + migration + 7 save calls), notifications.ts, tag-parser.ts, logic-engine.ts + narrative.ts, narrative-service.ts, long-term-statuses.ts, coupons.ts, economy.ts, inventory/index.tsx, character-sheet/index.tsx, MonetizationModal.tsx, ExtendedQuestsModal.tsx, NotificationCenter.tsx, PlayerSidebar.tsx, gameplay/index.tsx, spiritual-roots.ts, functions/src/payments.ts, public/admin.html, firestore.indexes.json.
+
+### Stats
+
+- 145/145 tests pass (+20 cultivation tests)
+- typecheck clean
+- 262 tasks tracked (Phase 1 → Phase 23.UX)
+
+---
+
 ## [1.9.0] — 2026-06-28
 
 ### Added — Phase 19 + 20 + 21 (NotificationCenter + Stats + UX polish)

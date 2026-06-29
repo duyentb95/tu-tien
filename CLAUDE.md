@@ -8,7 +8,7 @@
 
 **Game:** Mặc Hội Tiên Đồ — RPG tu tiên nhập vai thế giới mở, AI-driven (Gemini).
 
-**Trạng thái:** **v1.9.0 production** tại https://tien-do.netlify.app. Hoàn thành Phase 1-21 + 6/8 pattern Google Canvas RPG + Creative Engine + AI Resilience + Monetization + Retention + Extended Quests + Backend (Firebase Functions + Analytics) + MoMo Personal QR Payment + **Notification Center** (bell + dropdown + 13 action wired) + **PlayerLifetimeStats** (Thiên Cơ Toán panel) + **UX polish** (interactive tour spotlight, login calendar 7-day, BGM ambient procedural 4 mood, mobile bottom-nav 5-tab, notification persist cross-session). Xem `CHANGELOG.md`.
+**Trạng thái:** **v1.10.0 production** tại https://tien-do.netlify.app. Hoàn thành Phase 1-23 + 6/8 pattern Google Canvas RPG + Creative Engine + AI Resilience + Monetization + Retention + Extended Quests + Backend (Firebase Functions + Analytics) + MoMo Personal QR Payment + Notification Center + PlayerLifetimeStats + UX polish + **Cultivation Deep System** (Ý Cảnh 5×9 / Pháp Tắc 10 default / Đại Đạo AI-sinh không hardcode 3000 / Ngộ Đạo / Đạo Tâm modal 5-tab) + **Critical Save Hotfix** (auto-save subscription debounced 250ms bao phủ 40+ actions trước đây thiếu save). Xem `CHANGELOG.md` + `ROADMAP.md`.
 
 **Stack:** Vite + React 18 + TypeScript strict + Tailwind + Zustand+Immer + Zod + Firebase (optional cloud sync) + Gemini 2.5 Flash via Cloudflare Worker proxy + lottie-react.
 
