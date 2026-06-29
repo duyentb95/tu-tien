@@ -99,6 +99,27 @@ export interface CanonPack {
     realmList: string[];
     /** 2-3 câu giải thích cosmology + power system tổng quan */
     description: string;
+    /**
+     * Phase 24.C: Mô tả chi tiết từng cảnh giới (optional).
+     * Nếu có → ưu tiên inject vào narrative prompt thay vì chỉ tên cảnh.
+     * Tier dùng để gom nhóm hiển thị (vd "Thần Tàng" vs "Thiên Cung" cho Mục Thần Ký).
+     */
+    realmDetails?: Array<{
+      /** Tên cảnh giới (khớp với entry trong realmList) */
+      name: string;
+      /** Nhóm cảnh giới — vd "Thần Tàng", "Thiên Cung", "Tiên Đạo" */
+      tier?: string;
+      /** 1-3 câu mô tả bản chất cảnh giới + cách đột phá */
+      description: string;
+      /** Nhân vật canon sáng lập / đại diện (nếu có) */
+      founder?: string;
+    }>;
+    /**
+     * Phase 24.C: Triết lý / hệ thống tu luyện đặc trưng (optional).
+     * Vd Mục Thần Ký: "Dĩ Lực Thành Đạo" — Thiên Cung Thần Tàng song song với
+     * con đường Đạo Cảnh. Inject vào narrative prompt để AI giữ flavor đúng.
+     */
+    philosophyNote?: string;
   };
 
   /** Vị trí khởi đầu mặc định (nếu không có context cụ thể) */
